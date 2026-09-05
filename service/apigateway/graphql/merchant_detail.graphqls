@@ -1,0 +1,163 @@
+input FindAllMerchantDetailInput {
+  page: Int = 1
+  page_size: Int = 10
+  search: String
+}
+
+input FindByIdMerchantDetailInput {
+  id: Int!
+}
+
+input CreateMerchantDetailInput {
+  merchant_id: Int!
+  display_name: String!
+  cover_image: Upload!
+  logo: Upload!
+  short_description: String!
+  website_url: String!
+}
+
+input UpdateMerchantDetailInput {
+  merchant_detail_id: Int!
+  display_name: String!
+  cover_image: Upload!
+  logo: Upload!
+  short_description: String!
+  website_url: String!
+}
+
+type MerchantDetailResponse {
+  id: Int!
+  merchant_id: Int!
+  display_name: String!
+  cover_image_url: String!
+  logo_url: String!
+  short_description: String!
+  website_url: String!
+  created_at: String!
+  updated_at: String!
+}
+
+type MerchantDetailResponseDeleteAt {
+  id: Int!
+  merchant_id: Int!
+  display_name: String!
+  cover_image_url: String!
+  logo_url: String!
+  short_description: String!
+  website_url: String!
+  created_at: String!
+  updated_at: String!
+  deleted_at: String
+}
+
+type MerchantDetailRelationResponse {
+  id: Int!
+  merchant_id: Int!
+  display_name: String!
+  cover_image_url: String!
+  logo_url: String!
+  short_description: String!
+  website_url: String!
+  social_media_links: [MerchantSocialMediaLinkResponse!]!
+  created_at: String!
+  updated_at: String!
+}
+
+type MerchantDetailRelationResponseDeleteAt {
+  id: Int!
+  merchant_id: Int!
+  display_name: String!
+  cover_image_url: String!
+  logo_url: String!
+  short_description: String!
+  website_url: String!
+  social_media_links: [MerchantSocialMediaLinkResponse!]!
+  created_at: String!
+  updated_at: String!
+  deleted_at: String
+}
+
+type ApiResponseMerchantDetailRelation {
+  status: String!
+  message: String!
+  data: MerchantDetailRelationResponse
+}
+
+type ApiResponseMerchantDetail {
+  status: String!
+  message: String!
+  data: MerchantDetailResponse
+}
+
+type ApiResponseMerchantDetailDeleteAt {
+  status: String!
+  message: String!
+  data: MerchantDetailResponseDeleteAt
+}
+
+type ApiResponsesMerchantDetail {
+  status: String!
+  message: String!
+  data: [MerchantDetailResponse!]!
+}
+
+type ApiResponseMerchantDetailDelete {
+  status: String!
+  message: String!
+}
+
+type ApiResponsePaginationMerchantDetail {
+  status: String!
+  message: String!
+  data: [MerchantDetailRelationResponse!]!
+  pagination: PaginationMeta!
+}
+
+type ApiResponsePaginationMerchantDetailDeleteAt {
+  status: String!
+  message: String!
+  data: [MerchantDetailRelationResponseDeleteAt!]!
+  pagination: PaginationMeta!
+}
+
+type ApiResponseMerchantDetailAll {
+  status: String!
+  message: String!
+}
+
+extend type Query {
+  findAllMerchantDetails(
+    input: FindAllMerchantDetailInput!
+  ): ApiResponsePaginationMerchantDetail!
+  findMerchantDetailById(
+    input: FindByIdMerchantDetailInput!
+  ): ApiResponseMerchantDetailRelation!
+  findActiveMerchantDetails(
+    input: FindAllMerchantDetailInput!
+  ): ApiResponsePaginationMerchantDetailDeleteAt!
+  findTrashedMerchantDetails(
+    input: FindAllMerchantDetailInput!
+  ): ApiResponsePaginationMerchantDetailDeleteAt!
+}
+
+extend type Mutation {
+  createMerchantDetail(
+    input: CreateMerchantDetailInput!
+  ): ApiResponseMerchantDetail!
+  updateMerchantDetail(
+    input: UpdateMerchantDetailInput!
+  ): ApiResponseMerchantDetail!
+  trashMerchantDetail(
+    input: FindByIdMerchantDetailInput!
+  ): ApiResponseMerchantDetailDeleteAt!
+  restoreMerchantDetail(
+    input: FindByIdMerchantDetailInput!
+  ): ApiResponseMerchantDetailDeleteAt!
+  deleteMerchantDetailPermanent(
+    input: FindByIdMerchantDetailInput!
+  ): ApiResponseMerchantDetailDelete!
+
+  restoreAllMerchantDetails: ApiResponseMerchantDetailAll!
+  deleteAllMerchantDetailsPermanent: ApiResponseMerchantDetailAll!
+}

@@ -1,0 +1,79 @@
+input FindAllOrderItemInput {
+  page: Int = 1
+  page_size: Int = 10
+  search: String
+}
+
+input FindByIdOrderItemInput {
+  id: Int!
+}
+
+type OrderItemResponse {
+  id: Int!
+  order_id: Int!
+  product_id: Int!
+  quantity: Int!
+  price: Int!
+  created_at: String!
+  updated_at: String!
+}
+
+type OrderItemResponseDeleteAt {
+  id: Int!
+  order_id: Int!
+  product_id: Int!
+  quantity: Int!
+  price: Int!
+  created_at: String!
+  updated_at: String!
+  deleted_at: String
+}
+
+type ApiResponseOrderItem {
+  status: String!
+  message: String!
+  data: OrderItemResponse
+}
+
+type ApiResponsesOrderItem {
+  status: String!
+  message: String!
+  data: [OrderItemResponse!]!
+}
+
+type ApiResponseOrderItemDelete {
+  status: String!
+  message: String!
+}
+
+type ApiResponsePaginationOrderItem {
+  status: String!
+  message: String!
+  data: [OrderItemResponse!]!
+  pagination: PaginationMeta!
+}
+
+type ApiResponsePaginationOrderItemDeleteAt {
+  status: String!
+  message: String!
+  data: [OrderItemResponseDeleteAt!]!
+  pagination: PaginationMeta!
+}
+
+type ApiResponseOrderItemAll {
+  status: String!
+  message: String!
+}
+
+extend type Query {
+  findAllOrderItems(
+    input: FindAllOrderItemInput!
+  ): ApiResponsePaginationOrderItem!
+  findActiveOrderItems(
+    input: FindAllOrderItemInput!
+  ): ApiResponsePaginationOrderItemDeleteAt!
+  findTrashedOrderItems(
+    input: FindAllOrderItemInput!
+  ): ApiResponsePaginationOrderItemDeleteAt!
+  findOrderItemsByOrder(input: FindByIdOrderItemInput!): ApiResponsesOrderItem!
+}

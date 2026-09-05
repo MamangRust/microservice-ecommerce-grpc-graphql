@@ -1,0 +1,8 @@
+package merchant_document
+
+import sharedpb "github.com/MamangRust/microservice-ecommerce-shared/pb"
+
+var NewMerchantDocumentCommandServiceClient = sharedpb.NewMerchantDocumentCommandServiceClient
+var NewMerchantDocumentQueryServiceClient = sharedpb.NewMerchantDocumentQueryServiceClient
+var RegisterMerchantDocumentCommandServiceServer = sharedpb.RegisterMerchantDocumentCommandServiceServer
+var RegisterMerchantDocumentQueryServiceServer = sharedpb.RegisterMerchantDocumentQueryServiceServer

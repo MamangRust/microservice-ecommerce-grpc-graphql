@@ -1,0 +1,16 @@
+package merchant_businessgraphqlmapper
+
+import (
+	"github.com/MamangRust/microservice-ecommerce-shared/pb"
+	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
+)
+
+type MerchantBusinessGraphqlMapper interface {
+	ToGraphqlResponseMerchantBusinessDelete(res *pb.ApiResponseMerchantDelete) *model.APIResponseMerchantBusinessDelete
+	ToGraphqlResponseMerchantBusinessAll(res *pb.ApiResponseMerchantAll) *model.APIResponseMerchantBusinessAll
+	ToGraphqlResponseMerchantBusiness(res *pb.ApiResponseMerchantBusiness) *model.APIResponseMerchantBusiness
+	ToGraphqlResponseMerchantBusinessDeleteAt(res *pb.ApiResponseMerchantBusinessDeleteAt) *model.APIResponseMerchantBusinessDeleteAt
+	ToGraphqlResponsesMerchantBusiness(res *pb.ApiResponsesMerchantBusiness) *model.APIResponsesMerchantBusiness
+	ToGraphqlResponsePaginationMerchantBusinessDeleteAt(res *pb.ApiResponsePaginationMerchantBusinessDeleteAt) *model.APIResponsePaginationMerchantBusinessDeleteAt
+	ToGraphqlResponsePaginationMerchantBusiness(res *pb.ApiResponsePaginationMerchantBusiness) *model.APIResponsePaginationMerchantBusiness
+}

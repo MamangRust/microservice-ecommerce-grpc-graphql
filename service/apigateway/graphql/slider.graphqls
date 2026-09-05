@@ -1,0 +1,101 @@
+input FindByIdSliderRequest {
+  id: Int!
+}
+
+input FindAllSliderRequest {
+  page: Int
+  page_size: Int
+  search: String
+}
+
+input CreateSliderRequest {
+  name: String!
+  image: Upload!
+}
+
+input UpdateSliderRequest {
+  id: Int!
+  name: String
+  image: Upload
+}
+
+type SliderResponse {
+  id: Int!
+  name: String!
+  image: String!
+  created_at: String!
+  updated_at: String!
+}
+
+type SliderResponseDeleteAt {
+  id: Int!
+  name: String!
+  image: String!
+  created_at: String!
+  updated_at: String!
+  deleted_at: String
+}
+
+type ApiResponseSlider {
+  status: String!
+  message: String!
+  data: SliderResponse
+}
+
+type ApiResponseSliderDeleteAt {
+  status: String!
+  message: String!
+  data: SliderResponseDeleteAt
+}
+
+type ApiResponsesSlider {
+  status: String!
+  message: String!
+  data: [SliderResponse!]!
+}
+
+type ApiResponsePaginationSlider {
+  status: String!
+  message: String!
+  data: [SliderResponse!]!
+  pagination: PaginationMeta
+}
+
+type ApiResponsePaginationSliderDeleteAt {
+  status: String!
+  message: String!
+  data: [SliderResponseDeleteAt!]!
+  pagination: PaginationMeta
+}
+
+type ApiResponseSliderDelete {
+  status: String!
+  message: String!
+}
+
+type ApiResponseSliderAll {
+  status: String!
+  message: String!
+}
+
+extend type Query {
+  findAllSliders(input: FindAllSliderRequest): ApiResponsePaginationSlider
+  findActiveSliders(
+    input: FindAllSliderRequest
+  ): ApiResponsePaginationSliderDeleteAt
+  findTrashedSliders(
+    input: FindAllSliderRequest
+  ): ApiResponsePaginationSliderDeleteAt
+}
+
+extend type Mutation {
+  createSlider(input: CreateSliderRequest!): ApiResponseSlider
+  updateSlider(input: UpdateSliderRequest!): ApiResponseSlider
+
+  trashedSlider(input: FindByIdSliderRequest!): ApiResponseSliderDeleteAt
+  restoreSlider(input: FindByIdSliderRequest!): ApiResponseSliderDeleteAt
+  deleteSliderPermanent(input: FindByIdSliderRequest!): ApiResponseSliderDelete
+
+  restoreAllSliders: ApiResponseSliderAll
+  deleteAllSlidersPermanent: ApiResponseSliderAll
+}

@@ -1,0 +1,8 @@
+package shipping_address
+
+import sharedpb "github.com/MamangRust/microservice-ecommerce-shared/pb"
+
+var NewShippingCommandServiceClient = sharedpb.NewShippingCommandServiceClient
+var NewShippingQueryServiceClient = sharedpb.NewShippingQueryServiceClient
+var RegisterShippingCommandServiceServer = sharedpb.RegisterShippingCommandServiceServer
+var RegisterShippingQueryServiceServer = sharedpb.RegisterShippingQueryServiceServer

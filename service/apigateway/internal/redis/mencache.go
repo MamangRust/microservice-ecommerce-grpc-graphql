@@ -1,0 +1,39 @@
+package mencache
+
+import (
+	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
+	sharedcachehelpers "github.com/MamangRust/microservice-ecommerce-shared/cache"
+	"github.com/MamangRust/microservice-ecommerce-shared/observability"
+	"go.uber.org/zap"
+
+	"github.com/redis/go-redis/v9"
+)
+
+type CacheApiGateway interface {
+	MerchantCache
+	RoleCache
+}
+
+type mencacheApiGateay struct {
+	MerchantCache
+	RoleCache
+}
+
+type Deps struct {
+	Redis  *redis.Client
+	Logger logger.LoggerInterface
+}
+
+func NewCacheApiGateway(deps *Deps) CacheApiGateway {
+	metrics, err := observability.NewCacheMetrics("apigateway")
+	if err != nil {
+		deps.Logger.Error("Failed to initialize cache metrics for apigateway cache store", zap.Error(err))
+	}
+
+	store := sharedcachehelpers.NewCacheStore(deps.Redis, deps.Logger, metrics)
+
+	return &mencacheApiGateay{
+		MerchantCache: NewMerchantCache(store),
+		RoleCache:     NewRoleCache(store),
+	}
+}

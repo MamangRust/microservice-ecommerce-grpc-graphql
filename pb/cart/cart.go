@@ -1,0 +1,10 @@
+package cart
+
+import sharedpb "github.com/MamangRust/microservice-ecommerce-shared/pb"
+
+type cartCommandServiceClient = sharedpb.cartCommandServiceClient
+type cartQueryServiceClient = sharedpb.cartQueryServiceClient
+var NewCartCommandServiceClient = sharedpb.NewCartCommandServiceClient
+var NewCartQueryServiceClient = sharedpb.NewCartQueryServiceClient
+var RegisterCartCommandServiceServer = sharedpb.RegisterCartCommandServiceServer
+var RegisterCartQueryServiceServer = sharedpb.RegisterCartQueryServiceServer

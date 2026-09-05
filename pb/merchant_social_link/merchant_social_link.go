@@ -1,0 +1,6 @@
+package merchant_social_link
+
+import sharedpb "github.com/MamangRust/microservice-ecommerce-shared/pb"
+
+var NewMerchantSocialCommandServiceClient = sharedpb.NewMerchantSocialCommandServiceClient
+var RegisterMerchantSocialCommandServiceServer = sharedpb.RegisterMerchantSocialCommandServiceServer

@@ -1,0 +1,39 @@
+input MerchantSocialLinkInput {
+  platform: String!
+  url: String!
+}
+
+input CreateMerchantSocialInput {
+  merchant_detail_id: Int!
+  platform: String!
+  url: String!
+}
+
+input UpdateMerchantSocialInput {
+  id: Int!
+  merchant_detail_id: Int!
+  platform: String!
+  url: String!
+}
+
+type MerchantSocialMediaLinkResponse {
+  id: Int!
+  platform: String!
+  url: String!
+}
+
+type ApiResponseMerchantSocialMediaLink {
+  status: String!
+  message: String!
+  data: MerchantSocialMediaLinkResponse!
+}
+
+extend type Mutation {
+  createMerchantSocialLink(
+    input: CreateMerchantSocialInput
+  ): ApiResponseMerchantSocialMediaLink
+
+  updateMerchantSocialLink(
+    input: UpdateMerchantSocialInput
+  ): ApiResponseMerchantSocialMediaLink
+}

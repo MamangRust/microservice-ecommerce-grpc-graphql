@@ -1,0 +1,21 @@
+package transactiongraphqlmapper
+
+import (
+	"github.com/MamangRust/microservice-ecommerce-shared/pb"
+	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
+)
+
+type TransactionGraphqlMapper interface {
+	ToGraphqlResponseTransaction(res *pb.ApiResponseTransaction) *model.APIResponseTransaction
+	ToGraphqlResponseTransactionDeleteAt(res *pb.ApiResponseTransactionDeleteAt) *model.APIResponseTransactionDeleteAt
+	ToGraphqlResponseTransactionDelete(res *pb.ApiResponseTransactionDelete) *model.APIResponseTransactionDelete
+	ToGraphqlResponseTransactionAll(res *pb.ApiResponseTransactionAll) *model.APIResponseTransactionAll
+	ToGraphqlResponsePaginationTransactionDeleteAt(res *pb.ApiResponsePaginationTransactionDeleteAt) *model.APIResponsePaginationTransactionDeleteAt
+	ToGraphqlResponsePaginationTransaction(res *pb.ApiResponsePaginationTransaction) *model.APIResponsePaginationTransaction
+	ToGraphqlResponseMonthAmountSuccess(res *pb.ApiResponseTransactionMonthAmountSuccess) *model.APIResponseTransactionMonthAmountSuccess
+	ToGraphqlResponseYearAmountSuccess(res *pb.ApiResponseTransactionYearAmountSuccess) *model.APIResponseTransactionYearAmountSuccess
+	ToGraphqlResponseMonthAmountFailed(res *pb.ApiResponseTransactionMonthAmountFailed) *model.APIResponseTransactionMonthAmountFailed
+	ToGraphqlResponseYearAmountFailed(res *pb.ApiResponseTransactionYearAmountFailed) *model.APIResponseTransactionYearAmountFailed
+	ToGraphqlResponseMonthMethod(res *pb.ApiResponseTransactionMonthPaymentMethod) *model.APIResponseTransactionMonthPaymentMethod
+	ToGraphqlResponseYearMethod(res *pb.ApiResponseTransactionYearPaymentmethod) *model.APIResponseTransactionYearPaymentMethod
+}

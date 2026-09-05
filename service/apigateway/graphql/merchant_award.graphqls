@@ -1,0 +1,135 @@
+input FindAllMerchantAwardInput {
+  page: Int = 1
+  page_size: Int = 10
+  search: String
+}
+
+input FindByIdMerchantAwardInput {
+  id: Int!
+}
+
+input CreateMerchantAwardInput {
+  merchant_id: Int!
+  title: String!
+  description: String!
+  issued_by: String!
+  issue_date: String!
+  expiry_date: String!
+  certificate_url: String!
+}
+
+input UpdateMerchantAwardInput {
+  merchant_certification_id: Int!
+  title: String!
+  description: String!
+  issued_by: String!
+  issue_date: String!
+  expiry_date: String!
+  certificate_url: String!
+}
+
+type MerchantAwardResponse {
+  id: Int!
+  merchant_id: Int!
+  title: String!
+  description: String!
+  issued_by: String!
+  issue_date: String!
+  expiry_date: String!
+  certificate_url: String!
+  created_at: String!
+  updated_at: String!
+  deleted_at: String
+}
+
+type MerchantAwardResponseDeleteAt {
+  id: Int!
+  merchant_id: Int!
+  title: String!
+  description: String!
+  issued_by: String!
+  issue_date: String!
+  expiry_date: String!
+  certificate_url: String!
+  created_at: String!
+  updated_at: String!
+  deleted_at: String
+}
+
+type ApiResponseMerchantAward {
+  status: String!
+  message: String!
+  data: MerchantAwardResponse
+}
+
+type ApiResponseMerchantAwardDeleteAt {
+  status: String!
+  message: String!
+  data: MerchantAwardResponseDeleteAt
+}
+
+type ApiResponsesMerchantAward {
+  status: String!
+  message: String!
+  data: [MerchantAwardResponse!]!
+}
+
+type ApiResponseMerchantAwardDelete {
+  status: String!
+  message: String!
+}
+
+type ApiResponseMerchantAwardAll {
+  status: String!
+  message: String!
+}
+
+type ApiResponsePaginationMerchantAward {
+  status: String!
+  message: String!
+  data: [MerchantAwardResponse!]!
+  pagination: PaginationMeta!
+}
+
+type ApiResponsePaginationMerchantAwardDeleteAt {
+  status: String!
+  message: String!
+  data: [MerchantAwardResponseDeleteAt!]!
+  pagination: PaginationMeta!
+}
+
+extend type Query {
+  findAllMerchantAwards(
+    input: FindAllMerchantAwardInput!
+  ): ApiResponsePaginationMerchantAward!
+  findMerchantAwardById(
+    input: FindByIdMerchantAwardInput!
+  ): ApiResponseMerchantAward!
+  findActiveMerchantAwards(
+    input: FindAllMerchantAwardInput!
+  ): ApiResponsePaginationMerchantAwardDeleteAt!
+  findTrashedMerchantAwards(
+    input: FindAllMerchantAwardInput!
+  ): ApiResponsePaginationMerchantAwardDeleteAt!
+}
+
+extend type Mutation {
+  createMerchantAward(
+    input: CreateMerchantAwardInput!
+  ): ApiResponseMerchantAward!
+  updateMerchantAward(
+    input: UpdateMerchantAwardInput!
+  ): ApiResponseMerchantAward!
+  trashMerchantAward(
+    input: FindByIdMerchantAwardInput!
+  ): ApiResponseMerchantAwardDeleteAt!
+  restoreMerchantAward(
+    input: FindByIdMerchantAwardInput!
+  ): ApiResponseMerchantAwardDeleteAt!
+  deleteMerchantAwardPermanent(
+    input: FindByIdMerchantAwardInput!
+  ): ApiResponseMerchantAwardDelete!
+
+  restoreAllMerchantAwards: ApiResponseMerchantAwardAll!
+  deleteAllMerchantAwardsPermanent: ApiResponseMerchantAwardAll!
+}

@@ -1,0 +1,151 @@
+input FindAllReviewProductRequest {
+  product_id: Int!
+  page: Int
+  page_size: Int
+  search: String
+}
+
+input FindAllReviewMerchantRequest {
+  merchant_id: Int!
+  page: Int
+  page_size: Int
+  search: String
+}
+
+input FindByIdReviewRequest {
+  id: Int!
+}
+
+input FindAllReviewRequest {
+  page: Int
+  page_size: Int
+  search: String
+}
+
+input CreateReviewRequest {
+  user_id: Int!
+  product_id: Int!
+  name: String!
+  comment: String!
+  rating: Int!
+}
+
+input UpdateReviewRequest {
+  review_id: Int!
+  name: String
+  comment: String
+  rating: Int
+}
+
+type ReviewResponse {
+  id: Int!
+  user_id: Int!
+  product_id: Int!
+  name: String!
+  comment: String!
+  rating: Int!
+  created_at: String!
+  updated_at: String!
+}
+
+type ReviewResponseDeleteAt {
+  id: Int!
+  user_id: Int!
+  product_id: Int!
+  name: String!
+  comment: String!
+  rating: Int!
+  created_at: String!
+  updated_at: String!
+  deleted_at: String
+}
+
+type ReviewRelationDetailResponse {
+  id: Int!
+  user_id: Int!
+  product_id: Int!
+  name: String!
+  comment: String!
+  rating: Int!
+  review_detail: ReviewDetailResponse
+  created_at: String!
+  updated_at: String!
+  deleted_at: String
+}
+
+type ApiResponseReview {
+  status: String!
+  message: String!
+  data: ReviewResponse
+}
+
+type ApiResponseReviewDeleteAt {
+  status: String!
+  message: String!
+  data: ReviewResponseDeleteAt
+}
+
+type ApiResponsesReview {
+  status: String!
+  message: String!
+  data: [ReviewResponse!]!
+}
+
+type ApiResponsePaginationReview {
+  status: String!
+  message: String!
+  data: [ReviewResponse!]!
+  pagination: PaginationMeta
+}
+
+type ApiResponseReviewDelete {
+  status: String!
+  message: String!
+}
+
+type ApiResponseReviewAll {
+  status: String!
+  message: String!
+}
+
+type ApiResponsePaginationReviewDeleteAt {
+  status: String!
+  message: String!
+  data: [ReviewResponseDeleteAt!]!
+  pagination: PaginationMeta
+}
+
+type ApiResponsePaginationReviewRelationDetail {
+  status: String!
+  message: String!
+  data: [ReviewRelationDetailResponse!]!
+  pagination: PaginationMeta
+}
+
+extend type Query {
+  findAllReviews(input: FindAllReviewRequest): ApiResponsePaginationReview
+  findReviewsByProduct(
+    input: FindAllReviewProductRequest
+  ): ApiResponsePaginationReviewRelationDetail
+  findReviewsByMerchant(
+    input: FindAllReviewMerchantRequest
+  ): ApiResponsePaginationReviewRelationDetail
+  findTrashedReviews(
+    input: FindAllReviewRequest
+  ): ApiResponsePaginationReviewDeleteAt
+  findActiveReviews(
+    input: FindAllReviewRequest
+  ): ApiResponsePaginationReviewDeleteAt
+}
+
+extend type Mutation {
+  createReview(input: CreateReviewRequest!): ApiResponseReview
+  updateReview(input: UpdateReviewRequest!): ApiResponseReview
+
+  trashedReview(input: FindByIdReviewRequest!): ApiResponseReviewDeleteAt
+  restoreReview(input: FindByIdReviewRequest!): ApiResponseReviewDeleteAt
+  deleteReviewPermanent(input: FindByIdReviewRequest!): ApiResponseReviewDelete
+
+  restoreAllReviews: ApiResponseReviewAll
+  deleteAllReviewsPermanent: ApiResponseReviewAll
+}

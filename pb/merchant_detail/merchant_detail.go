@@ -1,0 +1,8 @@
+package merchant_detail
+
+import sharedpb "github.com/MamangRust/microservice-ecommerce-shared/pb"
+
+var NewMerchantDetailCommandServiceClient = sharedpb.NewMerchantDetailCommandServiceClient
+var NewMerchantDetailQueryServiceClient = sharedpb.NewMerchantDetailQueryServiceClient
+var RegisterMerchantDetailCommandServiceServer = sharedpb.RegisterMerchantDetailCommandServiceServer
+var RegisterMerchantDetailQueryServiceServer = sharedpb.RegisterMerchantDetailQueryServiceServer

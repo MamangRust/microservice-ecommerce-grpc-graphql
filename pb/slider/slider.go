@@ -1,0 +1,10 @@
+package slider
+
+import sharedpb "github.com/MamangRust/microservice-ecommerce-shared/pb"
+
+type sliderCommandServiceClient = sharedpb.sliderCommandServiceClient
+type sliderQueryServiceClient = sharedpb.sliderQueryServiceClient
+var NewSliderCommandServiceClient = sharedpb.NewSliderCommandServiceClient
+var NewSliderQueryServiceClient = sharedpb.NewSliderQueryServiceClient
+var RegisterSliderCommandServiceServer = sharedpb.RegisterSliderCommandServiceServer
+var RegisterSliderQueryServiceServer = sharedpb.RegisterSliderQueryServiceServer

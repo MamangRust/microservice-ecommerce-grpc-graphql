@@ -1,0 +1,108 @@
+input FindByIdShippingRequest {
+  id: Int!
+}
+
+input FindAllShippingRequest {
+  page: Int
+  page_size: Int
+  search: String
+}
+
+input FindAllShippingOrderRequest {
+  order_id: Int!
+  page: Int
+  page_size: Int
+  search: String
+}
+
+type ShippingResponse {
+  id: Int!
+  order_id: Int!
+  alamat: String!
+  provinsi: String!
+  negara: String!
+  kota: String!
+  shippingMethod: String!
+  shippingCost: Int!
+  created_at: String!
+  updated_at: String!
+}
+
+type ShippingResponseDeleteAt {
+  id: Int!
+  order_id: Int!
+  alamat: String!
+  provinsi: String!
+  negara: String!
+  kota: String!
+  shippingMethod: String!
+  shippingCost: Int!
+  created_at: String!
+  updated_at: String!
+  deleted_at: String
+}
+
+type ApiResponseShipping {
+  status: String!
+  message: String!
+  data: ShippingResponse
+}
+
+type ApiResponseShippingDeleteAt {
+  status: String!
+  message: String!
+  data: ShippingResponseDeleteAt
+}
+
+type ApiResponsesShipping {
+  status: String!
+  message: String!
+  data: [ShippingResponse!]!
+}
+
+type ApiResponsePaginationShipping {
+  status: String!
+  message: String!
+  data: [ShippingResponse!]!
+  pagination: PaginationMeta
+}
+
+type ApiResponsePaginationShippingDeleteAt {
+  status: String!
+  message: String!
+  data: [ShippingResponseDeleteAt!]!
+  pagination: PaginationMeta
+}
+
+type ApiResponseShippingDelete {
+  status: String!
+  message: String!
+}
+
+type ApiResponseShippingAll {
+  status: String!
+  message: String!
+}
+
+extend type Query {
+  findAllShipping(input: FindAllShippingRequest): ApiResponsePaginationShipping
+  findShippingById(input: FindByIdShippingRequest): ApiResponseShipping
+  findShippingByOrder(input: FindByIdShippingRequest): ApiResponseShipping
+  findActiveShipping(
+    input: FindAllShippingRequest
+  ): ApiResponsePaginationShippingDeleteAt
+  findTrashedShipping(
+    input: FindAllShippingRequest
+  ): ApiResponsePaginationShippingDeleteAt
+}
+
+extend type Mutation {
+  trashedShipping(input: FindByIdShippingRequest!): ApiResponseShippingDeleteAt
+  restoreShipping(input: FindByIdShippingRequest!): ApiResponseShippingDeleteAt
+  deleteShippingPermanent(
+    input: FindByIdShippingRequest!
+  ): ApiResponseShippingDelete
+
+  restoreAllShipping: ApiResponseShippingAll
+  deleteAllShippingPermanent: ApiResponseShippingAll
+}

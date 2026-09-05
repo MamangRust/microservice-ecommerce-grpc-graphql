@@ -1,0 +1,8 @@
+package order_item
+
+import sharedpb "github.com/MamangRust/microservice-ecommerce-shared/pb"
+
+var NewOrderItemCommandServiceClient = sharedpb.NewOrderItemCommandServiceClient
+var NewOrderItemQueryServiceClient = sharedpb.NewOrderItemQueryServiceClient
+var RegisterOrderItemCommandServiceServer = sharedpb.RegisterOrderItemCommandServiceServer
+var RegisterOrderItemQueryServiceServer = sharedpb.RegisterOrderItemQueryServiceServer

@@ -1,0 +1,10 @@
+package role
+
+import sharedpb "github.com/MamangRust/microservice-ecommerce-shared/pb"
+
+type roleCommandServiceClient = sharedpb.roleCommandServiceClient
+type roleQueryServiceClient = sharedpb.roleQueryServiceClient
+var NewRoleCommandServiceClient = sharedpb.NewRoleCommandServiceClient
+var NewRoleQueryServiceClient = sharedpb.NewRoleQueryServiceClient
+var RegisterRoleCommandServiceServer = sharedpb.RegisterRoleCommandServiceServer
+var RegisterRoleQueryServiceServer = sharedpb.RegisterRoleQueryServiceServer

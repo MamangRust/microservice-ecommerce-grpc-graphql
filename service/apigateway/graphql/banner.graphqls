@@ -1,0 +1,117 @@
+input FindAllBannerInput {
+  page: Int = 1
+  page_size: Int = 2
+  search: String
+}
+
+input FindByIdBannerInput {
+  id: Int!
+}
+
+input CreateBannerInput {
+  name: String!
+  start_date: String!
+  end_date: String!
+  start_time: String!
+  end_time: String!
+  is_active: Boolean!
+}
+
+input UpdateBannerInput {
+  banner_id: Int!
+  name: String!
+  start_date: String!
+  end_date: String!
+  start_time: String!
+  end_time: String!
+  is_active: Boolean!
+}
+
+type BannerResponse {
+  banner_id: Int!
+  name: String!
+  start_date: String!
+  end_date: String!
+  start_time: String!
+  end_time: String!
+  is_active: Boolean!
+  created_at: String!
+  updated_at: String!
+}
+
+type BannerResponseDeleteAt {
+  banner_id: Int!
+  name: String!
+  start_date: String!
+  end_date: String!
+  start_time: String!
+  end_time: String!
+  is_active: Boolean!
+  created_at: String!
+  updated_at: String!
+  deleted_at: String!
+}
+
+type ApiResponseBanner {
+  status: String!
+  message: String!
+  data: BannerResponse
+}
+
+type ApiResponsesBanner {
+  status: String!
+  message: String!
+  data: [BannerResponse!]!
+}
+
+type ApiResponseBannerDeleteAt {
+  status: String!
+  message: String!
+  data: BannerResponseDeleteAt
+}
+
+type ApiResponseBannerDelete {
+  status: String!
+  message: String!
+}
+
+type ApiResponseBannerAll {
+  status: String!
+  message: String!
+}
+
+type ApiResponsePaginationBanner {
+  status: String!
+  message: String!
+  data: [BannerResponse!]!
+  pagination: PaginationMeta!
+}
+
+type ApiResponsePaginationBannerDeleteAt {
+  status: String!
+  message: String!
+  data: [BannerResponseDeleteAt!]!
+  pagination: PaginationMeta!
+}
+
+extend type Query {
+  findAllBanners(input: FindAllBannerInput!): ApiResponsePaginationBanner!
+  findBannerById(input: FindByIdBannerInput!): ApiResponseBanner!
+  findActiveBanners(
+    input: FindAllBannerInput!
+  ): ApiResponsePaginationBannerDeleteAt!
+  findTrashedBanners(
+    input: FindAllBannerInput!
+  ): ApiResponsePaginationBannerDeleteAt!
+}
+
+extend type Mutation {
+  createBanner(input: CreateBannerInput!): ApiResponseBanner!
+  updateBanner(input: UpdateBannerInput!): ApiResponseBanner!
+  trashBanner(input: FindByIdBannerInput!): ApiResponseBannerDeleteAt!
+  restoreBanner(input: FindByIdBannerInput!): ApiResponseBannerDeleteAt!
+  deleteBannerPermanent(input: FindByIdBannerInput!): ApiResponseBannerDelete!
+
+  restoreAllBanners: ApiResponseBannerAll!
+  deleteAllBannersPermanent: ApiResponseBannerAll!
+}

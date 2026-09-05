@@ -1,0 +1,72 @@
+input FindAllCartInput {
+  user_id: Int!
+  page: Int = 1
+  page_size: Int = 10
+  search: String
+}
+
+input CreateCartInput {
+  user_id: Int!
+  product_id: Int!
+  quantity: Int!
+}
+
+input FindByIdCartInput {
+  id: Int!
+}
+
+input DeleteCartInput {
+  cart_id: Int!
+  user_id: Int!
+}
+
+input DeleteCartsInput {
+  cart_ids: [Int!]!
+}
+
+type CartResponse {
+  id: Int!
+  user_id: Int!
+  product_id: Int!
+  name: String!
+  price: Int!
+  image: String!
+  quantity: Int!
+  weight: Int!
+  created_at: String!
+  updated_at: String!
+  deleted_at: String
+}
+
+type ApiResponseCart {
+  status: String!
+  message: String!
+  data: CartResponse
+}
+
+type ApiResponseCartDelete {
+  status: String!
+  message: String!
+}
+
+type ApiResponseCartAll {
+  status: String!
+  message: String!
+}
+
+type ApiResponsePaginationCart {
+  status: String!
+  message: String!
+  data: [CartResponse!]!
+  pagination: PaginationMeta!
+}
+
+extend type Query {
+  findAllCarts(input: FindAllCartInput!): ApiResponsePaginationCart!
+}
+
+extend type Mutation {
+  createCart(input: CreateCartInput!): ApiResponseCart!
+  deleteCart(input: DeleteCartInput!): ApiResponseCartDelete!
+  deleteAllCarts(input: DeleteCartsInput!): ApiResponseCartAll!
+}

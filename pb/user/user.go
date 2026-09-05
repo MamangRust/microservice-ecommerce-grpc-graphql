@@ -1,0 +1,10 @@
+package user
+
+import sharedpb "github.com/MamangRust/microservice-ecommerce-shared/pb"
+
+type userCommandServiceClient = sharedpb.userCommandServiceClient
+type userQueryServiceClient = sharedpb.userQueryServiceClient
+var NewUserCommandServiceClient = sharedpb.NewUserCommandServiceClient
+var NewUserQueryServiceClient = sharedpb.NewUserQueryServiceClient
+var RegisterUserCommandServiceServer = sharedpb.RegisterUserCommandServiceServer
+var RegisterUserQueryServiceServer = sharedpb.RegisterUserQueryServiceServer

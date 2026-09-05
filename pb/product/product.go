@@ -1,0 +1,10 @@
+package product
+
+import sharedpb "github.com/MamangRust/microservice-ecommerce-shared/pb"
+
+type productCommandServiceClient = sharedpb.productCommandServiceClient
+type productQueryServiceClient = sharedpb.productQueryServiceClient
+var NewProductCommandServiceClient = sharedpb.NewProductCommandServiceClient
+var NewProductQueryServiceClient = sharedpb.NewProductQueryServiceClient
+var RegisterProductCommandServiceServer = sharedpb.RegisterProductCommandServiceServer
+var RegisterProductQueryServiceServer = sharedpb.RegisterProductQueryServiceServer

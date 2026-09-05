@@ -1,0 +1,132 @@
+input FindAllMerchantBusinessInput {
+  page: Int = 1
+  page_size: Int = 10
+  search: String
+}
+
+input FindByIdMerchantBusinessInput {
+  id: Int!
+}
+
+input CreateMerchantBusinessInput {
+  merchant_id: Int!
+  business_type: String!
+  tax_id: String!
+  established_year: Int!
+  number_of_employees: Int!
+  website_url: String!
+}
+
+input UpdateMerchantBusinessInput {
+  merchant_business_info_id: Int!
+  business_type: String!
+  tax_id: String!
+  established_year: Int!
+  number_of_employees: Int!
+  website_url: String!
+}
+
+type MerchantBusinessResponse {
+  id: Int!
+  merchant_id: Int!
+  business_type: String!
+  tax_id: String!
+  established_year: Int!
+  number_of_employees: Int!
+  website_url: String!
+  merchant_name: String!
+  created_at: String!
+  updated_at: String!
+}
+
+type MerchantBusinessResponseDeleteAt {
+  id: Int!
+  merchant_id: Int!
+  business_type: String!
+  tax_id: String!
+  established_year: Int!
+  number_of_employees: Int!
+  website_url: String!
+  merchant_name: String!
+  created_at: String!
+  updated_at: String!
+  deleted_at: String
+}
+
+type ApiResponseMerchantBusiness {
+  status: String!
+  message: String!
+  data: MerchantBusinessResponse
+}
+
+type ApiResponseMerchantBusinessDeleteAt {
+  status: String!
+  message: String!
+  data: MerchantBusinessResponseDeleteAt
+}
+
+type ApiResponsesMerchantBusiness {
+  status: String!
+  message: String!
+  data: [MerchantBusinessResponse!]!
+}
+
+type ApiResponseMerchantBusinessDelete {
+  status: String!
+  message: String!
+}
+
+type ApiResponsePaginationMerchantBusiness {
+  status: String!
+  message: String!
+  data: [MerchantBusinessResponse!]!
+  pagination: PaginationMeta!
+}
+
+type ApiResponsePaginationMerchantBusinessDeleteAt {
+  status: String!
+  message: String!
+  data: [MerchantBusinessResponseDeleteAt!]!
+  pagination: PaginationMeta!
+}
+
+type ApiResponseMerchantBusinessAll {
+  status: String!
+  message: String!
+}
+
+extend type Query {
+  findAllMerchantBusinesses(
+    input: FindAllMerchantBusinessInput!
+  ): ApiResponsePaginationMerchantBusiness!
+  findMerchantBusinessById(
+    input: FindByIdMerchantBusinessInput!
+  ): ApiResponseMerchantBusiness!
+  findActiveMerchantBusinesses(
+    input: FindAllMerchantBusinessInput!
+  ): ApiResponsePaginationMerchantBusinessDeleteAt!
+  findTrashedMerchantBusinesses(
+    input: FindAllMerchantBusinessInput!
+  ): ApiResponsePaginationMerchantBusinessDeleteAt!
+}
+
+extend type Mutation {
+  createMerchantBusiness(
+    input: CreateMerchantBusinessInput!
+  ): ApiResponseMerchantBusiness!
+  updateMerchantBusiness(
+    input: UpdateMerchantBusinessInput!
+  ): ApiResponseMerchantBusiness!
+  trashMerchantBusiness(
+    input: FindByIdMerchantBusinessInput!
+  ): ApiResponseMerchantBusinessDeleteAt!
+  restoreMerchantBusiness(
+    input: FindByIdMerchantBusinessInput!
+  ): ApiResponseMerchantBusinessDeleteAt!
+  deleteMerchantBusinessPermanent(
+    input: FindByIdMerchantBusinessInput!
+  ): ApiResponseMerchantBusinessDelete!
+
+  restoreAllMerchantBusinesses: ApiResponseMerchantBusinessAll!
+  deleteAllMerchantBusinessesPermanent: ApiResponseMerchantBusinessAll!
+}

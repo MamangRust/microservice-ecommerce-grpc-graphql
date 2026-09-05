@@ -1,0 +1,308 @@
+input FindAllTransactionRequest {
+  page: Int
+  page_size: Int
+  search: String
+}
+
+input FindAllTransactionMerchantRequest {
+  merchant_id: Int
+  page: Int
+  page_size: Int
+  search: String
+}
+
+input FindMonthlyTransactionStatus {
+  year: Int!
+  month: Int!
+}
+
+input FindYearlyTransactionStatus {
+  year: Int!
+  month: Int!
+}
+
+input FindMonthlyTransactionStatusByMerchant {
+  year: Int!
+  month: Int!
+  merchant_id: Int!
+}
+
+input FindYearlyTransactionStatusByMerchant {
+  year: Int!
+  merchant_id: Int!
+}
+
+input FindYearTransaction {
+  year: Int!
+}
+
+input FindYearTransactionByMerchant {
+  merchant_id: Int!
+  year: Int!
+}
+
+input FindByIdTransactionRequest {
+  id: Int!
+}
+
+input CreateTransactionRequest {
+  order_id: Int!
+  merchant_id: Int!
+  payment_method: String!
+  amount: Int!
+}
+
+input UpdateTransactionRequest {
+  transaction_id: Int!
+  order_id: Int!
+  merchant_id: Int!
+  payment_method: String!
+  amount: Int!
+}
+
+input YearTransactionMethod {
+  year: Int!
+}
+
+input MonthTransactionMethod {
+  year: Int!
+  month: Int!
+}
+
+input MonthTransactionMethodByMerchant {
+  merchant_id: Int!
+  year: Int!
+  month: Int!
+}
+
+input YearTransactionMethodByMerchant {
+  merchant_id: Int!
+  year: Int!
+}
+
+type TransactionResponse {
+  id: Int!
+  order_id: Int!
+  merchant_id: Int!
+  payment_method: String!
+  amount: Int!
+  payment_status: String!
+  created_at: String!
+  updated_at: String!
+}
+
+type TransactionResponseDeleteAt {
+  id: Int!
+  order_id: Int!
+  merchant_id: Int!
+  payment_method: String!
+  amount: Int!
+  payment_status: String!
+  created_at: String!
+  updated_at: String!
+  deleted_at: String!
+}
+
+type TransactionMonthlyAmountSuccess {
+  year: String!
+  month: String!
+  total_success: Int!
+  total_amount: Int!
+}
+
+type TransactionMonthlyAmountFailed {
+  year: String!
+  month: String!
+  total_failed: Int!
+  total_amount: Int!
+}
+
+type TransactionYearlyAmountSuccess {
+  year: String!
+  total_success: Int!
+  total_amount: Int!
+}
+
+type TransactionYearlyAmountFailed {
+  year: String!
+  total_failed: Int!
+  total_amount: Int!
+}
+
+type TransactionMonthlyMethod {
+  month: String!
+  payment_method: String!
+  total_transactions: Int!
+  total_amount: Int!
+}
+
+type TransactionYearlyMethod {
+  year: String!
+  payment_method: String!
+  total_transactions: Int!
+  total_amount: Int!
+}
+
+type ApiResponseTransaction {
+  status: String!
+  message: String!
+  data: TransactionResponse
+}
+
+type ApiResponseTransactionDeleteAt {
+  status: String!
+  message: String!
+  data: TransactionResponseDeleteAt
+}
+
+type ApiResponseTransactionMonthAmountSuccess {
+  status: String!
+  message: String!
+  data: [TransactionMonthlyAmountSuccess]
+}
+
+type ApiResponseTransactionYearAmountSuccess {
+  status: String!
+  message: String!
+  data: [TransactionYearlyAmountSuccess]
+}
+
+type ApiResponseTransactionMonthAmountFailed {
+  status: String!
+  message: String!
+  data: [TransactionMonthlyAmountFailed]
+}
+
+type ApiResponseTransactionYearAmountFailed {
+  status: String!
+  message: String!
+  data: [TransactionYearlyAmountFailed]
+}
+
+type ApiResponseTransactionMonthPaymentMethod {
+  status: String!
+  message: String!
+  data: [TransactionMonthlyMethod]
+}
+
+type ApiResponseTransactionYearPaymentMethod {
+  status: String!
+  message: String!
+  data: [TransactionYearlyMethod]
+}
+
+type ApiResponsePaginationTransaction {
+  status: String!
+  message: String!
+  data: [TransactionResponse]
+  pagination: PaginationMeta
+}
+
+type ApiResponsePaginationTransactionDeleteAt {
+  status: String!
+  message: String!
+  data: [TransactionResponseDeleteAt]
+  pagination: PaginationMeta
+}
+
+type ApiResponseTransactionDelete {
+  status: String!
+  message: String!
+}
+
+type ApiResponseTransactionAll {
+  status: String!
+  message: String!
+}
+
+extend type Query {
+  findAllTransaction(
+    input: FindAllTransactionRequest
+  ): ApiResponsePaginationTransaction
+  findTransactionByMerchant(
+    input: FindAllTransactionMerchantRequest
+  ): ApiResponsePaginationTransaction
+  findTransactionById(
+    input: FindByIdTransactionRequest!
+  ): ApiResponseTransaction
+
+  findMonthStatusSuccess(
+    input: FindMonthlyTransactionStatus!
+  ): ApiResponseTransactionMonthAmountSuccess
+  findYearStatusSuccess(
+    input: FindYearlyTransactionStatus!
+  ): ApiResponseTransactionYearAmountSuccess
+
+  findMonthStatusFailed(
+    input: FindMonthlyTransactionStatus!
+  ): ApiResponseTransactionMonthAmountFailed
+  findYearStatusFailed(
+    input: FindYearlyTransactionStatus!
+  ): ApiResponseTransactionYearAmountFailed
+
+  findMonthStatusSuccessByMerchant(
+    input: FindMonthlyTransactionStatusByMerchant!
+  ): ApiResponseTransactionMonthAmountSuccess
+  findYearStatusSuccessByMerchant(
+    input: FindYearlyTransactionStatusByMerchant!
+  ): ApiResponseTransactionYearAmountSuccess
+
+  findMonthStatusFailedByMerchant(
+    input: FindMonthlyTransactionStatusByMerchant!
+  ): ApiResponseTransactionMonthAmountFailed
+  findYearStatusFailedByMerchant(
+    input: FindYearlyTransactionStatusByMerchant!
+  ): ApiResponseTransactionYearAmountFailed
+
+  findMonthMethodSuccess(
+    input: MonthTransactionMethod!
+  ): ApiResponseTransactionMonthPaymentMethod
+  findYearMethodSuccess(
+    input: YearTransactionMethod!
+  ): ApiResponseTransactionYearPaymentMethod
+
+  findMonthMethodByMerchantSuccess(
+    input: MonthTransactionMethodByMerchant!
+  ): ApiResponseTransactionMonthPaymentMethod
+  findYearMethodByMerchantSuccess(
+    input: YearTransactionMethodByMerchant!
+  ): ApiResponseTransactionYearPaymentMethod
+
+  findMonthMethodFailed(
+    input: MonthTransactionMethod!
+  ): ApiResponseTransactionMonthPaymentMethod
+  findYearMethodFailed(
+    input: YearTransactionMethod!
+  ): ApiResponseTransactionYearPaymentMethod
+
+  findMonthMethodByMerchantFailed(
+    input: MonthTransactionMethodByMerchant!
+  ): ApiResponseTransactionMonthPaymentMethod
+  findYearMethodByMerchantFailed(
+    input: YearTransactionMethodByMerchant!
+  ): ApiResponseTransactionYearPaymentMethod
+
+  findByActive(
+    input: FindAllTransactionRequest
+  ): ApiResponsePaginationTransaction
+  findByTrashed(
+    input: FindAllTransactionRequest
+  ): ApiResponsePaginationTransactionDeleteAt
+}
+
+extend type Mutation {
+  createTransaction(input: CreateTransactionRequest!): ApiResponseTransaction
+  updateTransaction(input: UpdateTransactionRequest!): ApiResponseTransaction
+  trashedTransaction(
+    input: FindByIdTransactionRequest!
+  ): ApiResponseTransactionDeleteAt
+  restoreTransaction(
+    input: FindByIdTransactionRequest!
+  ): ApiResponseTransactionDeleteAt
+  deleteTransactionPermanent(
+    input: FindByIdTransactionRequest!
+  ): ApiResponseTransactionDelete
+
+  restoreAllTransaction: ApiResponseTransactionAll
+  deleteAllTransactionPermanent: ApiResponseTransactionAll
+}

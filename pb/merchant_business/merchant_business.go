@@ -1,0 +1,8 @@
+package merchant_business
+
+import sharedpb "github.com/MamangRust/microservice-ecommerce-shared/pb"
+
+var NewMerchantBusinessCommandServiceClient = sharedpb.NewMerchantBusinessCommandServiceClient
+var NewMerchantBusinessQueryServiceClient = sharedpb.NewMerchantBusinessQueryServiceClient
+var RegisterMerchantBusinessCommandServiceServer = sharedpb.RegisterMerchantBusinessCommandServiceServer
+var RegisterMerchantBusinessQueryServiceServer = sharedpb.RegisterMerchantBusinessQueryServiceServer

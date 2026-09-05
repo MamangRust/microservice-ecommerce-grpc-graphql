@@ -1,0 +1,120 @@
+input FindAllReviewDetailInput {
+  page: Int
+  pageSize: Int
+  search: String
+}
+
+input FindByIdReviewDetailInput {
+  id: Int!
+}
+
+input CreateReviewDetailInput {
+  reviewId: Int!
+  type: String
+  url: String
+  caption: String
+}
+
+input UpdateReviewDetailInput {
+  reviewDetailId: Int!
+  type: String
+  url: String
+  caption: String
+}
+
+type ReviewDetailResponse {
+  id: Int!
+  reviewId: Int!
+  type: String
+  url: String
+  caption: String
+  createdAt: String
+  updatedAt: String
+}
+
+type ReviewDetailResponseDeletedAt {
+  id: Int!
+  reviewId: Int!
+  type: String
+  url: String
+  caption: String
+  createdAt: String
+  updatedAt: String
+  deletedAt: String
+}
+
+type ApiResponseReviewDetail {
+  status: String!
+  message: String!
+  data: ReviewDetailResponse
+}
+
+type ApiResponseReviewDetailDeleteAt {
+  status: String!
+  message: String!
+  data: ReviewDetailResponseDeletedAt
+}
+
+type ApiResponsesReviewDetails {
+  status: String!
+  message: String!
+  data: [ReviewDetailResponse]
+}
+
+type ApiResponsePaginationReviewDetails {
+  status: String!
+  message: String!
+  data: [ReviewDetailResponse]
+  pagination: PaginationMeta
+}
+
+type ApiResponsePaginationReviewDetailsDeleteAt {
+  status: String!
+  message: String!
+  data: [ReviewDetailResponseDeletedAt]
+  pagination: PaginationMeta
+}
+
+type ApiResponseReviewDetailDelete {
+  status: String!
+  message: String!
+}
+
+type ApiResponseReviewDetailAll {
+  status: String!
+  message: String!
+}
+
+extend type Query {
+  findAllReviewDetails(
+    input: FindAllReviewDetailInput
+  ): ApiResponsePaginationReviewDetails
+  findReviewDetailById(
+    input: FindByIdReviewDetailInput
+  ): ApiResponseReviewDetail
+
+  findActiveReviewDetails(
+    input: FindAllReviewDetailInput
+  ): ApiResponsePaginationReviewDetailsDeleteAt
+  findTrashedReviewDetails(
+    input: FindAllReviewDetailInput
+  ): ApiResponsePaginationReviewDetailsDeleteAt
+}
+
+extend type Mutation {
+  createReviewDetail(input: CreateReviewDetailInput!): ApiResponseReviewDetail
+  updateReviewDetail(input: UpdateReviewDetailInput!): ApiResponseReviewDetail
+
+  trashedReviewDetail(
+    input: FindByIdReviewDetailInput!
+  ): ApiResponseReviewDetailDeleteAt
+  restoreReviewDetail(
+    input: FindByIdReviewDetailInput!
+  ): ApiResponseReviewDetailDeleteAt
+  deleteReviewDetailPermanent(
+    input: FindByIdReviewDetailInput!
+  ): ApiResponseReviewDetailDelete
+
+  restoreAllReviewDetails: ApiResponseReviewDetailAll
+  deleteAllReviewDetailsPermanent: ApiResponseReviewDetailAll
+}

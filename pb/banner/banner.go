@@ -1,0 +1,10 @@
+package banner
+
+import sharedpb "github.com/MamangRust/microservice-ecommerce-shared/pb"
+
+type bannerCommandServiceClient = sharedpb.bannerCommandServiceClient
+type bannerQueryServiceClient = sharedpb.bannerQueryServiceClient
+var NewBannerCommandServiceClient = sharedpb.NewBannerCommandServiceClient
+var NewBannerQueryServiceClient = sharedpb.NewBannerQueryServiceClient
+var RegisterBannerCommandServiceServer = sharedpb.RegisterBannerCommandServiceServer
+var RegisterBannerQueryServiceServer = sharedpb.RegisterBannerQueryServiceServer

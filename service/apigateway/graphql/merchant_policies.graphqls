@@ -1,0 +1,122 @@
+input FindAllMerchantPoliciesInput {
+  page: Int = 1
+  page_size: Int = 10
+  search: String
+}
+
+input FindByIdMerchantPoliciesInput {
+  id: Int!
+}
+
+input CreateMerchantPoliciesInput {
+  merchant_id: Int!
+  policy_type: String!
+  title: String!
+  description: String!
+}
+
+input UpdateMerchantPoliciesInput {
+  merchant_policy_id: Int!
+  policy_type: String!
+  title: String!
+  description: String!
+}
+
+type MerchantPolicyResponse {
+  id: Int!
+  merchant_id: Int!
+  policy_type: String!
+  title: String!
+  description: String!
+  created_at: String!
+  updated_at: String!
+}
+
+type MerchantPolicyResponseDeleteAt {
+  id: Int!
+  merchant_id: Int!
+  policy_type: String!
+  title: String!
+  description: String!
+  created_at: String!
+  updated_at: String!
+  deleted_at: String
+}
+
+type ApiResponseMerchantPolicy {
+  status: String!
+  message: String!
+  data: MerchantPolicyResponse
+}
+
+type ApiResponseMerchantPolicyDeleteAt {
+  status: String!
+  message: String!
+  data: MerchantPolicyResponseDeleteAt
+}
+
+type ApiResponsesMerchantPolicy {
+  status: String!
+  message: String!
+  data: [MerchantPolicyResponse!]!
+}
+
+type ApiResponseMerchantPolicyDelete {
+  status: String!
+  message: String!
+}
+
+type ApiResponsePaginationMerchantPolicy {
+  status: String!
+  message: String!
+  data: [MerchantPolicyResponse!]!
+  pagination: PaginationMeta!
+}
+
+type ApiResponsePaginationMerchantPolicyDeleteAt {
+  status: String!
+  message: String!
+  data: [MerchantPolicyResponseDeleteAt!]!
+  pagination: PaginationMeta!
+}
+
+type ApiResponseMerchantPolicyAll {
+  status: String!
+  message: String!
+}
+
+extend type Query {
+  findAllMerchantPolicies(
+    input: FindAllMerchantPoliciesInput!
+  ): ApiResponsePaginationMerchantPolicy!
+  findMerchantPolicyById(
+    input: FindByIdMerchantPoliciesInput!
+  ): ApiResponseMerchantPolicy!
+  findActiveMerchantPolicies(
+    input: FindAllMerchantPoliciesInput!
+  ): ApiResponsePaginationMerchantPolicyDeleteAt!
+  findTrashedMerchantPolicies(
+    input: FindAllMerchantPoliciesInput!
+  ): ApiResponsePaginationMerchantPolicyDeleteAt!
+}
+
+extend type Mutation {
+  createMerchantPolicy(
+    input: CreateMerchantPoliciesInput!
+  ): ApiResponseMerchantPolicy!
+  updateMerchantPolicy(
+    input: UpdateMerchantPoliciesInput!
+  ): ApiResponseMerchantPolicy!
+  trashMerchantPolicy(
+    input: FindByIdMerchantPoliciesInput!
+  ): ApiResponseMerchantPolicyDeleteAt!
+  restoreMerchantPolicy(
+    input: FindByIdMerchantPoliciesInput!
+  ): ApiResponseMerchantPolicyDeleteAt!
+  deleteMerchantPolicyPermanent(
+    input: FindByIdMerchantPoliciesInput!
+  ): ApiResponseMerchantPolicyDelete!
+
+  restoreAllMerchantPolicies: ApiResponseMerchantPolicyAll!
+  deleteAllMerchantPoliciesPermanent: ApiResponseMerchantPolicyAll!
+}

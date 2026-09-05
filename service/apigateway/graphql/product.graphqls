@@ -1,0 +1,163 @@
+input FindAllProductInput {
+  page: Int
+  pageSize: Int
+  search: String
+}
+
+input FindAllProductMerchantInput {
+  merchantId: Int!
+  categoryId: Int
+  page: Int
+  pageSize: Int
+  search: String
+  minPrice: Int
+  maxPrice: Int
+}
+
+input FindAllProductCategoryInput {
+  categoryName: String
+  page: Int
+  pageSize: Int
+  search: String
+  minPrice: Int
+  maxPrice: Int
+}
+
+input FindByIdProductInput {
+  id: Int!
+}
+
+input CreateProductInput {
+  merchantId: Int!
+  categoryId: Int!
+  name: String!
+  description: String!
+  price: Int!
+  countInStock: Int!
+  brand: String!
+  weight: Int!
+  rating: Int
+  slugProduct: String
+  imageProduct: Upload
+}
+
+input UpdateProductInput {
+  productId: Int!
+  merchantId: Int!
+  categoryId: Int!
+  name: String!
+  description: String!
+  price: Int!
+  countInStock: Int!
+  brand: String!
+  weight: Int!
+  rating: Int
+  slugProduct: String
+  imageProduct: Upload
+}
+
+type ProductResponse {
+  id: Int!
+  merchantId: Int!
+  categoryId: Int!
+  name: String!
+  description: String
+  price: Int!
+  countInStock: Int!
+  brand: String!
+  weight: Int!
+  rating: Float!
+  slugProduct: String!
+  imageProduct: String!
+  createdAt: String!
+  updatedAt: String!
+}
+
+type ProductResponseDeleteAt {
+  id: Int!
+  merchantId: Int!
+  categoryId: Int!
+  name: String!
+  description: String
+  price: Int!
+  countInStock: Int!
+  brand: String!
+  weight: Int!
+  rating: Float!
+  slugProduct: String!
+  imageProduct: String!
+  createdAt: String!
+  updatedAt: String!
+  deletedAt: String!
+}
+
+type ApiResponseProduct {
+  status: String!
+  message: String!
+  data: ProductResponse!
+}
+
+type ApiResponseProductDeleteAt {
+  status: String!
+  message: String!
+  data: ProductResponseDeleteAt!
+}
+
+type ApiResponsesProduct {
+  status: String!
+  message: String!
+  data: [ProductResponse!]
+}
+
+type ApiResponseProductDelete {
+  status: String!
+  message: String!
+}
+
+type ApiResponseProductAll {
+  status: String!
+  message: String!
+}
+
+type ApiResponsePaginationProduct {
+  status: String!
+  message: String!
+  data: [ProductResponse!]
+  pagination: PaginationMeta!
+}
+
+type ApiResponsePaginationProductDeleteAt {
+  status: String!
+  message: String!
+  data: [ProductResponseDeleteAt!]
+  pagination: PaginationMeta!
+}
+
+extend type Query {
+  findAllProducts(input: FindAllProductInput): ApiResponsePaginationProduct
+  findProductsByMerchant(
+    input: FindAllProductMerchantInput
+  ): ApiResponsePaginationProduct
+  findProductsByCategory(
+    input: FindAllProductCategoryInput
+  ): ApiResponsePaginationProduct
+  findProductById(input: FindByIdProductInput): ApiResponseProduct
+
+  findActiveProducts(
+    input: FindAllProductInput
+  ): ApiResponsePaginationProductDeleteAt
+  findTrashedProducts(
+    input: FindAllProductInput
+  ): ApiResponsePaginationProductDeleteAt
+}
+
+extend type Mutation {
+  createProduct(input: CreateProductInput!): ApiResponseProduct
+  updateProduct(input: UpdateProductInput!): ApiResponseProduct
+  trashedProduct(input: FindByIdProductInput!): ApiResponseProductDeleteAt
+  restoreProduct(input: FindByIdProductInput!): ApiResponseProductDeleteAt
+  deleteProductPermanent(input: FindByIdProductInput!): ApiResponseProductDelete
+
+  restoreAllProducts: ApiResponseProductAll
+  deleteAllProductsPermanent: ApiResponseProductAll
+}
