@@ -13,8 +13,13 @@ import (
 
 	"github.com/MamangRust/microservice-ecommerce-grpc-order/cache"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-order/database/schema"
-	dto "github.com/MamangRust/microservice-ecommerce-grpc-order/dto"
 	"github.com/MamangRust/microservice-ecommerce-grpc-order/repository"
+	merchantadapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/merchant"
+	orderitemadapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/order_item"
+	productadapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/product"
+	shippingadapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/shipping_address"
+	transactionadapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/transaction"
+	useradapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/user"
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/events"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
@@ -22,7 +27,6 @@ import (
 	sharedErrors "github.com/MamangRust/microservice-ecommerce-shared/errors"
 	"github.com/MamangRust/microservice-ecommerce-shared/errors/order_errors"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
 )
@@ -30,17 +34,17 @@ import (
 type orderCommandService struct {
 	observability              observability.TraceLoggerObservability
 	cache                      cache.OrderCommandCache
-	userQueryRepository        repository.UserQueryRepository
-	productQueryRepository     repository.ProductQueryRepository
-	productCommandRepository   repository.ProductCommandRepository
+	userQueryRepository        useradapter.QueryRepository
+	productQueryRepository     productadapter.QueryRepository
+	productCommandRepository   productadapter.CommandRepository
 	orderQueryRepository       repository.OrderQueryRepository
 	orderCommandRepository     repository.OrderCommandRepository
-	orderItemQueryRepository   repository.OrderItemQueryRepository
-	orderItemCommandRepos      repository.OrderItemCommandRepository
-	merchantQueryRepository    repository.MerchantQueryRepository
-	shippingAddressRepository  repository.ShippingAddressCommandRepository
-	transactionCommandRepos    repository.TransactionCommandRepository
-	shippingQueryRepository    pb.ShippingQueryServiceClient
+	orderItemQueryRepository   orderitemadapter.QueryRepository
+	orderItemCommandRepos      orderitemadapter.CommandRepository
+	merchantQueryRepository    merchantadapter.QueryRepository
+	shippingAddressRepository  shippingadapter.CommandRepository
+	transactionCommandRepos    transactionadapter.CommandRepository
+	shippingQueryRepository    shippingadapter.QueryRepository
 	stockReservationRepository repository.StockReservationRepository
 	outbox                     repository.OutboxRepository
 	logger                     logger.LoggerInterface
@@ -49,17 +53,17 @@ type orderCommandService struct {
 type OrderCommandServiceDeps struct {
 	Observability                observability.TraceLoggerObservability
 	Cache                        cache.OrderCommandCache
-	UserQueryRepository          repository.UserQueryRepository
-	ProductQueryRepository       repository.ProductQueryRepository
-	ProductCommandRepository     repository.ProductCommandRepository
+	UserQueryRepository          useradapter.QueryRepository
+	ProductQueryRepository       productadapter.QueryRepository
+	ProductCommandRepository     productadapter.CommandRepository
 	OrderQueryRepository         repository.OrderQueryRepository
 	OrderCommandRepository       repository.OrderCommandRepository
-	OrderItemQueryRepository     repository.OrderItemQueryRepository
-	OrderItemCommandRepository   repository.OrderItemCommandRepository
-	MerchantQueryRepository      repository.MerchantQueryRepository
-	ShippingAddressRepository    repository.ShippingAddressCommandRepository
-	TransactionCommandRepository repository.TransactionCommandRepository
-	ShippingQueryRepository      pb.ShippingQueryServiceClient
+	OrderItemQueryRepository     orderitemadapter.QueryRepository
+	OrderItemCommandRepository   orderitemadapter.CommandRepository
+	MerchantQueryRepository      merchantadapter.QueryRepository
+	ShippingAddressRepository    shippingadapter.CommandRepository
+	TransactionCommandRepository transactionadapter.CommandRepository
+	ShippingQueryRepository      shippingadapter.QueryRepository
 	StockReservationRepository   repository.StockReservationRepository
 	Outbox                       repository.OutboxRepository
 	Logger                       logger.LoggerInterface
@@ -159,7 +163,7 @@ func (s *orderCommandService) Create(ctx context.Context, req *requests.CreateOr
 			// Preserve the business-level stock error when the atomic guarded
 			// UPDATE returns no row because another request consumed the stock.
 			currentProduct, lookupErr := s.productQueryRepository.FindByID(ctx, item.ProductID)
-			if lookupErr == nil && currentProduct.CountInStock < int32(item.Quantity) {
+			if lookupErr == nil && currentProduct.CountStock < int32(item.Quantity) {
 				return fail(order_errors.ErrInsufficientProductStock)
 			}
 			return fail(err)
@@ -213,7 +217,7 @@ func (s *orderCommandService) Create(ctx context.Context, req *requests.CreateOr
 		return fail(err)
 	}
 
-	totalPrice, err := s.orderItemQueryRepository.CalculateTotalPrice(ctx, int(order.OrderID))
+	totalPrice, err := s.orderItemCommandRepos.CalculateTotalPrice(ctx, int(order.OrderID))
 	if err != nil {
 		return fail(err)
 	}
@@ -313,7 +317,7 @@ func (s *orderCommandService) Update(ctx context.Context, req *requests.UpdateOr
 		status = "error"
 		return errorhandler.HandleError[*db.UpdateOrderRow](s.logger, err, method, span)
 	}
-	itemsByID := make(map[int32]*dto.GetOrderItemsByOrderRow, len(existingItems))
+	itemsByID := make(map[int32]orderitemadapter.OrderItem, len(existingItems))
 	for _, existingItem := range existingItems {
 		itemsByID[existingItem.OrderItemID] = existingItem
 	}
@@ -461,34 +465,32 @@ func (s *orderCommandService) Update(ctx context.Context, req *requests.UpdateOr
 		return fail(sharedErrors.ErrBadRequest.WithMessage("shipping query dependency is required"))
 	}
 
-	var previousShipping *pb.ShippingResponse
+	var previousShipping *shippingadapter.ShippingAddress
 	var shippingID *int
 	if req.ShippingAddress != nil && req.ShippingAddress.ShippingID != nil {
 		shippingID = req.ShippingAddress.ShippingID
-		shippingRes, lookupErr := s.shippingQueryRepository.FindById(ctx, &pb.FindByIdShippingRequest{Id: int32(*shippingID)})
+		shippingRes, lookupErr := s.shippingQueryRepository.FindByID(ctx, *shippingID)
 		if lookupErr != nil {
 			return fail(lookupErr)
 		}
-		if shippingRes == nil || shippingRes.Data == nil {
+		if shippingRes == nil {
 			return fail(sharedErrors.ErrBadRequest.WithMessage("shipping address is required"))
 		}
-		previousShipping = shippingRes.Data
+		previousShipping = shippingRes
 	} else {
-		shippingRes, lookupErr := s.shippingQueryRepository.FindByOrder(ctx, &pb.FindByIdShippingRequest{
-			Id: int32(*req.OrderID),
-		})
+		shippingRes, lookupErr := s.shippingQueryRepository.FindByOrder(ctx, *req.OrderID)
 		if lookupErr != nil {
 			return fail(lookupErr)
 		}
-		if shippingRes == nil || shippingRes.Data == nil {
+		if shippingRes == nil {
 			return fail(sharedErrors.ErrBadRequest.WithMessage("shipping address is required"))
 		}
-		id := int(shippingRes.Data.Id)
+		id := int(shippingRes.ShippingAddressID)
 		shippingID = &id
-		previousShipping = shippingRes.Data
+		previousShipping = shippingRes
 	}
 
-	if previousShipping.OrderId != existingOrder.OrderID {
+	if previousShipping.OrderID != existingOrder.OrderID {
 		return fail(sharedErrors.ErrBadRequest.WithMessage("shipping address does not belong to order"))
 	}
 
@@ -514,7 +516,7 @@ func (s *orderCommandService) Update(ctx context.Context, req *requests.UpdateOr
 		shippingCost = int(shippingUpdate.ShippingCost)
 
 		oldShippingID := *shippingID
-		oldOrderID := previousShipping.OrderId
+		oldOrderID := previousShipping.OrderID
 		oldAlamat := previousShipping.Alamat
 		oldProvinsi := previousShipping.Provinsi
 		oldKota := previousShipping.Kota
@@ -539,7 +541,7 @@ func (s *orderCommandService) Update(ctx context.Context, req *requests.UpdateOr
 		})
 	}
 
-	totalPrice, err := s.orderItemQueryRepository.CalculateTotalPrice(ctx, *req.OrderID)
+	totalPrice, err := s.orderItemCommandRepos.CalculateTotalPrice(ctx, *req.OrderID)
 	if err != nil {
 		return fail(err)
 	}

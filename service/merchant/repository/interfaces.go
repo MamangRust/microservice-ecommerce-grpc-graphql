@@ -4,7 +4,6 @@ import (
 	"context"
 
 	db "github.com/MamangRust/microservice-ecommerce-grpc-merchant/database/schema"
-	dto "github.com/MamangRust/microservice-ecommerce-grpc-merchant/dto"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	"github.com/jackc/pgx/v5"
 )
@@ -74,8 +73,4 @@ type MerchantCommandRepository interface {
 	UpdateStatus(ctx context.Context, request *requests.UpdateMerchantStatusRequest) (*db.UpdateMerchantStatusRow, error)
 
 	UpdateStatusInTx(ctx context.Context, tx pgx.Tx, request *requests.UpdateMerchantStatusRequest) (*db.UpdateMerchantStatusRow, error)
-}
-
-type UserQueryRepository interface {
-	FindByID(ctx context.Context, user_id int) (*dto.GetUserByIDRow, error)
 }

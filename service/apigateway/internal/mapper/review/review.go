@@ -1,9 +1,9 @@
 package reviewgraphqlmapper
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphqlmapper "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/mapper/pagination"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
+	graphqlmapper "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/mapper/pagination"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/review"
 )
 
 type reviewResponseMapper struct{}
@@ -12,7 +12,7 @@ func NewReviewResponseMapper() *reviewResponseMapper {
 	return &reviewResponseMapper{}
 }
 
-func (r *reviewResponseMapper) ToGraphqlResponseReview(res *pb.ApiResponseReview) *model.APIResponseReview {
+func (r *reviewResponseMapper) ToGraphqlResponseReview(res *pb_review.ApiResponseReview) *model.APIResponseReview {
 	return &model.APIResponseReview{
 		Status:  res.Status,
 		Message: res.Message,
@@ -20,7 +20,7 @@ func (r *reviewResponseMapper) ToGraphqlResponseReview(res *pb.ApiResponseReview
 	}
 }
 
-func (r *reviewResponseMapper) ToGraphqlResponseReviewDeleteAt(res *pb.ApiResponseReviewDeleteAt) *model.APIResponseReviewDeleteAt {
+func (r *reviewResponseMapper) ToGraphqlResponseReviewDeleteAt(res *pb_review.ApiResponseReviewDeleteAt) *model.APIResponseReviewDeleteAt {
 	return &model.APIResponseReviewDeleteAt{
 		Status:  res.Status,
 		Message: res.Message,
@@ -28,7 +28,7 @@ func (r *reviewResponseMapper) ToGraphqlResponseReviewDeleteAt(res *pb.ApiRespon
 	}
 }
 
-func (r *reviewResponseMapper) ToGraphqlResponsesReview(res *pb.ApiResponsesReview) *model.APIResponsesReview {
+func (r *reviewResponseMapper) ToGraphqlResponsesReview(res *pb_review.ApiResponsesReview) *model.APIResponsesReview {
 	return &model.APIResponsesReview{
 		Status:  res.Status,
 		Message: res.Message,
@@ -36,7 +36,7 @@ func (r *reviewResponseMapper) ToGraphqlResponsesReview(res *pb.ApiResponsesRevi
 	}
 }
 
-func (r *reviewResponseMapper) ToGraphqlResponseReviewDelete(res *pb.ApiResponseReviewDelete) *model.APIResponseReviewDelete {
+func (r *reviewResponseMapper) ToGraphqlResponseReviewDelete(res *pb_review.ApiResponseReviewDelete) *model.APIResponseReviewDelete {
 	return &model.APIResponseReviewDelete{
 		Status:  res.Status,
 		Message: res.Message,
@@ -44,7 +44,7 @@ func (r *reviewResponseMapper) ToGraphqlResponseReviewDelete(res *pb.ApiResponse
 }
 
 func (r *reviewResponseMapper) ToGraphqlResponsePaginationReviewDeleteAt(
-	res *pb.ApiResponsePaginationReviewDeleteAt,
+	res *pb_review.ApiResponsePaginationReviewDeleteAt,
 ) *model.APIResponsePaginationReviewDeleteAt {
 	return &model.APIResponsePaginationReviewDeleteAt{
 		Status:     res.Status,
@@ -54,7 +54,7 @@ func (r *reviewResponseMapper) ToGraphqlResponsePaginationReviewDeleteAt(
 	}
 }
 
-func (r *reviewResponseMapper) ToGraphqlResponseReviewAll(res *pb.ApiResponseReviewAll) *model.APIResponseReviewAll {
+func (r *reviewResponseMapper) ToGraphqlResponseReviewAll(res *pb_review.ApiResponseReviewAll) *model.APIResponseReviewAll {
 	return &model.APIResponseReviewAll{
 		Status:  res.Status,
 		Message: res.Message,
@@ -62,7 +62,7 @@ func (r *reviewResponseMapper) ToGraphqlResponseReviewAll(res *pb.ApiResponseRev
 }
 
 func (r *reviewResponseMapper) ToGraphqlResponsePaginationReview(
-	res *pb.ApiResponsePaginationReview,
+	res *pb_review.ApiResponsePaginationReview,
 ) *model.APIResponsePaginationReview {
 	return &model.APIResponsePaginationReview{
 		Status:     res.Status,
@@ -73,7 +73,7 @@ func (r *reviewResponseMapper) ToGraphqlResponsePaginationReview(
 }
 
 func (r *reviewResponseMapper) ToGraphqlResponsePaginationReviewRelationDetail(
-	res *pb.ApiResponsePaginationReviewDetail,
+	res *pb_review.ApiResponsePaginationReviewDetail,
 ) *model.APIResponsePaginationReviewRelationDetail {
 	return &model.APIResponsePaginationReviewRelationDetail{
 		Status:     res.Status,
@@ -83,7 +83,7 @@ func (r *reviewResponseMapper) ToGraphqlResponsePaginationReviewRelationDetail(
 	}
 }
 
-func (r *reviewResponseMapper) mapResponseReview(review *pb.ReviewResponse) *model.ReviewResponse {
+func (r *reviewResponseMapper) mapResponseReview(review *pb_review.ReviewResponse) *model.ReviewResponse {
 	return &model.ReviewResponse{
 		ID:        int32(review.Id),
 		UserID:    int32(review.UserId),
@@ -96,7 +96,7 @@ func (r *reviewResponseMapper) mapResponseReview(review *pb.ReviewResponse) *mod
 	}
 }
 
-func (r *reviewResponseMapper) mapResponsesReview(reviews []*pb.ReviewResponse) []*model.ReviewResponse {
+func (r *reviewResponseMapper) mapResponsesReview(reviews []*pb_review.ReviewResponse) []*model.ReviewResponse {
 	var mapped []*model.ReviewResponse
 	for _, review := range reviews {
 		mapped = append(mapped, r.mapResponseReview(review))
@@ -104,7 +104,7 @@ func (r *reviewResponseMapper) mapResponsesReview(reviews []*pb.ReviewResponse) 
 	return mapped
 }
 
-func (r *reviewResponseMapper) mapResponseReviewRelationDetail(review *pb.ReviewsDetailResponse) *model.ReviewRelationDetailResponse {
+func (r *reviewResponseMapper) mapResponseReviewRelationDetail(review *pb_review.ReviewsDetailResponse) *model.ReviewRelationDetailResponse {
 	if review == nil {
 		return nil
 	}
@@ -139,7 +139,7 @@ func (r *reviewResponseMapper) mapResponseReviewRelationDetail(review *pb.Review
 	}
 }
 
-func (r *reviewResponseMapper) mapResponsesReviewsRelationDetail(reviews []*pb.ReviewsDetailResponse) []*model.ReviewRelationDetailResponse {
+func (r *reviewResponseMapper) mapResponsesReviewsRelationDetail(reviews []*pb_review.ReviewsDetailResponse) []*model.ReviewRelationDetailResponse {
 	var mapped []*model.ReviewRelationDetailResponse
 	for _, review := range reviews {
 		mapped = append(mapped, r.mapResponseReviewRelationDetail(review))
@@ -147,7 +147,7 @@ func (r *reviewResponseMapper) mapResponsesReviewsRelationDetail(reviews []*pb.R
 	return mapped
 }
 
-func (r *reviewResponseMapper) mapResponseReviewDeleteAt(review *pb.ReviewResponseDeleteAt) *model.ReviewResponseDeleteAt {
+func (r *reviewResponseMapper) mapResponseReviewDeleteAt(review *pb_review.ReviewResponseDeleteAt) *model.ReviewResponseDeleteAt {
 	var deletedAt *string
 	if review.DeletedAt != nil {
 		deletedAt = &review.DeletedAt.Value
@@ -166,7 +166,7 @@ func (r *reviewResponseMapper) mapResponseReviewDeleteAt(review *pb.ReviewRespon
 	}
 }
 
-func (r *reviewResponseMapper) mapResponsesReviewDeleteAt(reviews []*pb.ReviewResponseDeleteAt) []*model.ReviewResponseDeleteAt {
+func (r *reviewResponseMapper) mapResponsesReviewDeleteAt(reviews []*pb_review.ReviewResponseDeleteAt) []*model.ReviewResponseDeleteAt {
 	var mapped []*model.ReviewResponseDeleteAt
 	for _, review := range reviews {
 		mapped = append(mapped, r.mapResponseReviewDeleteAt(review))

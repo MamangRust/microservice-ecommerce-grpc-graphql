@@ -6,8 +6,8 @@ import (
 
 	db "github.com/MamangRust/microservice-ecommerce-grpc-merchant_policy/database/schema"
 	"github.com/MamangRust/microservice-ecommerce-grpc-merchant_policy/repository"
+	pb_merchant "github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	tests "github.com/MamangRust/microservice-ecommerce-test"
 	"github.com/stretchr/testify/suite"
 )
@@ -27,7 +27,8 @@ func (s *MerchantPolicyRepositoryTestSuite) SetupSuite() {
 	queries := db.New(s.DBPool())
 	s.repo = repository.NewRepositories(
 		queries,
-		pb.NewMerchantQueryServiceClient(s.Conns["merchant"]),
+		pb_merchant.NewMerchantQueryServiceClient(s.Conns["merchant"]),
+		repository.GuardOptions{},
 	)
 }
 

@@ -1,9 +1,10 @@
 package merchant_awardgraphqlmapper
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphqlmapper "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/mapper/pagination"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
+	graphqlmapper "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/mapper/pagination"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_award"
 )
 
 type merchantAwardResponseMapper struct{}
@@ -12,21 +13,21 @@ func NewMerchantAwardResponseMapper() *merchantAwardResponseMapper {
 	return &merchantAwardResponseMapper{}
 }
 
-func (m *merchantAwardResponseMapper) ToGraphqlResponseMerchantAwardDelete(res *pb.ApiResponseMerchantDelete) *model.APIResponseMerchantAwardDelete {
+func (m *merchantAwardResponseMapper) ToGraphqlResponseMerchantAwardDelete(res *pb_merchant.ApiResponseMerchantDelete) *model.APIResponseMerchantAwardDelete {
 	return &model.APIResponseMerchantAwardDelete{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (m *merchantAwardResponseMapper) ToGraphqlResponseMerchantAwardAll(res *pb.ApiResponseMerchantAll) *model.APIResponseMerchantAwardAll {
+func (m *merchantAwardResponseMapper) ToGraphqlResponseMerchantAwardAll(res *pb_merchant.ApiResponseMerchantAll) *model.APIResponseMerchantAwardAll {
 	return &model.APIResponseMerchantAwardAll{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (m *merchantAwardResponseMapper) ToGraphqlResponseMerchantAward(res *pb.ApiResponseMerchantAward) *model.APIResponseMerchantAward {
+func (m *merchantAwardResponseMapper) ToGraphqlResponseMerchantAward(res *pb_merchant_award.ApiResponseMerchantAward) *model.APIResponseMerchantAward {
 	return &model.APIResponseMerchantAward{
 		Status:  res.Status,
 		Message: res.Message,
@@ -34,7 +35,7 @@ func (m *merchantAwardResponseMapper) ToGraphqlResponseMerchantAward(res *pb.Api
 	}
 }
 
-func (m *merchantAwardResponseMapper) ToGraphqlResponseMerchantAwardDeleteAt(res *pb.ApiResponseMerchantAwardDeleteAt) *model.APIResponseMerchantAwardDeleteAt {
+func (m *merchantAwardResponseMapper) ToGraphqlResponseMerchantAwardDeleteAt(res *pb_merchant_award.ApiResponseMerchantAwardDeleteAt) *model.APIResponseMerchantAwardDeleteAt {
 	return &model.APIResponseMerchantAwardDeleteAt{
 		Status:  res.Status,
 		Message: res.Message,
@@ -42,7 +43,7 @@ func (m *merchantAwardResponseMapper) ToGraphqlResponseMerchantAwardDeleteAt(res
 	}
 }
 
-func (m *merchantAwardResponseMapper) ToGraphqlResponseMerchantAwards(res *pb.ApiResponsesMerchantAward) *model.APIResponsesMerchantAward {
+func (m *merchantAwardResponseMapper) ToGraphqlResponseMerchantAwards(res *pb_merchant_award.ApiResponsesMerchantAward) *model.APIResponsesMerchantAward {
 	return &model.APIResponsesMerchantAward{
 		Status:  res.Status,
 		Message: res.Message,
@@ -51,7 +52,7 @@ func (m *merchantAwardResponseMapper) ToGraphqlResponseMerchantAwards(res *pb.Ap
 }
 
 func (m *merchantAwardResponseMapper) ToGraphqlResponsePaginationMerchantAwardDeleteAt(
-	res *pb.ApiResponsePaginationMerchantAwardDeleteAt,
+	res *pb_merchant_award.ApiResponsePaginationMerchantAwardDeleteAt,
 ) *model.APIResponsePaginationMerchantAwardDeleteAt {
 	return &model.APIResponsePaginationMerchantAwardDeleteAt{
 		Status:     res.Status,
@@ -62,7 +63,7 @@ func (m *merchantAwardResponseMapper) ToGraphqlResponsePaginationMerchantAwardDe
 }
 
 func (m *merchantAwardResponseMapper) ToGraphqlPaginationMerchantAward(
-	res *pb.ApiResponsePaginationMerchantAward,
+	res *pb_merchant_award.ApiResponsePaginationMerchantAward,
 ) *model.APIResponsePaginationMerchantAward {
 	return &model.APIResponsePaginationMerchantAward{
 		Status:     res.Status,
@@ -72,7 +73,7 @@ func (m *merchantAwardResponseMapper) ToGraphqlPaginationMerchantAward(
 	}
 }
 
-func (m *merchantAwardResponseMapper) mapResponseMerchantAward(merchantAward *pb.MerchantAwardResponse) *model.MerchantAwardResponse {
+func (m *merchantAwardResponseMapper) mapResponseMerchantAward(merchantAward *pb_merchant_award.MerchantAwardResponse) *model.MerchantAwardResponse {
 	return &model.MerchantAwardResponse{
 		ID:             int32(merchantAward.Id),
 		MerchantID:     int32(merchantAward.MerchantId),
@@ -87,7 +88,7 @@ func (m *merchantAwardResponseMapper) mapResponseMerchantAward(merchantAward *pb
 	}
 }
 
-func (m *merchantAwardResponseMapper) mapResponsesMerchantAward(merchantsAward []*pb.MerchantAwardResponse) []*model.MerchantAwardResponse {
+func (m *merchantAwardResponseMapper) mapResponsesMerchantAward(merchantsAward []*pb_merchant_award.MerchantAwardResponse) []*model.MerchantAwardResponse {
 	var responses []*model.MerchantAwardResponse
 
 	for _, merchant := range merchantsAward {
@@ -97,7 +98,7 @@ func (m *merchantAwardResponseMapper) mapResponsesMerchantAward(merchantsAward [
 	return responses
 }
 
-func (m *merchantAwardResponseMapper) mapResponseMerchantAwardDeleteAt(merchantAward *pb.MerchantAwardResponseDeleteAt) *model.MerchantAwardResponseDeleteAt {
+func (m *merchantAwardResponseMapper) mapResponseMerchantAwardDeleteAt(merchantAward *pb_merchant_award.MerchantAwardResponseDeleteAt) *model.MerchantAwardResponseDeleteAt {
 	return &model.MerchantAwardResponseDeleteAt{
 		ID:             int32(merchantAward.Id),
 		MerchantID:     int32(merchantAward.MerchantId),
@@ -112,7 +113,7 @@ func (m *merchantAwardResponseMapper) mapResponseMerchantAwardDeleteAt(merchantA
 	}
 }
 
-func (m *merchantAwardResponseMapper) mapResponsesMerchantAwardDeleteAt(merchantsAward []*pb.MerchantAwardResponseDeleteAt) []*model.MerchantAwardResponseDeleteAt {
+func (m *merchantAwardResponseMapper) mapResponsesMerchantAwardDeleteAt(merchantsAward []*pb_merchant_award.MerchantAwardResponseDeleteAt) []*model.MerchantAwardResponseDeleteAt {
 	var responses []*model.MerchantAwardResponseDeleteAt
 
 	for _, merchant := range merchantsAward {

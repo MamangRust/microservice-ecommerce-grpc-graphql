@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	db "github.com/MamangRust/microservice-ecommerce-grpc-transaction/database/schema"
 	"github.com/MamangRust/microservice-ecommerce-grpc-transaction/seeder"
 	"github.com/MamangRust/microservice-ecommerce-pkg/database"
-	db "github.com/MamangRust/microservice-ecommerce-grpc-transaction/database/schema"
 	"github.com/MamangRust/microservice-ecommerce-pkg/dotenv"
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
 	"go.uber.org/zap"
@@ -34,7 +34,7 @@ func main() {
 
 	ctx := context.Background()
 
-	q, closeFn, err := open(logger, "DB_TRANSACTION")
+	q, closeFn, err := open(logger, database.SalesCluster)
 	if err != nil {
 		logger.Fatal("Failed to connect to database", zap.Error(err))
 	}

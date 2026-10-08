@@ -1,9 +1,10 @@
 package merchant_businessgraphqlmapper
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphqlmapper "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/mapper/pagination"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
+	graphqlmapper "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/mapper/pagination"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_business"
 )
 
 type merchantBusinessResponseMapper struct {
@@ -13,21 +14,21 @@ func NewMerchantBusinessResponseMapper() *merchantBusinessResponseMapper {
 	return &merchantBusinessResponseMapper{}
 }
 
-func (m *merchantBusinessResponseMapper) ToGraphqlResponseMerchantBusinessDelete(res *pb.ApiResponseMerchantDelete) *model.APIResponseMerchantBusinessDelete {
+func (m *merchantBusinessResponseMapper) ToGraphqlResponseMerchantBusinessDelete(res *pb_merchant.ApiResponseMerchantDelete) *model.APIResponseMerchantBusinessDelete {
 	return &model.APIResponseMerchantBusinessDelete{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (m *merchantBusinessResponseMapper) ToGraphqlResponseMerchantBusinessAll(res *pb.ApiResponseMerchantAll) *model.APIResponseMerchantBusinessAll {
+func (m *merchantBusinessResponseMapper) ToGraphqlResponseMerchantBusinessAll(res *pb_merchant.ApiResponseMerchantAll) *model.APIResponseMerchantBusinessAll {
 	return &model.APIResponseMerchantBusinessAll{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (m *merchantBusinessResponseMapper) ToGraphqlResponseMerchantBusiness(res *pb.ApiResponseMerchantBusiness) *model.APIResponseMerchantBusiness {
+func (m *merchantBusinessResponseMapper) ToGraphqlResponseMerchantBusiness(res *pb_merchant_business.ApiResponseMerchantBusiness) *model.APIResponseMerchantBusiness {
 	return &model.APIResponseMerchantBusiness{
 		Status:  res.Status,
 		Message: res.Message,
@@ -36,7 +37,7 @@ func (m *merchantBusinessResponseMapper) ToGraphqlResponseMerchantBusiness(res *
 }
 
 func (m *merchantBusinessResponseMapper) ToGraphqlResponseMerchantBusinessDeleteAt(
-	res *pb.ApiResponseMerchantBusinessDeleteAt,
+	res *pb_merchant_business.ApiResponseMerchantBusinessDeleteAt,
 ) *model.APIResponseMerchantBusinessDeleteAt {
 	return &model.APIResponseMerchantBusinessDeleteAt{
 		Status:  res.Status,
@@ -46,7 +47,7 @@ func (m *merchantBusinessResponseMapper) ToGraphqlResponseMerchantBusinessDelete
 }
 
 func (m *merchantBusinessResponseMapper) ToGraphqlResponsesMerchantBusiness(
-	res *pb.ApiResponsesMerchantBusiness,
+	res *pb_merchant_business.ApiResponsesMerchantBusiness,
 ) *model.APIResponsesMerchantBusiness {
 	return &model.APIResponsesMerchantBusiness{
 		Status:  res.Status,
@@ -56,7 +57,7 @@ func (m *merchantBusinessResponseMapper) ToGraphqlResponsesMerchantBusiness(
 }
 
 func (m *merchantBusinessResponseMapper) ToGraphqlResponsePaginationMerchantBusinessDeleteAt(
-	res *pb.ApiResponsePaginationMerchantBusinessDeleteAt,
+	res *pb_merchant_business.ApiResponsePaginationMerchantBusinessDeleteAt,
 ) *model.APIResponsePaginationMerchantBusinessDeleteAt {
 	return &model.APIResponsePaginationMerchantBusinessDeleteAt{
 		Status:     res.Status,
@@ -67,7 +68,7 @@ func (m *merchantBusinessResponseMapper) ToGraphqlResponsePaginationMerchantBusi
 }
 
 func (m *merchantBusinessResponseMapper) ToGraphqlResponsePaginationMerchantBusiness(
-	res *pb.ApiResponsePaginationMerchantBusiness,
+	res *pb_merchant_business.ApiResponsePaginationMerchantBusiness,
 ) *model.APIResponsePaginationMerchantBusiness {
 	return &model.APIResponsePaginationMerchantBusiness{
 		Status:     res.Status,
@@ -77,7 +78,7 @@ func (m *merchantBusinessResponseMapper) ToGraphqlResponsePaginationMerchantBusi
 	}
 }
 
-func (m *merchantBusinessResponseMapper) mapMerchantBusiness(res *pb.MerchantBusinessResponse) *model.MerchantBusinessResponse {
+func (m *merchantBusinessResponseMapper) mapMerchantBusiness(res *pb_merchant_business.MerchantBusinessResponse) *model.MerchantBusinessResponse {
 	if res == nil {
 		return nil
 	}
@@ -94,7 +95,7 @@ func (m *merchantBusinessResponseMapper) mapMerchantBusiness(res *pb.MerchantBus
 	}
 }
 
-func (m *merchantBusinessResponseMapper) mapMerchantBusinesses(responses []*pb.MerchantBusinessResponse) []*model.MerchantBusinessResponse {
+func (m *merchantBusinessResponseMapper) mapMerchantBusinesses(responses []*pb_merchant_business.MerchantBusinessResponse) []*model.MerchantBusinessResponse {
 	if responses == nil {
 		return nil
 	}
@@ -105,7 +106,7 @@ func (m *merchantBusinessResponseMapper) mapMerchantBusinesses(responses []*pb.M
 	return result
 }
 
-func (m *merchantBusinessResponseMapper) mapMerchantBusinessDeleteAt(res *pb.MerchantBusinessResponseDeleteAt) *model.MerchantBusinessResponseDeleteAt {
+func (m *merchantBusinessResponseMapper) mapMerchantBusinessDeleteAt(res *pb_merchant_business.MerchantBusinessResponseDeleteAt) *model.MerchantBusinessResponseDeleteAt {
 	var deletedAt string
 
 	if res.DeletedAt != nil {
@@ -126,7 +127,7 @@ func (m *merchantBusinessResponseMapper) mapMerchantBusinessDeleteAt(res *pb.Mer
 	}
 }
 
-func (m *merchantBusinessResponseMapper) mapMerchantBusinessesDeleteAt(responses []*pb.MerchantBusinessResponseDeleteAt) []*model.MerchantBusinessResponseDeleteAt {
+func (m *merchantBusinessResponseMapper) mapMerchantBusinessesDeleteAt(responses []*pb_merchant_business.MerchantBusinessResponseDeleteAt) []*model.MerchantBusinessResponseDeleteAt {
 	if responses == nil {
 		return nil
 	}

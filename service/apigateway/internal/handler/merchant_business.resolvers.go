@@ -7,10 +7,11 @@ package graph
 import (
 	"context"
 
+	graphqlerror "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/errors"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_business"
 	sharedErrors "github.com/MamangRust/microservice-ecommerce-shared/errors"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphqlerror "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/errors"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -22,7 +23,7 @@ func (r *mutationResolver) CreateMerchantBusiness(ctx context.Context, input mod
 		ctx,
 		func(ctx context.Context) (*model.APIResponseMerchantBusiness, error) {
 
-			req := &pb.CreateMerchantBusinessRequest{
+			req := &pb_merchant_business.CreateMerchantBusinessRequest{
 				MerchantId:        int32(input.MerchantID),
 				BusinessType:      input.BusinessType,
 				TaxId:             input.TaxID,
@@ -56,7 +57,7 @@ func (r *mutationResolver) UpdateMerchantBusiness(ctx context.Context, input mod
 				return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: merchant business ID cannot be zero"))
 			}
 
-			req := &pb.UpdateMerchantBusinessRequest{
+			req := &pb_merchant_business.UpdateMerchantBusinessRequest{
 				MerchantBusinessInfoId: id,
 				BusinessType:           input.BusinessType,
 				TaxId:                  input.TaxID,
@@ -90,7 +91,7 @@ func (r *mutationResolver) TrashMerchantBusiness(ctx context.Context, input mode
 				return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: merchant business ID cannot be zero"))
 			}
 
-			res, err := r.MerchantBusinessGraphql.MerchantBusinessCommandClient.TrashedMerchantBusiness(ctx, &pb.FindByIdMerchantBusinessRequest{Id: id})
+			res, err := r.MerchantBusinessGraphql.MerchantBusinessCommandClient.TrashedMerchantBusiness(ctx, &pb_merchant_business.FindByIdMerchantBusinessRequest{Id: id})
 			if err != nil {
 				return nil, r.handleGraphQLError(err, "TrashMerchantBusiness")
 			}
@@ -115,7 +116,7 @@ func (r *mutationResolver) RestoreMerchantBusiness(ctx context.Context, input mo
 				return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: merchant business ID cannot be zero"))
 			}
 
-			res, err := r.MerchantBusinessGraphql.MerchantBusinessCommandClient.RestoreMerchantBusiness(ctx, &pb.FindByIdMerchantBusinessRequest{Id: id})
+			res, err := r.MerchantBusinessGraphql.MerchantBusinessCommandClient.RestoreMerchantBusiness(ctx, &pb_merchant_business.FindByIdMerchantBusinessRequest{Id: id})
 			if err != nil {
 				return nil, r.handleGraphQLError(err, "RestoreMerchantBusiness")
 			}
@@ -140,7 +141,7 @@ func (r *mutationResolver) DeleteMerchantBusinessPermanent(ctx context.Context, 
 				return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: merchant business ID cannot be zero"))
 			}
 
-			res, err := r.MerchantBusinessGraphql.MerchantBusinessCommandClient.DeleteMerchantBusinessPermanent(ctx, &pb.FindByIdMerchantBusinessRequest{Id: id})
+			res, err := r.MerchantBusinessGraphql.MerchantBusinessCommandClient.DeleteMerchantBusinessPermanent(ctx, &pb_merchant_business.FindByIdMerchantBusinessRequest{Id: id})
 			if err != nil {
 				return nil, r.handleGraphQLError(err, "DeleteMerchantBusinessPermanent")
 			}
@@ -221,7 +222,7 @@ func (r *queryResolver) FindAllMerchantBusinesses(ctx context.Context, input mod
 			return data, nil
 		}
 
-		req := &pb.FindAllMerchantRequest{
+		req := &pb_merchant.FindAllMerchantRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,
@@ -252,7 +253,7 @@ func (r *queryResolver) FindMerchantBusinessByID(ctx context.Context, input mode
 			return data, nil
 		}
 
-		res, err := r.MerchantBusinessGraphql.MerchantBusinessQueryClient.FindById(ctx, &pb.FindByIdMerchantBusinessRequest{
+		res, err := r.MerchantBusinessGraphql.MerchantBusinessQueryClient.FindById(ctx, &pb_merchant_business.FindByIdMerchantBusinessRequest{
 			Id: int32(id),
 		})
 		if err != nil {
@@ -295,7 +296,7 @@ func (r *queryResolver) FindActiveMerchantBusinesses(ctx context.Context, input 
 			return data, nil
 		}
 
-		req := &pb.FindAllMerchantRequest{
+		req := &pb_merchant.FindAllMerchantRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,
@@ -342,7 +343,7 @@ func (r *queryResolver) FindTrashedMerchantBusinesses(ctx context.Context, input
 			return data, nil
 		}
 
-		req := &pb.FindAllMerchantRequest{
+		req := &pb_merchant.FindAllMerchantRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,

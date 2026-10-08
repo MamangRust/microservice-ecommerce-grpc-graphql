@@ -1,11 +1,11 @@
 package handler
 
-import "github.com/MamangRust/microservice-ecommerce-shared/pb"
+import "github.com/MamangRust/microservice-ecommerce-grpc-pb/order_item"
 
 type OrderItemQueryHandler interface {
-	pb.OrderItemQueryServiceServer
+	pb_order_item.OrderItemQueryServiceServer
 }
 
 type OrderItemCommandHandler interface {
-	pb.OrderItemCommandServiceServer
+	pb_order_item.OrderItemCommandServiceServer
 }

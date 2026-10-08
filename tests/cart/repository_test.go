@@ -6,8 +6,9 @@ import (
 
 	db "github.com/MamangRust/microservice-ecommerce-grpc-cart/database/schema"
 	"github.com/MamangRust/microservice-ecommerce-grpc-cart/repository"
+	pb_product "github.com/MamangRust/microservice-ecommerce-grpc-pb/product"
+	pb_user "github.com/MamangRust/microservice-ecommerce-grpc-pb/user"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	tests "github.com/MamangRust/microservice-ecommerce-test"
 	"github.com/stretchr/testify/suite"
 )
@@ -29,8 +30,9 @@ func (s *CartRepositoryTestSuite) SetupSuite() {
 	queries := db.New(s.DBPool())
 	s.repo = repository.NewRepositories(
 		queries,
-		pb.NewUserQueryServiceClient(s.Conns["user"]),
-		pb.NewProductQueryServiceClient(s.Conns["product"]),
+		pb_user.NewUserQueryServiceClient(s.Conns["user"]),
+		pb_product.NewProductQueryServiceClient(s.Conns["product"]),
+		repository.GuardOptions{},
 	)
 }
 
@@ -50,7 +52,7 @@ func (s *CartRepositoryTestSuite) TestCartLifecycle() {
 	prodID2 := s.SeedProduct(ctx, childMerchantID, childCategoryID)
 
 	// Fetch product details for the cart record
-	prodRes, err := pb.NewProductQueryServiceClient(s.Conns["product"]).FindById(ctx, &pb.FindByIdProductRequest{Id: int32(prodID)})
+	prodRes, err := pb_product.NewProductQueryServiceClient(s.Conns["product"]).FindById(ctx, &pb_product.FindByIdProductRequest{Id: int32(prodID)})
 	s.Require().NoError(err)
 	s.Require().NotNil(prodRes)
 	s.Require().NotNil(prodRes.Data)
@@ -72,7 +74,7 @@ func (s *CartRepositoryTestSuite) TestCartLifecycle() {
 	cart1ID := int(created.CartID)
 
 	// 2. Create second cart item
-	prodRes2, err := pb.NewProductQueryServiceClient(s.Conns["product"]).FindById(ctx, &pb.FindByIdProductRequest{Id: int32(prodID2)})
+	prodRes2, err := pb_product.NewProductQueryServiceClient(s.Conns["product"]).FindById(ctx, &pb_product.FindByIdProductRequest{Id: int32(prodID2)})
 	s.Require().NoError(err)
 
 	req2 := &requests.CartCreateRecord{

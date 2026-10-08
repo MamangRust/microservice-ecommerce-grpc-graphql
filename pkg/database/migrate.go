@@ -12,13 +12,23 @@ import (
 )
 
 // RunMigrations executes database migrations using goose against the DB
-// configured via the given prefix (e.g. "DB_ORDER"). Falls back to the base
-// "DB_*" keys when no prefix-specific keys are set.
+// configured via the given cluster prefix (e.g. "DB_SALES"). Host, port and
+// database name are mandatory per context and fail fast when empty; only
+// DB_USERNAME / DB_PASSWORD fall back to the base keys.
 // path: directory containing migration files.
-func RunMigrations(log logger.LoggerInterface, prefix, path string) error {
+// service: the owning service name (e.g. "order-service" or "order"). Several
+// services share one context database, so each gets its own goose version
+// table; otherwise goose would reject a service whose migration versions are
+// lower than a sibling's already-applied versions.
+func RunMigrations(log logger.LoggerInterface, prefix, path, service string) error {
 	if prefix == "" {
-		prefix = "DB"
+		return fmt.Errorf("migrate: cluster prefix must not be empty (expected one of DB_IDENTITY/DB_CATALOG/DB_MERCHANT/DB_SALES/DB_EXPERIENCE/DB_EMAIL)")
 	}
+	if service == "" {
+		return fmt.Errorf("migrate: service name must not be empty (used to derive the goose version table)")
+	}
+
+	goose.SetTableName(MigrationTableName(service))
 
 	hostKey := fmt.Sprintf("%s_HOST", prefix)
 	portKey := fmt.Sprintf("%s_PORT", prefix)
@@ -27,24 +37,25 @@ func RunMigrations(log logger.LoggerInterface, prefix, path string) error {
 	passKey := fmt.Sprintf("%s_PASSWORD", prefix)
 
 	host := viper.GetString(hostKey)
-	if host == "" {
-		host = viper.GetString("DB_HOST")
-	}
 	port := viper.GetString(portKey)
-	if port == "" {
-		port = viper.GetString("DB_PORT")
-	}
 	user := viper.GetString(userKey)
 	if user == "" {
 		user = viper.GetString("DB_USERNAME")
 	}
 	dbname := viper.GetString(nameKey)
-	if dbname == "" {
-		dbname = viper.GetString("DB_NAME")
-	}
 	password := viper.GetString(passKey)
 	if password == "" {
 		password = viper.GetString("DB_PASSWORD")
+	}
+
+	if host == "" {
+		return fmt.Errorf("migrate: %s is required (cluster prefix %s)", hostKey, prefix)
+	}
+	if port == "" {
+		return fmt.Errorf("migrate: %s is required (cluster prefix %s)", portKey, prefix)
+	}
+	if dbname == "" {
+		return fmt.Errorf("migrate: %s is required (cluster prefix %s)", nameKey, prefix)
 	}
 
 	connStr := fmt.Sprintf("host=%s port=%s user=%s dbname=%s password=%s sslmode=disable",

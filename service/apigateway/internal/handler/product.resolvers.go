@@ -7,10 +7,10 @@ package graph
 import (
 	"context"
 
+	graphqlerror "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/errors"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/product"
 	sharedErrors "github.com/MamangRust/microservice-ecommerce-shared/errors"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphqlerror "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/errors"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -30,7 +30,7 @@ func (r *mutationResolver) CreateProduct(ctx context.Context, input model.Create
 			return nil, r.handleGraphQLError(err, "CreateProduct-ImageUpload")
 		}
 
-		req := &pb.CreateProductRequest{
+		req := &pb_product.CreateProductRequest{
 			MerchantId:   int32(input.MerchantID),
 			CategoryId:   int32(input.CategoryID),
 			Name:         input.Name,
@@ -68,7 +68,7 @@ func (r *mutationResolver) UpdateProduct(ctx context.Context, input model.Update
 			return nil, r.handleGraphQLError(err, "UpdateProduct-ImageUpload")
 		}
 
-		req := &pb.UpdateProductRequest{
+		req := &pb_product.UpdateProductRequest{
 			ProductId:    id,
 			MerchantId:   int32(input.MerchantID),
 			CategoryId:   int32(input.CategoryID),
@@ -103,7 +103,7 @@ func (r *mutationResolver) TrashedProduct(ctx context.Context, input model.FindB
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: product ID cannot be zero"))
 		}
 
-		product, err := r.ProductGraphql.ProductCommandClient.TrashedProduct(ctx, &pb.FindByIdProductRequest{
+		product, err := r.ProductGraphql.ProductCommandClient.TrashedProduct(ctx, &pb_product.FindByIdProductRequest{
 			Id: id,
 		})
 		if err != nil {
@@ -127,7 +127,7 @@ func (r *mutationResolver) RestoreProduct(ctx context.Context, input model.FindB
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: product ID cannot be zero"))
 		}
 
-		product, err := r.ProductGraphql.ProductCommandClient.RestoreProduct(ctx, &pb.FindByIdProductRequest{
+		product, err := r.ProductGraphql.ProductCommandClient.RestoreProduct(ctx, &pb_product.FindByIdProductRequest{
 			Id: id,
 		})
 		if err != nil {
@@ -151,7 +151,7 @@ func (r *mutationResolver) DeleteProductPermanent(ctx context.Context, input mod
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: product ID cannot be zero"))
 		}
 
-		res, err := r.ProductGraphql.ProductCommandClient.DeleteProductPermanent(ctx, &pb.FindByIdProductRequest{
+		res, err := r.ProductGraphql.ProductCommandClient.DeleteProductPermanent(ctx, &pb_product.FindByIdProductRequest{
 			Id: id,
 		})
 		if err != nil {
@@ -224,7 +224,7 @@ func (r *queryResolver) FindAllProducts(ctx context.Context, input *model.FindAl
 			return data, nil
 		}
 
-		req := &pb.FindAllProductRequest{
+		req := &pb_product.FindAllProductRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,
@@ -284,7 +284,7 @@ func (r *queryResolver) FindProductsByMerchant(ctx context.Context, input *model
 			return data, nil
 		}
 
-		req := &pb.FindAllProductMerchantRequest{
+		req := &pb_product.FindAllProductMerchantRequest{
 			MerchantId: merchantID,
 			Page:       page,
 			PageSize:   pageSize,
@@ -353,7 +353,7 @@ func (r *queryResolver) FindProductsByCategory(ctx context.Context, input *model
 			return data, nil
 		}
 
-		req := &pb.FindAllProductCategoryRequest{
+		req := &pb_product.FindAllProductCategoryRequest{
 			Page:         page,
 			PageSize:     pageSize,
 			Search:       search,
@@ -391,7 +391,7 @@ func (r *queryResolver) FindProductByID(ctx context.Context, input *model.FindBy
 			return data, nil
 		}
 
-		product, err := r.ProductGraphql.ProductQueryClient.FindById(ctx, &pb.FindByIdProductRequest{
+		product, err := r.ProductGraphql.ProductQueryClient.FindById(ctx, &pb_product.FindByIdProductRequest{
 			Id: int32(id),
 		})
 		if err != nil {
@@ -437,7 +437,7 @@ func (r *queryResolver) FindActiveProducts(ctx context.Context, input *model.Fin
 			return data, nil
 		}
 
-		req := &pb.FindAllProductRequest{
+		req := &pb_product.FindAllProductRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,
@@ -487,7 +487,7 @@ func (r *queryResolver) FindTrashedProducts(ctx context.Context, input *model.Fi
 			return data, nil
 		}
 
-		req := &pb.FindAllProductRequest{
+		req := &pb_product.FindAllProductRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,

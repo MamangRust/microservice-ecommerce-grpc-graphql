@@ -10,8 +10,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// orderSeeder seeds orders (order service DB) and their order_items (order_item
-// service DB), so it needs both connections.
+// orderSeeder seeds orders and their order_items, which share the sales
+// context database, so it holds a connection per table owner.
 type orderSeeder struct {
 	orderDB     *db.Queries
 	orderItemDB *orderitemdb.Queries

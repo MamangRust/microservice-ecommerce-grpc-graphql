@@ -7,17 +7,18 @@ package graph
 import (
 	"context"
 
+	graphqlerror "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/errors"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_policy"
 	sharedErrors "github.com/MamangRust/microservice-ecommerce-shared/errors"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphqlerror "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/errors"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // CreateMerchantPolicy is the resolver for the createMerchantPolicy field.
 func (r *mutationResolver) CreateMerchantPolicy(ctx context.Context, input model.CreateMerchantPoliciesInput) (*model.APIResponseMerchantPolicy, error) {
 	return ResolverHandle(r.ResolverHandle, "CreateMerchantPolicy", ctx, func(ctx context.Context) (*model.APIResponseMerchantPolicy, error) {
-		req := &pb.CreateMerchantPoliciesRequest{
+		req := &pb_merchant_policy.CreateMerchantPoliciesRequest{
 			MerchantId:  int32(input.MerchantID),
 			PolicyType:  input.PolicyType,
 			Title:       input.Title,
@@ -46,7 +47,7 @@ func (r *mutationResolver) UpdateMerchantPolicy(ctx context.Context, input model
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: merchant policy ID cannot be zero"))
 		}
 
-		req := &pb.UpdateMerchantPoliciesRequest{
+		req := &pb_merchant_policy.UpdateMerchantPoliciesRequest{
 			MerchantPolicyId: id,
 			PolicyType:       input.PolicyType,
 			Title:            input.Title,
@@ -75,7 +76,7 @@ func (r *mutationResolver) TrashMerchantPolicy(ctx context.Context, input model.
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: merchant policy ID cannot be zero"))
 		}
 
-		res, err := r.MerchantPolicyGraphql.MerchantPolicyCommandClient.TrashedMerchantPolicies(ctx, &pb.FindByIdMerchantPoliciesRequest{
+		res, err := r.MerchantPolicyGraphql.MerchantPolicyCommandClient.TrashedMerchantPolicies(ctx, &pb_merchant_policy.FindByIdMerchantPoliciesRequest{
 			Id: id,
 		})
 		if err != nil {
@@ -99,7 +100,7 @@ func (r *mutationResolver) RestoreMerchantPolicy(ctx context.Context, input mode
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: merchant policy ID cannot be zero"))
 		}
 
-		res, err := r.MerchantPolicyGraphql.MerchantPolicyCommandClient.RestoreMerchantPolicies(ctx, &pb.FindByIdMerchantPoliciesRequest{
+		res, err := r.MerchantPolicyGraphql.MerchantPolicyCommandClient.RestoreMerchantPolicies(ctx, &pb_merchant_policy.FindByIdMerchantPoliciesRequest{
 			Id: id,
 		})
 		if err != nil {
@@ -123,7 +124,7 @@ func (r *mutationResolver) DeleteMerchantPolicyPermanent(ctx context.Context, in
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: merchant policy ID cannot be zero"))
 		}
 
-		res, err := r.MerchantPolicyGraphql.MerchantPolicyCommandClient.DeleteMerchantPoliciesPermanent(ctx, &pb.FindByIdMerchantPoliciesRequest{
+		res, err := r.MerchantPolicyGraphql.MerchantPolicyCommandClient.DeleteMerchantPoliciesPermanent(ctx, &pb_merchant_policy.FindByIdMerchantPoliciesRequest{
 			Id: id,
 		})
 		if err != nil {
@@ -192,7 +193,7 @@ func (r *queryResolver) FindAllMerchantPolicies(ctx context.Context, input model
 			return data, nil
 		}
 
-		reqService := &pb.FindAllMerchantRequest{
+		reqService := &pb_merchant.FindAllMerchantRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,
@@ -223,7 +224,7 @@ func (r *queryResolver) FindMerchantPolicyByID(ctx context.Context, input model.
 			return data, nil
 		}
 
-		res, err := r.MerchantPolicyGraphql.MerchantPolicyQueryClient.FindById(ctx, &pb.FindByIdMerchantPoliciesRequest{
+		res, err := r.MerchantPolicyGraphql.MerchantPolicyQueryClient.FindById(ctx, &pb_merchant_policy.FindByIdMerchantPoliciesRequest{
 			Id: int32(id),
 		})
 		if err != nil {
@@ -266,7 +267,7 @@ func (r *queryResolver) FindActiveMerchantPolicies(ctx context.Context, input mo
 			return data, nil
 		}
 
-		reqService := &pb.FindAllMerchantRequest{
+		reqService := &pb_merchant.FindAllMerchantRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,
@@ -313,7 +314,7 @@ func (r *queryResolver) FindTrashedMerchantPolicies(ctx context.Context, input m
 			return data, nil
 		}
 
-		reqService := &pb.FindAllMerchantRequest{
+		reqService := &pb_merchant.FindAllMerchantRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,

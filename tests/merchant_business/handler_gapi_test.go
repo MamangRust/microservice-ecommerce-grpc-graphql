@@ -9,10 +9,11 @@ import (
 	biz_handler "github.com/MamangRust/microservice-ecommerce-grpc-merchant_business/handler"
 	biz_repo "github.com/MamangRust/microservice-ecommerce-grpc-merchant_business/repository"
 	biz_service "github.com/MamangRust/microservice-ecommerce-grpc-merchant_business/service"
+	pb_merchant "github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
+	pb_merchant_business "github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_business"
 	"github.com/MamangRust/microservice-ecommerce-shared/cache"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	"github.com/MamangRust/microservice-ecommerce-test"
+	tests "github.com/MamangRust/microservice-ecommerce-test"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -20,8 +21,8 @@ import (
 
 type MerchantBusinessGapiTestSuite struct {
 	tests.BaseTestSuite
-	queryClient   pb.MerchantBusinessQueryServiceClient
-	commandClient pb.MerchantBusinessCommandServiceClient
+	queryClient   pb_merchant_business.MerchantBusinessQueryServiceClient
+	commandClient pb_merchant_business.MerchantBusinessCommandServiceClient
 }
 
 func (s *MerchantBusinessGapiTestSuite) SetupSuite() {
@@ -40,7 +41,8 @@ func (s *MerchantBusinessGapiTestSuite) SetupSuite() {
 	mencache := biz_cache.NewMencache(cacheStore)
 	repos := biz_repo.NewRepositories(
 		queries,
-		pb.NewMerchantQueryServiceClient(s.Conns["merchant"]),
+		pb_merchant.NewMerchantQueryServiceClient(s.Conns["merchant"]),
+		biz_repo.GuardOptions{},
 	)
 	svc := biz_service.NewService(&biz_service.Deps{
 		Cache:         mencache,
@@ -57,14 +59,14 @@ func (s *MerchantBusinessGapiTestSuite) SetupSuite() {
 
 	// Server
 	server := grpc.NewServer()
-	pb.RegisterMerchantBusinessQueryServiceServer(server, handler.MerchantBusinessQuery)
-	pb.RegisterMerchantBusinessCommandServiceServer(server, handler.MerchantBusinessCommand)
+	pb_merchant_business.RegisterMerchantBusinessQueryServiceServer(server, handler.MerchantBusinessQuery)
+	pb_merchant_business.RegisterMerchantBusinessCommandServiceServer(server, handler.MerchantBusinessCommand)
 
 	addr := s.RegisterServer(server)
 	conn := s.GetConnection(addr)
 
-	s.queryClient = pb.NewMerchantBusinessQueryServiceClient(conn)
-	s.commandClient = pb.NewMerchantBusinessCommandServiceClient(conn)
+	s.queryClient = pb_merchant_business.NewMerchantBusinessQueryServiceClient(conn)
+	s.commandClient = pb_merchant_business.NewMerchantBusinessCommandServiceClient(conn)
 }
 
 func (s *MerchantBusinessGapiTestSuite) TestMerchantBusinessGapiLifecycle() {
@@ -75,7 +77,7 @@ func (s *MerchantBusinessGapiTestSuite) TestMerchantBusinessGapiLifecycle() {
 	merchID := int32(s.SeedMerchant(ctx, userID))
 
 	// 2. Create
-	createRes, err := s.commandClient.Create(ctx, &pb.CreateMerchantBusinessRequest{
+	createRes, err := s.commandClient.Create(ctx, &pb_merchant_business.CreateMerchantBusinessRequest{
 		MerchantId:        merchID,
 		BusinessType:      "GAPI Corp",
 		TaxId:             "GAPI-TAX",
@@ -88,22 +90,22 @@ func (s *MerchantBusinessGapiTestSuite) TestMerchantBusinessGapiLifecycle() {
 	bizID := createRes.Data.Id
 
 	// 3. FindById
-	getRes, err := s.queryClient.FindById(ctx, &pb.FindByIdMerchantBusinessRequest{Id: bizID})
+	getRes, err := s.queryClient.FindById(ctx, &pb_merchant_business.FindByIdMerchantBusinessRequest{Id: bizID})
 	s.NoError(err)
 	s.Equal("GAPI Corp", getRes.Data.BusinessType)
 
 	// 4. FindAll
-	allRes, err := s.queryClient.FindAll(ctx, &pb.FindAllMerchantRequest{Page: 1, PageSize: 10})
+	allRes, err := s.queryClient.FindAll(ctx, &pb_merchant.FindAllMerchantRequest{Page: 1, PageSize: 10})
 	s.NoError(err)
 	s.NotEmpty(allRes.Data)
 
 	// 5. FindByActive
-	activeRes, err := s.queryClient.FindByActive(ctx, &pb.FindAllMerchantRequest{Page: 1, PageSize: 10})
+	activeRes, err := s.queryClient.FindByActive(ctx, &pb_merchant.FindAllMerchantRequest{Page: 1, PageSize: 10})
 	s.NoError(err)
 	s.NotEmpty(activeRes.Data)
 
 	// 6. Update
-	updateRes, err := s.commandClient.Update(ctx, &pb.UpdateMerchantBusinessRequest{
+	updateRes, err := s.commandClient.Update(ctx, &pb_merchant_business.UpdateMerchantBusinessRequest{
 		MerchantBusinessInfoId: bizID,
 		BusinessType:           "GAPI Corp Updated",
 		TaxId:                  "GAPI-TAX-UPDATED",
@@ -115,21 +117,21 @@ func (s *MerchantBusinessGapiTestSuite) TestMerchantBusinessGapiLifecycle() {
 	s.Equal("GAPI Corp Updated", updateRes.Data.BusinessType)
 
 	// 7. Trash
-	_, err = s.commandClient.TrashedMerchantBusiness(ctx, &pb.FindByIdMerchantBusinessRequest{Id: bizID})
+	_, err = s.commandClient.TrashedMerchantBusiness(ctx, &pb_merchant_business.FindByIdMerchantBusinessRequest{Id: bizID})
 	s.NoError(err)
 
 	// 8. FindByTrashed
-	trashedRes, err := s.queryClient.FindByTrashed(ctx, &pb.FindAllMerchantRequest{Page: 1, PageSize: 10})
+	trashedRes, err := s.queryClient.FindByTrashed(ctx, &pb_merchant.FindAllMerchantRequest{Page: 1, PageSize: 10})
 	s.NoError(err)
 	s.NotEmpty(trashedRes.Data)
 
 	// 9. Restore
-	_, err = s.commandClient.RestoreMerchantBusiness(ctx, &pb.FindByIdMerchantBusinessRequest{Id: bizID})
+	_, err = s.commandClient.RestoreMerchantBusiness(ctx, &pb_merchant_business.FindByIdMerchantBusinessRequest{Id: bizID})
 	s.NoError(err)
 
 	// 10. DeletePermanent
-	_, _ = s.commandClient.TrashedMerchantBusiness(ctx, &pb.FindByIdMerchantBusinessRequest{Id: bizID})
-	_, err = s.commandClient.DeleteMerchantBusinessPermanent(ctx, &pb.FindByIdMerchantBusinessRequest{Id: bizID})
+	_, _ = s.commandClient.TrashedMerchantBusiness(ctx, &pb_merchant_business.FindByIdMerchantBusinessRequest{Id: bizID})
+	_, err = s.commandClient.DeleteMerchantBusinessPermanent(ctx, &pb_merchant_business.FindByIdMerchantBusinessRequest{Id: bizID})
 	s.NoError(err)
 
 	// 11. RestoreAll

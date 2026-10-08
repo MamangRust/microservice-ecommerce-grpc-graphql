@@ -1,9 +1,9 @@
 package ordergraphqlmapper
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphqlmapper "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/mapper/pagination"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
+	graphqlmapper "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/mapper/pagination"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/order"
 )
 
 type orderGraphqlMapper struct{}
@@ -12,7 +12,7 @@ func NewOrderGraphqlMapper() *orderGraphqlMapper {
 	return &orderGraphqlMapper{}
 }
 
-func (o *orderGraphqlMapper) ToGraphqlResponseOrder(res *pb.ApiResponseOrder) *model.APIResponseOrder {
+func (o *orderGraphqlMapper) ToGraphqlResponseOrder(res *pb_order.ApiResponseOrder) *model.APIResponseOrder {
 	return &model.APIResponseOrder{
 		Status:  res.Status,
 		Message: res.Message,
@@ -20,7 +20,7 @@ func (o *orderGraphqlMapper) ToGraphqlResponseOrder(res *pb.ApiResponseOrder) *m
 	}
 }
 
-func (o *orderGraphqlMapper) ToGraphqlResponsesOrder(res *pb.ApiResponsesOrder) *model.APIResponsesOrder {
+func (o *orderGraphqlMapper) ToGraphqlResponsesOrder(res *pb_order.ApiResponsesOrder) *model.APIResponsesOrder {
 	return &model.APIResponsesOrder{
 		Status:  res.Status,
 		Message: res.Message,
@@ -28,7 +28,7 @@ func (o *orderGraphqlMapper) ToGraphqlResponsesOrder(res *pb.ApiResponsesOrder) 
 	}
 }
 
-func (o *orderGraphqlMapper) ToGraphqlResponseOrderDeleteAt(res *pb.ApiResponseOrderDeleteAt) *model.APIResponseOrderDeleteAt {
+func (o *orderGraphqlMapper) ToGraphqlResponseOrderDeleteAt(res *pb_order.ApiResponseOrderDeleteAt) *model.APIResponseOrderDeleteAt {
 	return &model.APIResponseOrderDeleteAt{
 		Status:  res.Status,
 		Message: res.Message,
@@ -36,14 +36,14 @@ func (o *orderGraphqlMapper) ToGraphqlResponseOrderDeleteAt(res *pb.ApiResponseO
 	}
 }
 
-func (o *orderGraphqlMapper) ToGraphqlResponseOrderDelete(res *pb.ApiResponseOrderDelete) *model.APIResponseOrderDelete {
+func (o *orderGraphqlMapper) ToGraphqlResponseOrderDelete(res *pb_order.ApiResponseOrderDelete) *model.APIResponseOrderDelete {
 	return &model.APIResponseOrderDelete{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (o *orderGraphqlMapper) ToGraphqlResponseOrderAll(res *pb.ApiResponseOrderAll) *model.APIResponseOrderAll {
+func (o *orderGraphqlMapper) ToGraphqlResponseOrderAll(res *pb_order.ApiResponseOrderAll) *model.APIResponseOrderAll {
 	return &model.APIResponseOrderAll{
 		Status:  res.Status,
 		Message: res.Message,
@@ -51,7 +51,7 @@ func (o *orderGraphqlMapper) ToGraphqlResponseOrderAll(res *pb.ApiResponseOrderA
 }
 
 func (o *orderGraphqlMapper) ToGraphqlResponsePaginationOrderDeleteAt(
-	res *pb.ApiResponsePaginationOrderDeleteAt,
+	res *pb_order.ApiResponsePaginationOrderDeleteAt,
 ) *model.APIResponsePaginationOrderDeleteAt {
 	return &model.APIResponsePaginationOrderDeleteAt{
 		Status:     res.Status,
@@ -62,7 +62,7 @@ func (o *orderGraphqlMapper) ToGraphqlResponsePaginationOrderDeleteAt(
 }
 
 func (o *orderGraphqlMapper) ToGraphqlResponsePaginationOrder(
-	res *pb.ApiResponsePaginationOrder,
+	res *pb_order.ApiResponsePaginationOrder,
 ) *model.APIResponsePaginationOrder {
 	return &model.APIResponsePaginationOrder{
 		Status:     res.Status,
@@ -73,7 +73,7 @@ func (o *orderGraphqlMapper) ToGraphqlResponsePaginationOrder(
 }
 
 func (o *orderGraphqlMapper) ToGraphqlResponseOrderYearlyTotalRevenue(
-	res *pb.ApiResponseOrderYearlyTotalRevenue,
+	res *pb_order.ApiResponseOrderYearlyTotalRevenue,
 ) *model.APIResponseOrderYearlyTotalRevenue {
 
 	return &model.APIResponseOrderYearlyTotalRevenue{
@@ -84,7 +84,7 @@ func (o *orderGraphqlMapper) ToGraphqlResponseOrderYearlyTotalRevenue(
 }
 
 func (o *orderGraphqlMapper) ToGraphqlResponseOrderMonthlyTotalRevenue(
-	res *pb.ApiResponseOrderMonthlyTotalRevenue,
+	res *pb_order.ApiResponseOrderMonthlyTotalRevenue,
 ) *model.APIResponseOrderMonthlyTotalRevenue {
 
 	return &model.APIResponseOrderMonthlyTotalRevenue{
@@ -95,7 +95,7 @@ func (o *orderGraphqlMapper) ToGraphqlResponseOrderMonthlyTotalRevenue(
 }
 
 func (o *orderGraphqlMapper) ToGraphqlResponseOrderMonthlyRevenue(
-	res *pb.ApiResponseOrderMonthly,
+	res *pb_order.ApiResponseOrderMonthly,
 ) *model.APIResponseOrderMonthly {
 	return &model.APIResponseOrderMonthly{
 		Status:  res.Status,
@@ -105,7 +105,7 @@ func (o *orderGraphqlMapper) ToGraphqlResponseOrderMonthlyRevenue(
 }
 
 func (o *orderGraphqlMapper) ToGraphqlResponseOrderYearlyRevenue(
-	res *pb.ApiResponseOrderYearly,
+	res *pb_order.ApiResponseOrderYearly,
 ) *model.APIResponseOrderYearly {
 
 	return &model.APIResponseOrderYearly{
@@ -115,7 +115,7 @@ func (o *orderGraphqlMapper) ToGraphqlResponseOrderYearlyRevenue(
 	}
 }
 
-func (o *orderGraphqlMapper) mapResponseOrder(order *pb.OrderResponse) *model.OrderResponse {
+func (o *orderGraphqlMapper) mapResponseOrder(order *pb_order.OrderResponse) *model.OrderResponse {
 	return &model.OrderResponse{
 		ID:         int32(order.Id),
 		MerchantID: int32(order.MerchantId),
@@ -126,7 +126,7 @@ func (o *orderGraphqlMapper) mapResponseOrder(order *pb.OrderResponse) *model.Or
 	}
 }
 
-func (o *orderGraphqlMapper) mapResponsesOrder(orders []*pb.OrderResponse) []*model.OrderResponse {
+func (o *orderGraphqlMapper) mapResponsesOrder(orders []*pb_order.OrderResponse) []*model.OrderResponse {
 	mapped := make([]*model.OrderResponse, 0, len(orders))
 	for _, order := range orders {
 		mapped = append(mapped, o.mapResponseOrder(order))
@@ -134,7 +134,7 @@ func (o *orderGraphqlMapper) mapResponsesOrder(orders []*pb.OrderResponse) []*mo
 	return mapped
 }
 
-func (o *orderGraphqlMapper) mapResponseOrderDeleteAt(order *pb.OrderResponseDeleteAt) *model.OrderResponseDeleteAt {
+func (o *orderGraphqlMapper) mapResponseOrderDeleteAt(order *pb_order.OrderResponseDeleteAt) *model.OrderResponseDeleteAt {
 	var deletedAt *string
 	if order.DeletedAt != nil {
 		deletedAt = &order.DeletedAt.Value
@@ -151,7 +151,7 @@ func (o *orderGraphqlMapper) mapResponseOrderDeleteAt(order *pb.OrderResponseDel
 	}
 }
 
-func (o *orderGraphqlMapper) mapResponsesOrderDeleteAt(orders []*pb.OrderResponseDeleteAt) []*model.OrderResponseDeleteAt {
+func (o *orderGraphqlMapper) mapResponsesOrderDeleteAt(orders []*pb_order.OrderResponseDeleteAt) []*model.OrderResponseDeleteAt {
 	mapped := make([]*model.OrderResponseDeleteAt, 0, len(orders))
 	for _, order := range orders {
 		mapped = append(mapped, o.mapResponseOrderDeleteAt(order))
@@ -159,7 +159,7 @@ func (o *orderGraphqlMapper) mapResponsesOrderDeleteAt(orders []*pb.OrderRespons
 	return mapped
 }
 
-func (o *orderGraphqlMapper) mapResponseOrderMonthlyPrice(res *pb.OrderMonthlyResponse) *model.OrderMonthlyResponse {
+func (o *orderGraphqlMapper) mapResponseOrderMonthlyPrice(res *pb_order.OrderMonthlyResponse) *model.OrderMonthlyResponse {
 	return &model.OrderMonthlyResponse{
 		Month:          res.Month,
 		OrderCount:     int32(res.OrderCount),
@@ -168,7 +168,7 @@ func (o *orderGraphqlMapper) mapResponseOrderMonthlyPrice(res *pb.OrderMonthlyRe
 	}
 }
 
-func (o *orderGraphqlMapper) mapResponsesOrderMonthlyPrices(res []*pb.OrderMonthlyResponse) []*model.OrderMonthlyResponse {
+func (o *orderGraphqlMapper) mapResponsesOrderMonthlyPrices(res []*pb_order.OrderMonthlyResponse) []*model.OrderMonthlyResponse {
 	mapped := make([]*model.OrderMonthlyResponse, 0, len(res))
 	for _, r := range res {
 		mapped = append(mapped, o.mapResponseOrderMonthlyPrice(r))
@@ -176,7 +176,7 @@ func (o *orderGraphqlMapper) mapResponsesOrderMonthlyPrices(res []*pb.OrderMonth
 	return mapped
 }
 
-func (o *orderGraphqlMapper) mapResponseOrderYearlyPrice(res *pb.OrderYearlyResponse) *model.OrderYearlyResponse {
+func (o *orderGraphqlMapper) mapResponseOrderYearlyPrice(res *pb_order.OrderYearlyResponse) *model.OrderYearlyResponse {
 	return &model.OrderYearlyResponse{
 		Year:               res.Year,
 		OrderCount:         int32(res.OrderCount),
@@ -187,7 +187,7 @@ func (o *orderGraphqlMapper) mapResponseOrderYearlyPrice(res *pb.OrderYearlyResp
 	}
 }
 
-func (o *orderGraphqlMapper) mapResponsesOrderYearlyPrices(res []*pb.OrderYearlyResponse) []*model.OrderYearlyResponse {
+func (o *orderGraphqlMapper) mapResponsesOrderYearlyPrices(res []*pb_order.OrderYearlyResponse) []*model.OrderYearlyResponse {
 	mapped := make([]*model.OrderYearlyResponse, 0, len(res))
 	for _, r := range res {
 		mapped = append(mapped, o.mapResponseOrderYearlyPrice(r))
@@ -195,7 +195,7 @@ func (o *orderGraphqlMapper) mapResponsesOrderYearlyPrices(res []*pb.OrderYearly
 	return mapped
 }
 
-func (o *orderGraphqlMapper) mapResponseOrderMonthlyTotalRevenue(res *pb.OrderMonthlyTotalRevenueResponse) *model.OrderMonthlyTotalRevenueResponse {
+func (o *orderGraphqlMapper) mapResponseOrderMonthlyTotalRevenue(res *pb_order.OrderMonthlyTotalRevenueResponse) *model.OrderMonthlyTotalRevenueResponse {
 	return &model.OrderMonthlyTotalRevenueResponse{
 		Year:           res.Year,
 		Month:          res.Month,
@@ -204,7 +204,7 @@ func (o *orderGraphqlMapper) mapResponseOrderMonthlyTotalRevenue(res *pb.OrderMo
 	}
 }
 
-func (o *orderGraphqlMapper) mapResponseOrderMonthlyTotalRevenues(res []*pb.OrderMonthlyTotalRevenueResponse) []*model.OrderMonthlyTotalRevenueResponse {
+func (o *orderGraphqlMapper) mapResponseOrderMonthlyTotalRevenues(res []*pb_order.OrderMonthlyTotalRevenueResponse) []*model.OrderMonthlyTotalRevenueResponse {
 	mapped := make([]*model.OrderMonthlyTotalRevenueResponse, 0, len(res))
 	for _, r := range res {
 		mapped = append(mapped, o.mapResponseOrderMonthlyTotalRevenue(r))
@@ -212,14 +212,14 @@ func (o *orderGraphqlMapper) mapResponseOrderMonthlyTotalRevenues(res []*pb.Orde
 	return mapped
 }
 
-func (o *orderGraphqlMapper) mapResponseOrderYearlyTotalRevenue(res *pb.OrderYearlyTotalRevenueResponse) *model.OrderYearlyTotalRevenueResponse {
+func (o *orderGraphqlMapper) mapResponseOrderYearlyTotalRevenue(res *pb_order.OrderYearlyTotalRevenueResponse) *model.OrderYearlyTotalRevenueResponse {
 	return &model.OrderYearlyTotalRevenueResponse{
 		Year:         res.Year,
 		TotalRevenue: int32(res.TotalRevenue),
 	}
 }
 
-func (o *orderGraphqlMapper) mapResponseOrderYearlyTotalRevenues(res []*pb.OrderYearlyTotalRevenueResponse) []*model.OrderYearlyTotalRevenueResponse {
+func (o *orderGraphqlMapper) mapResponseOrderYearlyTotalRevenues(res []*pb_order.OrderYearlyTotalRevenueResponse) []*model.OrderYearlyTotalRevenueResponse {
 	mapped := make([]*model.OrderYearlyTotalRevenueResponse, 0, len(res))
 	for _, r := range res {
 		mapped = append(mapped, o.mapResponseOrderYearlyTotalRevenue(r))

@@ -7,18 +7,18 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	categoryadapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/category"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-product/database/schema"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	"github.com/MamangRust/microservice-ecommerce-shared/errors/product_errors"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 )
 
 type productQueryRepository struct {
 	db             *db.Queries
-	categoryClient pb.CategoryQueryServiceClient
+	categoryClient categoryadapter.QueryRepository
 }
 
-func NewProductQueryRepository(db *db.Queries, categoryClient pb.CategoryQueryServiceClient) *productQueryRepository {
+func NewProductQueryRepository(db *db.Queries, categoryClient categoryadapter.QueryRepository) *productQueryRepository {
 	return &productQueryRepository{
 		db:             db,
 		categoryClient: categoryClient,
@@ -105,16 +105,12 @@ func (r *productQueryRepository) FindByCategory(ctx context.Context, req *reques
 	// before querying products locally.
 	categoryID := int32(0)
 	if req.CategoryName != "" {
-		catRes, err := r.categoryClient.FindAll(ctx, &pb.FindAllCategoryRequest{
-			Page:     1,
-			PageSize: 1,
-			Search:   req.CategoryName,
-		})
+		cat, err := r.categoryClient.FindByName(ctx, req.CategoryName)
 		if err != nil {
 			return nil, product_errors.ErrFindProductsByCategory.WithInternal(err)
 		}
-		if len(catRes.Data) > 0 {
-			categoryID = catRes.Data[0].Id
+		if cat != nil {
+			categoryID = cat.CategoryID
 		}
 	}
 

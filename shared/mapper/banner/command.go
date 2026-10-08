@@ -1,7 +1,7 @@
 package bannerapimapper
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/banner"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/response"
 )
 
@@ -11,8 +11,10 @@ func NewBannerCommandResponseMapper() BannerCommandResponseMapper {
 	return &bannerCommandResponseMapper{}
 }
 
-func (m *bannerCommandResponseMapper) ToResponseBanner(banner *pb.BannerResponse) *response.BannerResponse {
-	if banner == nil { return nil }
+func (m *bannerCommandResponseMapper) ToResponseBanner(banner *pb_banner.BannerResponse) *response.BannerResponse {
+	if banner == nil {
+		return nil
+	}
 	return &response.BannerResponse{
 		ID:        banner.BannerId,
 		Name:      banner.Name,
@@ -26,7 +28,7 @@ func (m *bannerCommandResponseMapper) ToResponseBanner(banner *pb.BannerResponse
 	}
 }
 
-func (m *bannerCommandResponseMapper) ToResponsesBanner(banners []*pb.BannerResponse) []*response.BannerResponse {
+func (m *bannerCommandResponseMapper) ToResponsesBanner(banners []*pb_banner.BannerResponse) []*response.BannerResponse {
 	var mappedBanners []*response.BannerResponse
 	for _, banner := range banners {
 		mappedBanners = append(mappedBanners, m.ToResponseBanner(banner))
@@ -34,7 +36,7 @@ func (m *bannerCommandResponseMapper) ToResponsesBanner(banners []*pb.BannerResp
 	return mappedBanners
 }
 
-func (m *bannerCommandResponseMapper) ToApiResponseBanner(pbResponse *pb.ApiResponseBanner) *response.ApiResponseBanner {
+func (m *bannerCommandResponseMapper) ToApiResponseBanner(pbResponse *pb_banner.ApiResponseBanner) *response.ApiResponseBanner {
 	return &response.ApiResponseBanner{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -42,8 +44,10 @@ func (m *bannerCommandResponseMapper) ToApiResponseBanner(pbResponse *pb.ApiResp
 	}
 }
 
-func (m *bannerCommandResponseMapper) ToResponseBannerDeleteAt(banner *pb.BannerResponseDeleteAt) *response.BannerResponseDeleteAt {
-	if banner == nil { return nil }
+func (m *bannerCommandResponseMapper) ToResponseBannerDeleteAt(banner *pb_banner.BannerResponseDeleteAt) *response.BannerResponseDeleteAt {
+	if banner == nil {
+		return nil
+	}
 	var deletedAt string
 	if banner.DeletedAt != nil {
 		deletedAt = banner.DeletedAt.Value
@@ -63,7 +67,7 @@ func (m *bannerCommandResponseMapper) ToResponseBannerDeleteAt(banner *pb.Banner
 	}
 }
 
-func (m *bannerCommandResponseMapper) ToResponsesBannerDeleteAt(banners []*pb.BannerResponseDeleteAt) []*response.BannerResponseDeleteAt {
+func (m *bannerCommandResponseMapper) ToResponsesBannerDeleteAt(banners []*pb_banner.BannerResponseDeleteAt) []*response.BannerResponseDeleteAt {
 	var mappedBanners []*response.BannerResponseDeleteAt
 	for _, banner := range banners {
 		mappedBanners = append(mappedBanners, m.ToResponseBannerDeleteAt(banner))
@@ -71,7 +75,7 @@ func (m *bannerCommandResponseMapper) ToResponsesBannerDeleteAt(banners []*pb.Ba
 	return mappedBanners
 }
 
-func (m *bannerCommandResponseMapper) ToApiResponseBannerDeleteAt(pbResponse *pb.ApiResponseBannerDeleteAt) *response.ApiResponseBannerDeleteAt {
+func (m *bannerCommandResponseMapper) ToApiResponseBannerDeleteAt(pbResponse *pb_banner.ApiResponseBannerDeleteAt) *response.ApiResponseBannerDeleteAt {
 	return &response.ApiResponseBannerDeleteAt{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -79,14 +83,14 @@ func (m *bannerCommandResponseMapper) ToApiResponseBannerDeleteAt(pbResponse *pb
 	}
 }
 
-func (m *bannerCommandResponseMapper) ToApiResponseBannerDelete(pbResponse *pb.ApiResponseBannerDelete) *response.ApiResponseBannerDelete {
+func (m *bannerCommandResponseMapper) ToApiResponseBannerDelete(pbResponse *pb_banner.ApiResponseBannerDelete) *response.ApiResponseBannerDelete {
 	return &response.ApiResponseBannerDelete{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
 	}
 }
 
-func (m *bannerCommandResponseMapper) ToApiResponseBannerAll(pbResponse *pb.ApiResponseBannerAll) *response.ApiResponseBannerAll {
+func (m *bannerCommandResponseMapper) ToApiResponseBannerAll(pbResponse *pb_banner.ApiResponseBannerAll) *response.ApiResponseBannerAll {
 	return &response.ApiResponseBannerAll{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,

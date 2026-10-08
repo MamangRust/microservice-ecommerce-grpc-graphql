@@ -4,28 +4,28 @@ import (
 	"context"
 
 	"github.com/MamangRust/microservice-ecommerce-grpc-category/service"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/category"
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	"github.com/MamangRust/microservice-ecommerce-shared/errors"
 	category_errors "github.com/MamangRust/microservice-ecommerce-shared/errors/category_errors"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type categoryCommandHandler struct {
-	pb.UnimplementedCategoryCommandServiceServer
+	pb_category.UnimplementedCategoryCommandServiceServer
 	service service.CategoryCommandService
 	logger  logger.LoggerInterface
 }
 
-func NewCategoryCommandHandler(service service.CategoryCommandService, logger logger.LoggerInterface) pb.CategoryCommandServiceServer {
+func NewCategoryCommandHandler(service service.CategoryCommandService, logger logger.LoggerInterface) pb_category.CategoryCommandServiceServer {
 	return &categoryCommandHandler{
 		service: service,
 		logger:  logger,
 	}
 }
 
-func (h *categoryCommandHandler) Create(ctx context.Context, request *pb.CreateCategoryRequest) (*pb.ApiResponseCategory, error) {
+func (h *categoryCommandHandler) Create(ctx context.Context, request *pb_category.CreateCategoryRequest) (*pb_category.ApiResponseCategory, error) {
 	slug := request.GetSlugCategory()
 	req := &requests.CreateCategoryRequest{
 		Name:          request.GetName(),
@@ -43,14 +43,14 @@ func (h *categoryCommandHandler) Create(ctx context.Context, request *pb.CreateC
 		return nil, category_errors.ErrGrpcCreateCategory
 	}
 
-	return &pb.ApiResponseCategory{
+	return &pb_category.ApiResponseCategory{
 		Status:  "success",
 		Message: "Successfully created category",
-		Data:    (&Handler{}).mapToCategoryResponse(category).(*pb.CategoryResponse),
+		Data:    (&Handler{}).mapToCategoryResponse(category).(*pb_category.CategoryResponse),
 	}, nil
 }
 
-func (h *categoryCommandHandler) Update(ctx context.Context, request *pb.UpdateCategoryRequest) (*pb.ApiResponseCategory, error) {
+func (h *categoryCommandHandler) Update(ctx context.Context, request *pb_category.UpdateCategoryRequest) (*pb_category.ApiResponseCategory, error) {
 	id := int(request.GetCategoryId())
 
 	if id == 0 {
@@ -75,14 +75,14 @@ func (h *categoryCommandHandler) Update(ctx context.Context, request *pb.UpdateC
 		return nil, category_errors.ErrGrpcUpdateCategory
 	}
 
-	return &pb.ApiResponseCategory{
+	return &pb_category.ApiResponseCategory{
 		Status:  "success",
 		Message: "Successfully updated category",
-		Data:    (&Handler{}).mapToCategoryResponse(category).(*pb.CategoryResponse),
+		Data:    (&Handler{}).mapToCategoryResponse(category).(*pb_category.CategoryResponse),
 	}, nil
 }
 
-func (h *categoryCommandHandler) TrashedCategory(ctx context.Context, request *pb.FindByIdCategoryRequest) (*pb.ApiResponseCategoryDeleteAt, error) {
+func (h *categoryCommandHandler) TrashedCategory(ctx context.Context, request *pb_category.FindByIdCategoryRequest) (*pb_category.ApiResponseCategoryDeleteAt, error) {
 	id := int(request.GetId())
 
 	if id == 0 {
@@ -94,14 +94,14 @@ func (h *categoryCommandHandler) TrashedCategory(ctx context.Context, request *p
 		return nil, category_errors.ErrGrpcCategoryNotFound
 	}
 
-	return &pb.ApiResponseCategoryDeleteAt{
+	return &pb_category.ApiResponseCategoryDeleteAt{
 		Status:  "success",
 		Message: "Successfully trashed category",
-		Data:    (&Handler{}).mapToCategoryResponse(category).(*pb.CategoryResponseDeleteAt),
+		Data:    (&Handler{}).mapToCategoryResponse(category).(*pb_category.CategoryResponseDeleteAt),
 	}, nil
 }
 
-func (h *categoryCommandHandler) RestoreCategory(ctx context.Context, request *pb.FindByIdCategoryRequest) (*pb.ApiResponseCategoryDeleteAt, error) {
+func (h *categoryCommandHandler) RestoreCategory(ctx context.Context, request *pb_category.FindByIdCategoryRequest) (*pb_category.ApiResponseCategoryDeleteAt, error) {
 	id := int(request.GetId())
 
 	if id == 0 {
@@ -113,14 +113,14 @@ func (h *categoryCommandHandler) RestoreCategory(ctx context.Context, request *p
 		return nil, category_errors.ErrGrpcCategoryNotFound
 	}
 
-	return &pb.ApiResponseCategoryDeleteAt{
+	return &pb_category.ApiResponseCategoryDeleteAt{
 		Status:  "success",
 		Message: "Successfully restored category",
-		Data:    (&Handler{}).mapToCategoryResponse(category).(*pb.CategoryResponseDeleteAt),
+		Data:    (&Handler{}).mapToCategoryResponse(category).(*pb_category.CategoryResponseDeleteAt),
 	}, nil
 }
 
-func (h *categoryCommandHandler) DeleteCategoryPermanent(ctx context.Context, request *pb.FindByIdCategoryRequest) (*pb.ApiResponseCategoryDelete, error) {
+func (h *categoryCommandHandler) DeleteCategoryPermanent(ctx context.Context, request *pb_category.FindByIdCategoryRequest) (*pb_category.ApiResponseCategoryDelete, error) {
 	id := int(request.GetId())
 
 	if id == 0 {
@@ -132,31 +132,31 @@ func (h *categoryCommandHandler) DeleteCategoryPermanent(ctx context.Context, re
 		return nil, errors.ToGrpcError(err)
 	}
 
-	return &pb.ApiResponseCategoryDelete{
+	return &pb_category.ApiResponseCategoryDelete{
 		Status:  "success",
 		Message: "Successfully deleted category permanently",
 	}, nil
 }
 
-func (h *categoryCommandHandler) RestoreAllCategory(ctx context.Context, _ *emptypb.Empty) (*pb.ApiResponseCategoryAll, error) {
+func (h *categoryCommandHandler) RestoreAllCategory(ctx context.Context, _ *emptypb.Empty) (*pb_category.ApiResponseCategoryAll, error) {
 	_, err := h.service.RestoreAll(ctx)
 	if err != nil {
 		return nil, category_errors.ErrGrpcCategoryNotFound
 	}
 
-	return &pb.ApiResponseCategoryAll{
+	return &pb_category.ApiResponseCategoryAll{
 		Status:  "success",
 		Message: "Successfully restored all categories",
 	}, nil
 }
 
-func (h *categoryCommandHandler) DeleteAllCategoryPermanent(ctx context.Context, _ *emptypb.Empty) (*pb.ApiResponseCategoryAll, error) {
+func (h *categoryCommandHandler) DeleteAllCategoryPermanent(ctx context.Context, _ *emptypb.Empty) (*pb_category.ApiResponseCategoryAll, error) {
 	_, err := h.service.DeleteAll(ctx)
 	if err != nil {
 		return nil, errors.ToGrpcError(err)
 	}
 
-	return &pb.ApiResponseCategoryAll{
+	return &pb_category.ApiResponseCategoryAll{
 		Status:  "success",
 		Message: "Successfully deleted all categories permanently",
 	}, nil

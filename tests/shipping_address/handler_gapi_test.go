@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	pb_shipping_address "github.com/MamangRust/microservice-ecommerce-grpc-pb/shipping_address"
 	ship_cache "github.com/MamangRust/microservice-ecommerce-grpc-shipping-address/cache"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-shipping-address/database/schema"
 	ship_handler "github.com/MamangRust/microservice-ecommerce-grpc-shipping-address/handler"
@@ -11,7 +12,6 @@ import (
 	ship_service "github.com/MamangRust/microservice-ecommerce-grpc-shipping-address/service"
 	"github.com/MamangRust/microservice-ecommerce-shared/cache"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	tests "github.com/MamangRust/microservice-ecommerce-test"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
@@ -20,8 +20,8 @@ import (
 
 type ShippingAddressGapiTestSuite struct {
 	tests.BaseTestSuite
-	queryClient   pb.ShippingQueryServiceClient
-	commandClient pb.ShippingCommandServiceClient
+	queryClient   pb_shipping_address.ShippingQueryServiceClient
+	commandClient pb_shipping_address.ShippingCommandServiceClient
 }
 
 func (s *ShippingAddressGapiTestSuite) SetupSuite() {
@@ -59,14 +59,14 @@ func (s *ShippingAddressGapiTestSuite) SetupSuite() {
 
 	// Server
 	server := grpc.NewServer()
-	pb.RegisterShippingQueryServiceServer(server, handler.ShippingQuery)
-	pb.RegisterShippingCommandServiceServer(server, handler.ShippingCommand)
+	pb_shipping_address.RegisterShippingQueryServiceServer(server, handler.ShippingQuery)
+	pb_shipping_address.RegisterShippingCommandServiceServer(server, handler.ShippingCommand)
 
 	addr := s.RegisterServer(server)
 	conn := s.GetConnection(addr)
 
-	s.queryClient = pb.NewShippingQueryServiceClient(conn)
-	s.commandClient = pb.NewShippingCommandServiceClient(conn)
+	s.queryClient = pb_shipping_address.NewShippingQueryServiceClient(conn)
+	s.commandClient = pb_shipping_address.NewShippingCommandServiceClient(conn)
 }
 
 func (s *ShippingAddressGapiTestSuite) TestShippingAddressGapiLifecycle() {
@@ -80,7 +80,7 @@ func (s *ShippingAddressGapiTestSuite) TestShippingAddressGapiLifecycle() {
 	orderID := s.SeedOrder(ctx, userID, merchantID, productID)
 
 	// 2. Create
-	createRes, err := s.commandClient.CreateShipping(ctx, &pb.CreateShippingAddressRequest{
+	createRes, err := s.commandClient.CreateShipping(ctx, &pb_shipping_address.CreateShippingAddressRequest{
 		OrderId:        int32(orderID),
 		Alamat:         "GAPI Home",
 		Provinsi:       "GAPI Province",
@@ -95,22 +95,22 @@ func (s *ShippingAddressGapiTestSuite) TestShippingAddressGapiLifecycle() {
 	addrID := createRes.Data.Id
 
 	// 3. FindById
-	getRes, err := s.queryClient.FindById(ctx, &pb.FindByIdShippingRequest{Id: addrID})
+	getRes, err := s.queryClient.FindById(ctx, &pb_shipping_address.FindByIdShippingRequest{Id: addrID})
 	s.Require().NoError(err)
 	s.Equal("GAPI Home", getRes.Data.Alamat)
 
 	// 4. FindAll
-	allRes, err := s.queryClient.FindAll(ctx, &pb.FindAllShippingRequest{Page: 1, PageSize: 10})
+	allRes, err := s.queryClient.FindAll(ctx, &pb_shipping_address.FindAllShippingRequest{Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.NotEmpty(allRes.Data)
 
 	// 5. FindByActive
-	activeRes, err := s.queryClient.FindByActive(ctx, &pb.FindAllShippingRequest{Page: 1, PageSize: 10})
+	activeRes, err := s.queryClient.FindByActive(ctx, &pb_shipping_address.FindAllShippingRequest{Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.NotEmpty(activeRes.Data)
 
 	// 6. Update
-	updateRes, err := s.commandClient.UpdateShipping(ctx, &pb.UpdateShippingAddressRequest{
+	updateRes, err := s.commandClient.UpdateShipping(ctx, &pb_shipping_address.UpdateShippingAddressRequest{
 		ShippingId:     addrID,
 		OrderId:        int32(orderID),
 		Alamat:         "GAPI Home Updated",
@@ -125,21 +125,21 @@ func (s *ShippingAddressGapiTestSuite) TestShippingAddressGapiLifecycle() {
 	s.Equal("GAPI Home Updated", updateRes.Data.Alamat)
 
 	// 7. Trash
-	_, err = s.commandClient.TrashedShipping(ctx, &pb.FindByIdShippingRequest{Id: addrID})
+	_, err = s.commandClient.TrashedShipping(ctx, &pb_shipping_address.FindByIdShippingRequest{Id: addrID})
 	s.Require().NoError(err)
 
 	// 8. FindByTrashed
-	trashedRes, err := s.queryClient.FindByTrashed(ctx, &pb.FindAllShippingRequest{Page: 1, PageSize: 10})
+	trashedRes, err := s.queryClient.FindByTrashed(ctx, &pb_shipping_address.FindAllShippingRequest{Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.NotEmpty(trashedRes.Data)
 
 	// 9. Restore
-	_, err = s.commandClient.RestoreShipping(ctx, &pb.FindByIdShippingRequest{Id: addrID})
+	_, err = s.commandClient.RestoreShipping(ctx, &pb_shipping_address.FindByIdShippingRequest{Id: addrID})
 	s.Require().NoError(err)
 
 	// 10. DeletePermanent
-	_, _ = s.commandClient.TrashedShipping(ctx, &pb.FindByIdShippingRequest{Id: addrID})
-	_, err = s.commandClient.DeleteShippingPermanent(ctx, &pb.FindByIdShippingRequest{Id: addrID})
+	_, _ = s.commandClient.TrashedShipping(ctx, &pb_shipping_address.FindByIdShippingRequest{Id: addrID})
+	_, err = s.commandClient.DeleteShippingPermanent(ctx, &pb_shipping_address.FindByIdShippingRequest{Id: addrID})
 	s.Require().NoError(err)
 
 	// 11. RestoreAll

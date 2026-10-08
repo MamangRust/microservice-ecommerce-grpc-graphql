@@ -9,10 +9,10 @@ import (
 	item_handler "github.com/MamangRust/microservice-ecommerce-grpc-order-item/handler"
 	item_repo "github.com/MamangRust/microservice-ecommerce-grpc-order-item/repository"
 	item_service "github.com/MamangRust/microservice-ecommerce-grpc-order-item/service"
+	pb_order_item "github.com/MamangRust/microservice-ecommerce-grpc-pb/order_item"
 	"github.com/MamangRust/microservice-ecommerce-shared/cache"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	"github.com/MamangRust/microservice-ecommerce-test"
+	tests "github.com/MamangRust/microservice-ecommerce-test"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -20,8 +20,8 @@ import (
 
 type OrderItemGapiTestSuite struct {
 	tests.BaseTestSuite
-	queryClient   pb.OrderItemQueryServiceClient
-	commandClient pb.OrderItemCommandServiceClient
+	queryClient   pb_order_item.OrderItemQueryServiceClient
+	commandClient pb_order_item.OrderItemCommandServiceClient
 }
 
 func (s *OrderItemGapiTestSuite) SetupSuite() {
@@ -60,14 +60,14 @@ func (s *OrderItemGapiTestSuite) SetupSuite() {
 
 	// Server
 	server := grpc.NewServer()
-	pb.RegisterOrderItemQueryServiceServer(server, handler.OrderItemQuery)
-	pb.RegisterOrderItemCommandServiceServer(server, handler.OrderItemCommand)
+	pb_order_item.RegisterOrderItemQueryServiceServer(server, handler.OrderItemQuery)
+	pb_order_item.RegisterOrderItemCommandServiceServer(server, handler.OrderItemCommand)
 
 	addr := s.RegisterServer(server)
 	conn := s.GetConnection(addr)
 
-	s.queryClient = pb.NewOrderItemQueryServiceClient(conn)
-	s.commandClient = pb.NewOrderItemCommandServiceClient(conn)
+	s.queryClient = pb_order_item.NewOrderItemQueryServiceClient(conn)
+	s.commandClient = pb_order_item.NewOrderItemCommandServiceClient(conn)
 }
 
 func (s *OrderItemGapiTestSuite) TestOrderItemGapiLifecycle() {
@@ -81,7 +81,7 @@ func (s *OrderItemGapiTestSuite) TestOrderItemGapiLifecycle() {
 	orderID := s.SeedOrder(ctx, userID, merchantID, productID)
 
 	// 2. Create
-	createRes, err := s.commandClient.CreateOrderItem(ctx, &pb.CreateOrderItemRecordRequest{
+	createRes, err := s.commandClient.CreateOrderItem(ctx, &pb_order_item.CreateOrderItemRecordRequest{
 		OrderId:   int32(orderID),
 		ProductId: int32(productID),
 		Quantity:  10,
@@ -92,22 +92,22 @@ func (s *OrderItemGapiTestSuite) TestOrderItemGapiLifecycle() {
 	orderItemID := createRes.Data.Id
 
 	// 3. FindById
-	_, err = s.queryClient.FindAll(ctx, &pb.FindAllOrderItemRequest{Page: 1, PageSize: 10})
+	_, err = s.queryClient.FindAll(ctx, &pb_order_item.FindAllOrderItemRequest{Page: 1, PageSize: 10})
 	s.NoError(err)
 	// s.Equal(int32(10), getRes.Data[0].Quantity)
 
 	// 4. FindAll
-	allRes, err := s.queryClient.FindAll(ctx, &pb.FindAllOrderItemRequest{Page: 1, PageSize: 10})
+	allRes, err := s.queryClient.FindAll(ctx, &pb_order_item.FindAllOrderItemRequest{Page: 1, PageSize: 10})
 	s.NoError(err)
 	s.NotEmpty(allRes.Data)
 
 	// 5. FindByActive
-	activeRes, err := s.queryClient.FindByActive(ctx, &pb.FindAllOrderItemRequest{Page: 1, PageSize: 10})
+	activeRes, err := s.queryClient.FindByActive(ctx, &pb_order_item.FindAllOrderItemRequest{Page: 1, PageSize: 10})
 	s.NoError(err)
 	s.NotEmpty(activeRes.Data)
 
 	// 6. Update
-	updateRes, err := s.commandClient.UpdateOrderItem(ctx, &pb.UpdateOrderItemRecordRequest{
+	updateRes, err := s.commandClient.UpdateOrderItem(ctx, &pb_order_item.UpdateOrderItemRecordRequest{
 		OrderItemId: orderItemID,
 		Quantity:    20,
 		Price:       800,
@@ -116,21 +116,21 @@ func (s *OrderItemGapiTestSuite) TestOrderItemGapiLifecycle() {
 	s.Equal(int32(20), updateRes.Data.Quantity)
 
 	// 7. Trash
-	_, err = s.commandClient.TrashOrderItem(ctx, &pb.FindByIdOrderItemRequest{Id: orderItemID})
+	_, err = s.commandClient.TrashOrderItem(ctx, &pb_order_item.FindByIdOrderItemRequest{Id: orderItemID})
 	s.NoError(err)
 
 	// 8. FindByTrashed
-	trashedRes, err := s.queryClient.FindByTrashed(ctx, &pb.FindAllOrderItemRequest{Page: 1, PageSize: 10})
+	trashedRes, err := s.queryClient.FindByTrashed(ctx, &pb_order_item.FindAllOrderItemRequest{Page: 1, PageSize: 10})
 	s.NoError(err)
 	s.NotEmpty(trashedRes.Data)
 
 	// 9. Restore
-	_, err = s.commandClient.RestoreOrderItem(ctx, &pb.FindByIdOrderItemRequest{Id: orderItemID})
+	_, err = s.commandClient.RestoreOrderItem(ctx, &pb_order_item.FindByIdOrderItemRequest{Id: orderItemID})
 	s.NoError(err)
 
 	// 10. DeletePermanent
-	_, _ = s.commandClient.TrashOrderItem(ctx, &pb.FindByIdOrderItemRequest{Id: orderItemID})
-	_, err = s.commandClient.DeleteOrderItemPermanent(ctx, &pb.FindByIdOrderItemRequest{Id: orderItemID})
+	_, _ = s.commandClient.TrashOrderItem(ctx, &pb_order_item.FindByIdOrderItemRequest{Id: orderItemID})
+	_, err = s.commandClient.DeleteOrderItemPermanent(ctx, &pb_order_item.FindByIdOrderItemRequest{Id: orderItemID})
 	s.NoError(err)
 
 	// 11. RestoreAll

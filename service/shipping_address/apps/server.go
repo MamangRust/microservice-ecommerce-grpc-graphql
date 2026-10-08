@@ -1,6 +1,7 @@
 package apps
 
 import (
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/shipping_address"
 	"github.com/MamangRust/microservice-ecommerce-grpc-shipping-address/cache"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-shipping-address/database/schema"
 	"github.com/MamangRust/microservice-ecommerce-grpc-shipping-address/handler"
@@ -8,7 +9,6 @@ import (
 	"github.com/MamangRust/microservice-ecommerce-grpc-shipping-address/service"
 	"github.com/MamangRust/microservice-ecommerce-pkg/server"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	"google.golang.org/grpc"
 )
 
@@ -37,8 +37,8 @@ func NewServer(cfg *server.Config) (*server.GRPCServer, error) {
 	})
 
 	srv.RegisterServices = func(gs *grpc.Server) {
-		pb.RegisterShippingQueryServiceServer(gs, h.ShippingQuery)
-		pb.RegisterShippingCommandServiceServer(gs, h.ShippingCommand)
+		pb_shipping_address.RegisterShippingQueryServiceServer(gs, h.ShippingQuery)
+		pb_shipping_address.RegisterShippingCommandServiceServer(gs, h.ShippingCommand)
 	}
 
 	return srv, nil

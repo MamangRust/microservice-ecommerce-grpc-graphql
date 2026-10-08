@@ -7,12 +7,12 @@ package graph
 import (
 	"context"
 
+	mycontext "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/context"
+	graphqlerror "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/errors"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/cart"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	sharedErrors "github.com/MamangRust/microservice-ecommerce-shared/errors"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	mycontext "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/context"
-	graphqlerror "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/errors"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
 )
 
 // CreateCart is the resolver for the createCart field.
@@ -29,7 +29,7 @@ func (r *mutationResolver) CreateCart(ctx context.Context, input model.CreateCar
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewValidationError(validations))
 		}
 
-		reqPb := &pb.CreateCartRequest{
+		reqPb := &pb_cart.CreateCartRequest{
 			Quantity:  int32(req.Quantity),
 			ProductId: int32(req.ProductID),
 			UserId:    int32(req.UserID),
@@ -55,7 +55,7 @@ func (r *mutationResolver) DeleteCart(ctx context.Context, input model.DeleteCar
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("id is required"))
 		}
 
-		reqPb := &pb.DeleteCartRequest{
+		reqPb := &pb_cart.DeleteCartRequest{
 			CartId: int32(id),
 			UserId: int32(input.UserID),
 		}
@@ -84,7 +84,7 @@ func (r *mutationResolver) DeleteAllCarts(ctx context.Context, input model.Delet
 			return nil, sharedErrors.NewBadRequestError("invalid request: user ID cannot be zero")
 		}
 
-		req := &pb.DeleteAllCartRequest{
+		req := &pb_cart.DeleteAllCartRequest{
 			UserId:  int32(uid),
 			CartIds: cartIDs,
 		}
@@ -136,7 +136,7 @@ func (r *queryResolver) FindAllCarts(ctx context.Context, input model.FindAllCar
 			return cached, nil
 		}
 
-		req := &pb.FindAllCartRequest{
+		req := &pb_cart.FindAllCartRequest{
 			UserId:   userID,
 			Page:     page,
 			PageSize: pageSize,

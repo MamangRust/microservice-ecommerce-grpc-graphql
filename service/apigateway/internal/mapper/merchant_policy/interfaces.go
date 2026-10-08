@@ -1,16 +1,17 @@
 package merchant_policygraphqlmapper
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_policy"
 )
 
 type MerchantPolicyGraphqlMapper interface {
-	ToGraphqlResponseMerchantPolicyDelete(res *pb.ApiResponseMerchantDelete) *model.APIResponseMerchantPolicyDelete
-	ToGraphqlResponseMerchantPolicyAll(res *pb.ApiResponseMerchantAll) *model.APIResponseMerchantPolicyAll
-	ToGraphqlResponseMerchantPolicy(res *pb.ApiResponseMerchantPolicies) *model.APIResponseMerchantPolicy
-	ToGraphqlResponseMerchantPolicyDeleteAt(res *pb.ApiResponseMerchantPoliciesDeleteAt) *model.APIResponseMerchantPolicyDeleteAt
-	ToGraphqlResponsesMerchantPolicy(res *pb.ApiResponsesMerchantPolicies) *model.APIResponsesMerchantPolicy
-	ToGraphqlResponsePaginationMerchantPolicyDeleteAt(res *pb.ApiResponsePaginationMerchantPoliciesDeleteAt) *model.APIResponsePaginationMerchantPolicyDeleteAt
-	ToGraphqlResponsePaginationMerchantPolicy(res *pb.ApiResponsePaginationMerchantPolicies) *model.APIResponsePaginationMerchantPolicy
+	ToGraphqlResponseMerchantPolicyDelete(res *pb_merchant.ApiResponseMerchantDelete) *model.APIResponseMerchantPolicyDelete
+	ToGraphqlResponseMerchantPolicyAll(res *pb_merchant.ApiResponseMerchantAll) *model.APIResponseMerchantPolicyAll
+	ToGraphqlResponseMerchantPolicy(res *pb_merchant_policy.ApiResponseMerchantPolicies) *model.APIResponseMerchantPolicy
+	ToGraphqlResponseMerchantPolicyDeleteAt(res *pb_merchant_policy.ApiResponseMerchantPoliciesDeleteAt) *model.APIResponseMerchantPolicyDeleteAt
+	ToGraphqlResponsesMerchantPolicy(res *pb_merchant_policy.ApiResponsesMerchantPolicies) *model.APIResponsesMerchantPolicy
+	ToGraphqlResponsePaginationMerchantPolicyDeleteAt(res *pb_merchant_policy.ApiResponsePaginationMerchantPoliciesDeleteAt) *model.APIResponsePaginationMerchantPolicyDeleteAt
+	ToGraphqlResponsePaginationMerchantPolicy(res *pb_merchant_policy.ApiResponsePaginationMerchantPolicies) *model.APIResponsePaginationMerchantPolicy
 }

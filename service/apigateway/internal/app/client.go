@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/99designs/gqlgen/graphql/handler"
@@ -14,18 +15,41 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/lru"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
+	graph "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/handler"
+	graphqlmapper "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/mapper"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/middlewares"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/auth"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/banner"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/cart"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/category"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_award"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_business"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_detail"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_policy"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_social_link"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/order"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/order_item"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/product"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/review"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/review_detail"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/role"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/shipping_address"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/slider"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/transaction"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/user"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/user_role"
 	"github.com/MamangRust/microservice-ecommerce-pkg/auth"
 	"github.com/MamangRust/microservice-ecommerce-pkg/dotenv"
+	"github.com/MamangRust/microservice-ecommerce-pkg/kafka"
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
 	otel_pkg "github.com/MamangRust/microservice-ecommerce-pkg/otel"
 	redisclient "github.com/MamangRust/microservice-ecommerce-pkg/redis"
 	"github.com/MamangRust/microservice-ecommerce-pkg/upload_image"
 	sharedcache "github.com/MamangRust/microservice-ecommerce-shared/cache"
 	sharedobservability "github.com/MamangRust/microservice-ecommerce-shared/observability"
-	pb "github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graph "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/handler"
-	graphqlmapper "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/mapper"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/middlewares"
+	"github.com/go-chi/chi/v5"
+	"github.com/grafana/pyroscope-go"
 	"github.com/spf13/viper"
 	"github.com/vektah/gqlparser/v2/ast"
 	"go.uber.org/zap"
@@ -207,8 +231,52 @@ func getEnvOrDefault(key, defaultValue string) string {
 	return value
 }
 
+func getEnvIntOrDefault(key string, defaultValue int) int {
+	value, exists := os.LookupEnv(key)
+	if !exists || value == "" {
+		return defaultValue
+	}
+
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return defaultValue
+	}
+
+	return parsed
+}
+
+// initPyroscope wires continuous profiling when PYROSCOPE_SERVER is configured.
+// Without the env var the gateway keeps running unprofiled instead of failing
+// to boot.
+func initPyroscope() error {
+	server := os.Getenv("PYROSCOPE_SERVER")
+	if server == "" {
+		return nil
+	}
+
+	_, err := pyroscope.Start(pyroscope.Config{
+		ApplicationName: "apigateway",
+		ServerAddress:   server,
+		ProfileTypes: []pyroscope.ProfileType{
+			pyroscope.ProfileCPU,
+			pyroscope.ProfileAllocObjects,
+			pyroscope.ProfileAllocSpace,
+			pyroscope.ProfileInuseObjects,
+			pyroscope.ProfileInuseSpace,
+		},
+		Tags: map[string]string{
+			"service": "apigateway",
+			"env":     os.Getenv("ENV"),
+			"version": os.Getenv("VERSION"),
+		},
+	})
+
+	return err
+}
+
 type Client struct {
 	Logger logger.LoggerInterface
+	Server *http.Server
 }
 
 func RunClient() (*Client, func(), error) {
@@ -239,6 +307,10 @@ func RunClient() (*Client, func(), error) {
 		return nil, nil, fmt.Errorf("failed to create logger: %w", err)
 	}
 
+	if err := initPyroscope(); err != nil {
+		log.Warn("Failed to initialize pyroscope", zap.Error(err))
+	}
+
 	log.Debug("Creating gRPC connections...")
 	conns, err := createServiceConnections(addresses, log)
 	if err != nil {
@@ -262,7 +334,7 @@ func RunClient() (*Client, func(), error) {
 		MinIdleConns: 3,
 	})
 
-	if err := myredis.Ping(ctx).Err(); err != nil {
+	if err := myredis.Client.Ping(ctx).Err(); err != nil {
 		log.Fatal("Failed to ping redis", zap.Error(err))
 	}
 
@@ -270,57 +342,59 @@ func RunClient() (*Client, func(), error) {
 	if err != nil {
 		log.Error("Failed to initialize cache metrics for apigateway cache store", zap.Error(err))
 	}
-	store := sharedcache.NewCacheStore(myredis, log, cacheMetrics)
+	store := sharedcache.NewCacheStore(myredis.Client, log, cacheMetrics)
 
 	imageUpload := upload_image.NewImageUpload(log)
 
 	graphqlMapper := graphqlmapper.NewGraphqlMapper()
 
 	grpcClients := &graph.GRPCClients{
-		AuthClient:                       pb.NewAuthServiceClient(conns.AuthClient),
-		RoleCommandClient:                pb.NewRoleCommandServiceClient(conns.RoleClient),
-		RoleQueryClient:                  pb.NewRoleQueryServiceClient(conns.RoleClient),
-		UserCommandClient:                pb.NewUserCommandServiceClient(conns.UserClient),
-		UserQueryClient:                  pb.NewUserQueryServiceClient(conns.UserClient),
-		BannerCommandClient:              pb.NewBannerCommandServiceClient(conns.BannerClient),
-		BannerQueryClient:                pb.NewBannerQueryServiceClient(conns.BannerClient),
-		CartCommandClient:                pb.NewCartCommandServiceClient(conns.CartClient),
-		CartQueryClient:                  pb.NewCartQueryServiceClient(conns.CartClient),
-		CategoryCommandClient:            pb.NewCategoryCommandServiceClient(conns.CategoryClient),
-		CategoryQueryClient:              pb.NewCategoryQueryServiceClient(conns.CategoryClient),
-		CategoryStatsClient:              pb.NewCategoryStatsServiceClient(conns.StatsReaderClient),
-		CategoryStatsByMerchantClient:    pb.NewCategoryStatsByMerchantServiceClient(conns.StatsReaderClient),
-		CategoryStatsByIdClient:          pb.NewCategoryStatsByIdServiceClient(conns.StatsReaderClient),
-		MerchantCommandClient:            pb.NewMerchantCommandServiceClient(conns.MerchantClient),
-		MerchantQueryClient:              pb.NewMerchantQueryServiceClient(conns.MerchantClient),
-		MerchantAwardCommandClient:       pb.NewMerchantAwardCommandServiceClient(conns.MerchantAwardClient),
-		MerchantAwardQueryClient:         pb.NewMerchantAwardQueryServiceClient(conns.MerchantAwardClient),
-		MerchantBusinessCommandClient:    pb.NewMerchantBusinessCommandServiceClient(conns.MerchantBusinessClient),
-		MerchantBusinessQueryClient:      pb.NewMerchantBusinessQueryServiceClient(conns.MerchantBusinessClient),
-		MerchantDetailCommandClient:      pb.NewMerchantDetailCommandServiceClient(conns.MerchantDetailClient),
-		MerchantDetailQueryClient:        pb.NewMerchantDetailQueryServiceClient(conns.MerchantDetailClient),
-		MerchantPolicyCommandClient:      pb.NewMerchantPolicyCommandServiceClient(conns.MerchantPolicyClient),
-		MerchantPolicyQueryClient:        pb.NewMerchantPolicyQueryServiceClient(conns.MerchantPolicyClient),
-		MerchantSocialLinkClient:         pb.NewMerchantSocialCommandServiceClient(conns.MerchantSocialLinkClient),
-		OrderCommandClient:               pb.NewOrderCommandServiceClient(conns.OrderClient),
-		OrderQueryClient:                 pb.NewOrderQueryServiceClient(conns.OrderClient),
-		OrderStatsClient:                 pb.NewOrderStatsServiceClient(conns.StatsReaderClient),
-		OrderItemCommandClient:           pb.NewOrderItemCommandServiceClient(conns.OrderItemClient),
-		OrderItemQueryClient:             pb.NewOrderItemQueryServiceClient(conns.OrderItemClient),
-		ProductCommandClient:             pb.NewProductCommandServiceClient(conns.ProductClient),
-		ProductQueryClient:               pb.NewProductQueryServiceClient(conns.ProductClient),
-		ReviewCommandClient:              pb.NewReviewCommandServiceClient(conns.ReviewClient),
-		ReviewQueryClient:                pb.NewReviewQueryServiceClient(conns.ReviewClient),
-		ReviewDetailCommandClient:        pb.NewReviewDetailCommandServiceClient(conns.ReviewDetailClient),
-		ReviewDetailQueryClient:          pb.NewReviewDetailQueryServiceClient(conns.ReviewDetailClient),
-		ShippingCommandClient:            pb.NewShippingCommandServiceClient(conns.ShippingClient),
-		ShippingQueryClient:              pb.NewShippingQueryServiceClient(conns.ShippingClient),
-		SliderCommandClient:              pb.NewSliderCommandServiceClient(conns.SliderClient),
-		SliderQueryClient:                pb.NewSliderQueryServiceClient(conns.SliderClient),
-		TransactionCommandClient:         pb.NewTransactionCommandServiceClient(conns.TransactionClient),
-		TransactionQueryClient:           pb.NewTransactionQueryServiceClient(conns.TransactionClient),
-		TransactionStatsClient:           pb.NewTransactionStatsServiceClient(conns.StatsReaderClient),
-		TransactionStatsByMerchantClient: pb.NewTransactionStatsByMerchantServiceClient(conns.StatsReaderClient),
+		AuthClient:                       pb_auth.NewAuthServiceClient(conns.AuthClient),
+		RoleCommandClient:                pb_role.NewRoleCommandServiceClient(conns.RoleClient),
+		RoleQueryClient:                  pb_role.NewRoleQueryServiceClient(conns.RoleClient),
+		UserRoleQueryClient:              pb_user_role.NewUserRoleQueryServiceClient(conns.RoleClient),
+		UserCommandClient:                pb_user.NewUserCommandServiceClient(conns.UserClient),
+		UserQueryClient:                  pb_user.NewUserQueryServiceClient(conns.UserClient),
+		BannerCommandClient:              pb_banner.NewBannerCommandServiceClient(conns.BannerClient),
+		BannerQueryClient:                pb_banner.NewBannerQueryServiceClient(conns.BannerClient),
+		CartCommandClient:                pb_cart.NewCartCommandServiceClient(conns.CartClient),
+		CartQueryClient:                  pb_cart.NewCartQueryServiceClient(conns.CartClient),
+		CategoryCommandClient:            pb_category.NewCategoryCommandServiceClient(conns.CategoryClient),
+		CategoryQueryClient:              pb_category.NewCategoryQueryServiceClient(conns.CategoryClient),
+		CategoryStatsClient:              pb_category.NewCategoryStatsServiceClient(conns.StatsReaderClient),
+		CategoryStatsByMerchantClient:    pb_category.NewCategoryStatsByMerchantServiceClient(conns.StatsReaderClient),
+		CategoryStatsByIdClient:          pb_category.NewCategoryStatsByIdServiceClient(conns.StatsReaderClient),
+		MerchantCommandClient:            pb_merchant.NewMerchantCommandServiceClient(conns.MerchantClient),
+		MerchantQueryClient:              pb_merchant.NewMerchantQueryServiceClient(conns.MerchantClient),
+		MerchantAwardCommandClient:       pb_merchant_award.NewMerchantAwardCommandServiceClient(conns.MerchantAwardClient),
+		MerchantAwardQueryClient:         pb_merchant_award.NewMerchantAwardQueryServiceClient(conns.MerchantAwardClient),
+		MerchantBusinessCommandClient:    pb_merchant_business.NewMerchantBusinessCommandServiceClient(conns.MerchantBusinessClient),
+		MerchantBusinessQueryClient:      pb_merchant_business.NewMerchantBusinessQueryServiceClient(conns.MerchantBusinessClient),
+		MerchantDetailCommandClient:      pb_merchant_detail.NewMerchantDetailCommandServiceClient(conns.MerchantDetailClient),
+		MerchantDetailQueryClient:        pb_merchant_detail.NewMerchantDetailQueryServiceClient(conns.MerchantDetailClient),
+		MerchantPolicyCommandClient:      pb_merchant_policy.NewMerchantPolicyCommandServiceClient(conns.MerchantPolicyClient),
+		MerchantPolicyQueryClient:        pb_merchant_policy.NewMerchantPolicyQueryServiceClient(conns.MerchantPolicyClient),
+		MerchantSocialLinkClient:         pb_merchant_social_link.NewMerchantSocialCommandServiceClient(conns.MerchantSocialLinkClient),
+		OrderCommandClient:               pb_order.NewOrderCommandServiceClient(conns.OrderClient),
+		OrderQueryClient:                 pb_order.NewOrderQueryServiceClient(conns.OrderClient),
+		OrderStatsClient:                 pb_order.NewOrderStatsServiceClient(conns.StatsReaderClient),
+		OrderStatsByMerchantClient:       pb_order.NewOrderStatsByMerchantServiceClient(conns.StatsReaderClient),
+		OrderItemCommandClient:           pb_order_item.NewOrderItemCommandServiceClient(conns.OrderItemClient),
+		OrderItemQueryClient:             pb_order_item.NewOrderItemQueryServiceClient(conns.OrderItemClient),
+		ProductCommandClient:             pb_product.NewProductCommandServiceClient(conns.ProductClient),
+		ProductQueryClient:               pb_product.NewProductQueryServiceClient(conns.ProductClient),
+		ReviewCommandClient:              pb_review.NewReviewCommandServiceClient(conns.ReviewClient),
+		ReviewQueryClient:                pb_review.NewReviewQueryServiceClient(conns.ReviewClient),
+		ReviewDetailCommandClient:        pb_review_detail.NewReviewDetailCommandServiceClient(conns.ReviewDetailClient),
+		ReviewDetailQueryClient:          pb_review_detail.NewReviewDetailQueryServiceClient(conns.ReviewDetailClient),
+		ShippingCommandClient:            pb_shipping_address.NewShippingCommandServiceClient(conns.ShippingClient),
+		ShippingQueryClient:              pb_shipping_address.NewShippingQueryServiceClient(conns.ShippingClient),
+		SliderCommandClient:              pb_slider.NewSliderCommandServiceClient(conns.SliderClient),
+		SliderQueryClient:                pb_slider.NewSliderQueryServiceClient(conns.SliderClient),
+		TransactionCommandClient:         pb_transaction.NewTransactionCommandServiceClient(conns.TransactionClient),
+		TransactionQueryClient:           pb_transaction.NewTransactionQueryServiceClient(conns.TransactionClient),
+		TransactionStatsClient:           pb_transaction.NewTransactionStatsServiceClient(conns.StatsReaderClient),
+		TransactionStatsByMerchantClient: pb_transaction.NewTransactionStatsByMerchantServiceClient(conns.StatsReaderClient),
 	}
 
 	resolver := graph.NewResolver(&graph.Deps{
@@ -329,22 +403,26 @@ func RunClient() (*Client, func(), error) {
 		Mapping:     graphqlMapper,
 		Cache:       store,
 		ImageUpload: imageUpload,
+		Kafka:       kafka.NewKafka(log, []string{viper.GetString("KAFKA_BROKERS")}),
 	})
 
-	port := getEnvOrDefault("CLIENT_PORT", "5000")
+	srv := setupGraphql(tokenManager, resolver, log)
 
 	go func() {
-		log.Info(fmt.Sprintf("🚀 Starting GraphQL server on :%s", port))
-		if err := setupGraphql(tokenManager, resolver, log); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		log.Info(fmt.Sprintf("🚀 Starting GraphQL server on %s", srv.Addr))
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Error("GraphQL server error", zap.Error(err))
 		}
 	}()
 
 	shutdown := func() {
-		_, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
 		log.Info("Shutting down GraphQL API Gateway...")
+		if err := srv.Shutdown(ctx); err != nil {
+			log.Error("HTTP server shutdown error", zap.Error(err))
+		}
 		closeConnections(conns, log)
 
 		if err := telemetry.Shutdown(context.Background()); err != nil {
@@ -356,16 +434,22 @@ func RunClient() (*Client, func(), error) {
 
 	return &Client{
 		Logger: log,
+		Server: srv,
 	}, shutdown, nil
 }
 
-func setupGraphql(token auth.TokenManager, resolver *graph.Resolver, logger logger.LoggerInterface) error {
+func setupGraphql(token auth.TokenManager, resolver *graph.Resolver, logger logger.LoggerInterface) *http.Server {
 	port := getEnvOrDefault("CLIENT_PORT", "5000")
 
 	logger.Debug("Starting GraphQL server", zap.String("port", getEnvOrDefault("CLIENT_PORT", "5000")))
 
 	srv := handler.New(graph.NewExecutableSchema(graph.Config{
 		Resolvers: resolver,
+		// RBAC is enforced per operation by the @hasRole directive, because
+		// every GraphQL operation shares the single POST /query endpoint.
+		Directives: graph.DirectiveRoot{
+			HasRole: middlewares.HasRole(resolver.RoleGraphql.Permission),
+		},
 	}))
 
 	srv.AddTransport(transport.Options{})
@@ -380,13 +464,31 @@ func setupGraphql(token auth.TokenManager, resolver *graph.Resolver, logger logg
 		Cache: lru.New[string](100),
 	})
 
-	http.Handle("/", playground.Handler("GraphQL Playground", "/query"))
-	http.Handle("/query", middlewares.AuthMiddleware(token, logger)(srv))
+	// Zero means "use the package defaults".
+	rateLimiter := middlewares.NewRateLimiter(
+		getEnvIntOrDefault("GATEWAY_RATE_LIMIT_RPS", 0),
+		getEnvIntOrDefault("GATEWAY_RATE_LIMIT_BURST", 0),
+	)
+
+	r := chi.NewRouter()
+
+	r.Get("/", playground.Handler("GraphQL Playground", "/query"))
+
+	// Outermost first: profile labels, then flood protection, then auth.
+	r.Handle("/query", middlewares.PyroscopeMiddleware()(
+		rateLimiter.Middleware(
+			middlewares.AuthMiddleware(token, logger)(srv),
+		),
+	))
 
 	logger.Info("GraphQL Playground running",
 		zap.String("url", "http://localhost:"+port),
 		zap.String("endpoint", "/query"),
 	)
 
-	return http.ListenAndServe(":"+port, nil)
+	return &http.Server{
+		Addr:              ":" + port,
+		Handler:           r,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
 }

@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	dto "github.com/MamangRust/microservice-ecommerce-auth/dto"
+	useradapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/user"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/response"
 )
 
@@ -14,9 +14,9 @@ type IdentityCache interface {
 	GetRefreshToken(ctx context.Context, token string) (string, bool)
 	DeleteRefreshToken(ctx context.Context, token string)
 
-	SetCachedUserInfo(ctx context.Context, user *dto.GetUserByIDRow, expiration time.Duration)
+	SetCachedUserInfo(ctx context.Context, user *useradapter.User, expiration time.Duration)
 
-	GetCachedUserInfo(ctx context.Context, userId string) (*dto.GetUserByIDRow, bool)
+	GetCachedUserInfo(ctx context.Context, userId string) (*useradapter.User, bool)
 
 	DeleteCachedUserInfo(ctx context.Context, userId string)
 }

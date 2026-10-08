@@ -1,8 +1,27 @@
 # Kubernetes Production Deployment
 
-The manifests under `base/` describe the active Java Vert.x services and their
-supporting infrastructure. They are intentionally not a complete cluster
-bootstrap: the following prerequisites must exist before an ArgoCD sync.
+The manifests under `deployments/kubernetes/` are grouped by component category
+(`core/`, `security/`, `database/`, `messaging/`, `cache/`, `observability/`,
+`networking/`, `services/`) and describe the active Java Vert.x services and
+their supporting infrastructure. The root `kustomization.yaml` is the entrypoint
+for `kubectl apply -k deployments/kubernetes`; the production overlay lives in
+`overlays/production/`. They are intentionally not a complete cluster bootstrap:
+the following prerequisites must exist before an ArgoCD sync.
+
+```text
+deployments/kubernetes/
+├── kustomization.yaml            # entrypoint (staging): kubectl apply -k deployments/kubernetes
+├── core/                         # namespace, app-config/app-secrets (ExternalSecret)
+├── security/                     # namespace-level NetworkPolicies (DNS, SMTP)
+├── database/                     # postgres, pgbouncer, postgres-exporter, clickhouse, migrate Job
+├── messaging/                    # kafka
+├── cache/                        # redis
+├── observability/                # prometheus, grafana, loki, jaeger, otel, node-exporter
+├── networking/                   # nginx
+├── services/                     # one folder per service (apigateway … user, stats_reader, stats_writer)
+├── components/image-pull-secret/ # shared imagePullSecrets patch (root + overlay)
+└── overlays/production/          # ArgoCD entrypoint (image pinning, GHCR_OWNER, sync-waves)
+```
 
 ## Required cluster prerequisites
 
@@ -18,7 +37,7 @@ bootstrap: the following prerequisites must exist before an ArgoCD sync.
 3. The `GHCR_DOCKERCONFIGJSON` value must be a valid Docker config JSON with
    `read:packages` access to the GHCR image repo. The image owner is templated:
    it is read from the `app-config` ConfigMap key `GHCR_OWNER`
-   (`deployments/kubernetes/base/common/configsmaps.yaml`) and substituted into
+   (`deployments/kubernetes/core/configmaps.yaml`) and substituted into
    the `<owner>` segment of every image reference by the `replacements` block in
    `overlays/production/kustomization.yaml`. Keep `GHCR_OWNER` equal to
    `github.repository_owner` (lowercase) of the CI repo — on a fork, change only
@@ -28,7 +47,7 @@ bootstrap: the following prerequisites must exist before an ArgoCD sync.
    application Deployments:
 
 ```bash
-kubectl apply --server-side -k deployments/kubernetes/base/common
+kubectl apply --server-side -k deployments/kubernetes/core
 kubectl -n ecommerce get externalsecret app-secrets ghcr-pull-secret
 kubectl -n ecommerce get secret app-secrets ghcr-pull-secret
 ```
@@ -45,7 +64,7 @@ ghcr.io/<owner>/vertx-ecommerce/<service>:latest
 where `<owner>` is `github.repository_owner` (lowercase) and must match the
 `GHCR_OWNER` value in the `app-config` ConfigMap (see prerequisites above).
 
-The base manifests currently use `:latest`, and the production overlay pins an
+The manifests currently use `:latest`, and the production overlay pins an
 immutable tag per release. This pinning is **automated**: after every push
 build, the `update-manifests` job in `.github/workflows/ci.yml` rewrites every
 `newTag` in `overlays/production/kustomization.yaml` to the commit SHA it just
@@ -55,16 +74,16 @@ no longer needed. To verify a pinned tag before rollout, confirm it exists in
 GHCR and perform a server-side dry run against the target cluster:
 
 ```bash
-kubectl apply --server-side --dry-run=server -k deployments/kubernetes/base
-kubectl diff -k deployments/kubernetes/base
+kubectl apply --server-side --dry-run=server -k deployments/kubernetes
+kubectl diff -k deployments/kubernetes
 ```
 
 Do not treat offline `kubectl kustomize` rendering as proof that CRDs,
 ClusterSecretStore, image credentials, or admission policies exist in the
 cluster.
 
-> **Note:** `deployments/kubernetes/base` renders image references with the
+> **Note:** the root `deployments/kubernetes` renders image references with the
 > `__GHCR_OWNER__` placeholder (the real owner is substituted by the
 > `replacements` block in `overlays/production/kustomization.yaml`). Always
-> build/render through the production overlay — do not apply `base/` directly
+> build/render through the production overlay — do not apply the root directly
 > for application workloads.

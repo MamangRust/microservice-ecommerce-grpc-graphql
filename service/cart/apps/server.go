@@ -2,15 +2,20 @@ package apps
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/MamangRust/microservice-ecommerce-grpc-cart/cache"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-cart/database/schema"
 	"github.com/MamangRust/microservice-ecommerce-grpc-cart/handler"
 	"github.com/MamangRust/microservice-ecommerce-grpc-cart/repository"
 	"github.com/MamangRust/microservice-ecommerce-grpc-cart/service"
+	pb_cart "github.com/MamangRust/microservice-ecommerce-grpc-pb/cart"
+	pb_product "github.com/MamangRust/microservice-ecommerce-grpc-pb/product"
+	pb_user "github.com/MamangRust/microservice-ecommerce-grpc-pb/user"
+	"github.com/MamangRust/microservice-ecommerce-pkg/adapter"
+	"github.com/MamangRust/microservice-ecommerce-pkg/resilience"
 	"github.com/MamangRust/microservice-ecommerce-pkg/server"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	pb "github.com/MamangRust/microservice-ecommerce-shared/pb"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -44,10 +49,16 @@ func NewServer(cfg *server.Config) (*server.GRPCServer, error) {
 		return nil, fmt.Errorf("failed to connect to product service: %w", err)
 	}
 
-	userQueryClient := pb.NewUserQueryServiceClient(userConn)
-	productQueryClient := pb.NewProductQueryServiceClient(productConn)
+	guardUser := resilience.NewDependencyGuard("user", 5, 30, 100, 3*time.Second, srv.Logger)
+	guardProduct := resilience.NewDependencyGuard("product", 5, 30, 100, 3*time.Second, srv.Logger)
 
-	repos := repository.NewRepositories(queries, userQueryClient, productQueryClient)
+	repos := repository.NewRepositories(queries,
+		pb_user.NewUserQueryServiceClient(userConn),
+		pb_product.NewProductQueryServiceClient(productConn),
+		repository.GuardOptions{
+		User:    []adapter.GuardOption{adapter.WithDependencyGuard(guardUser)},
+		Product: []adapter.GuardOption{adapter.WithDependencyGuard(guardProduct)},
+	})
 
 	obs, _ := observability.NewObservability("cart-service", srv.Logger)
 	cache := cache.NewMencache(srv.CacheStore)
@@ -62,8 +73,8 @@ func NewServer(cfg *server.Config) (*server.GRPCServer, error) {
 	h := handler.NewHandler(&handler.Deps{Service: svc, Logger: srv.Logger})
 
 	srv.RegisterServices = func(gs *grpc.Server) {
-		pb.RegisterCartQueryServiceServer(gs, h.CartQuery)
-		pb.RegisterCartCommandServiceServer(gs, h.CartCommand)
+		pb_cart.RegisterCartQueryServiceServer(gs, h.CartQuery)
+		pb_cart.RegisterCartCommandServiceServer(gs, h.CartCommand)
 	}
 
 	return srv, nil

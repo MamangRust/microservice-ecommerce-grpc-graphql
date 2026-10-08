@@ -1,7 +1,7 @@
 package merchantapimapper
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/response"
 	paginationapimapper "github.com/MamangRust/microservice-ecommerce-shared/mapper/pagination"
 )
@@ -16,7 +16,7 @@ func NewMerchantQueryResponseMapper() MerchantQueryResponseMapper {
 	}
 }
 
-func (m *merchantQueryResponseMapper) ToResponseMerchant(merchant *pb.MerchantResponse) *response.MerchantResponse {
+func (m *merchantQueryResponseMapper) ToResponseMerchant(merchant *pb_merchant.MerchantResponse) *response.MerchantResponse {
 	return &response.MerchantResponse{
 		ID:           int(merchant.Id),
 		UserID:       int(merchant.UserId),
@@ -31,7 +31,7 @@ func (m *merchantQueryResponseMapper) ToResponseMerchant(merchant *pb.MerchantRe
 	}
 }
 
-func (m *merchantQueryResponseMapper) ToResponsesMerchant(merchants []*pb.MerchantResponse) []*response.MerchantResponse {
+func (m *merchantQueryResponseMapper) ToResponsesMerchant(merchants []*pb_merchant.MerchantResponse) []*response.MerchantResponse {
 	var mappedMerchants []*response.MerchantResponse
 	for _, merchant := range merchants {
 		mappedMerchants = append(mappedMerchants, m.ToResponseMerchant(merchant))
@@ -39,7 +39,7 @@ func (m *merchantQueryResponseMapper) ToResponsesMerchant(merchants []*pb.Mercha
 	return mappedMerchants
 }
 
-func (m *merchantQueryResponseMapper) ToApiResponseMerchant(pbResponse *pb.ApiResponseMerchant) *response.ApiResponseMerchant {
+func (m *merchantQueryResponseMapper) ToApiResponseMerchant(pbResponse *pb_merchant.ApiResponseMerchant) *response.ApiResponseMerchant {
 	return &response.ApiResponseMerchant{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -47,7 +47,7 @@ func (m *merchantQueryResponseMapper) ToApiResponseMerchant(pbResponse *pb.ApiRe
 	}
 }
 
-func (m *merchantQueryResponseMapper) ToApiResponsesMerchant(pbResponse *pb.ApiResponsesMerchant) *response.ApiResponsesMerchant {
+func (m *merchantQueryResponseMapper) ToApiResponsesMerchant(pbResponse *pb_merchant.ApiResponsesMerchant) *response.ApiResponsesMerchant {
 	return &response.ApiResponsesMerchant{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -55,7 +55,7 @@ func (m *merchantQueryResponseMapper) ToApiResponsesMerchant(pbResponse *pb.ApiR
 	}
 }
 
-func (m *merchantQueryResponseMapper) ToApiResponsePaginationMerchant(pbResponse *pb.ApiResponsePaginationMerchant) *response.ApiResponsePaginationMerchant {
+func (m *merchantQueryResponseMapper) ToApiResponsePaginationMerchant(pbResponse *pb_merchant.ApiResponsePaginationMerchant) *response.ApiResponsePaginationMerchant {
 	return &response.ApiResponsePaginationMerchant{
 		Status:     pbResponse.Status,
 		Message:    pbResponse.Message,

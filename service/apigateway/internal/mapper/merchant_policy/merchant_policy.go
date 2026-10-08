@@ -1,9 +1,10 @@
 package merchant_policygraphqlmapper
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphqlmapper "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/mapper/pagination"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
+	graphqlmapper "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/mapper/pagination"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_policy"
 )
 
 type merchantPolicyResponseMapper struct{}
@@ -12,21 +13,21 @@ func NewMerchantPolicyResponseMapper() *merchantPolicyResponseMapper {
 	return &merchantPolicyResponseMapper{}
 }
 
-func (m *merchantPolicyResponseMapper) ToGraphqlResponseMerchantPolicyDelete(res *pb.ApiResponseMerchantDelete) *model.APIResponseMerchantPolicyDelete {
+func (m *merchantPolicyResponseMapper) ToGraphqlResponseMerchantPolicyDelete(res *pb_merchant.ApiResponseMerchantDelete) *model.APIResponseMerchantPolicyDelete {
 	return &model.APIResponseMerchantPolicyDelete{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (m *merchantPolicyResponseMapper) ToGraphqlResponseMerchantPolicyAll(res *pb.ApiResponseMerchantAll) *model.APIResponseMerchantPolicyAll {
+func (m *merchantPolicyResponseMapper) ToGraphqlResponseMerchantPolicyAll(res *pb_merchant.ApiResponseMerchantAll) *model.APIResponseMerchantPolicyAll {
 	return &model.APIResponseMerchantPolicyAll{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (m *merchantPolicyResponseMapper) ToGraphqlResponseMerchantPolicy(res *pb.ApiResponseMerchantPolicies) *model.APIResponseMerchantPolicy {
+func (m *merchantPolicyResponseMapper) ToGraphqlResponseMerchantPolicy(res *pb_merchant_policy.ApiResponseMerchantPolicies) *model.APIResponseMerchantPolicy {
 	return &model.APIResponseMerchantPolicy{
 		Status:  res.Status,
 		Message: res.Message,
@@ -34,7 +35,7 @@ func (m *merchantPolicyResponseMapper) ToGraphqlResponseMerchantPolicy(res *pb.A
 	}
 }
 
-func (m *merchantPolicyResponseMapper) ToGraphqlResponseMerchantPolicyDeleteAt(res *pb.ApiResponseMerchantPoliciesDeleteAt) *model.APIResponseMerchantPolicyDeleteAt {
+func (m *merchantPolicyResponseMapper) ToGraphqlResponseMerchantPolicyDeleteAt(res *pb_merchant_policy.ApiResponseMerchantPoliciesDeleteAt) *model.APIResponseMerchantPolicyDeleteAt {
 	return &model.APIResponseMerchantPolicyDeleteAt{
 		Status:  res.Status,
 		Message: res.Message,
@@ -42,7 +43,7 @@ func (m *merchantPolicyResponseMapper) ToGraphqlResponseMerchantPolicyDeleteAt(r
 	}
 }
 
-func (m *merchantPolicyResponseMapper) ToGraphqlResponsesMerchantPolicy(res *pb.ApiResponsesMerchantPolicies) *model.APIResponsesMerchantPolicy {
+func (m *merchantPolicyResponseMapper) ToGraphqlResponsesMerchantPolicy(res *pb_merchant_policy.ApiResponsesMerchantPolicies) *model.APIResponsesMerchantPolicy {
 	return &model.APIResponsesMerchantPolicy{
 		Status:  res.Status,
 		Message: res.Message,
@@ -50,7 +51,7 @@ func (m *merchantPolicyResponseMapper) ToGraphqlResponsesMerchantPolicy(res *pb.
 	}
 }
 
-func (m *merchantPolicyResponseMapper) ToGraphqlResponsePaginationMerchantPolicyDeleteAt(res *pb.ApiResponsePaginationMerchantPoliciesDeleteAt) *model.APIResponsePaginationMerchantPolicyDeleteAt {
+func (m *merchantPolicyResponseMapper) ToGraphqlResponsePaginationMerchantPolicyDeleteAt(res *pb_merchant_policy.ApiResponsePaginationMerchantPoliciesDeleteAt) *model.APIResponsePaginationMerchantPolicyDeleteAt {
 	return &model.APIResponsePaginationMerchantPolicyDeleteAt{
 		Status:     res.Status,
 		Message:    res.Message,
@@ -59,7 +60,7 @@ func (m *merchantPolicyResponseMapper) ToGraphqlResponsePaginationMerchantPolicy
 	}
 }
 
-func (m *merchantPolicyResponseMapper) ToGraphqlResponsePaginationMerchantPolicy(res *pb.ApiResponsePaginationMerchantPolicies) *model.APIResponsePaginationMerchantPolicy {
+func (m *merchantPolicyResponseMapper) ToGraphqlResponsePaginationMerchantPolicy(res *pb_merchant_policy.ApiResponsePaginationMerchantPolicies) *model.APIResponsePaginationMerchantPolicy {
 	return &model.APIResponsePaginationMerchantPolicy{
 		Status:     res.Status,
 		Message:    res.Message,
@@ -68,7 +69,7 @@ func (m *merchantPolicyResponseMapper) ToGraphqlResponsePaginationMerchantPolicy
 	}
 }
 
-func (m *merchantPolicyResponseMapper) mapResponseMerchantPolicy(merchant *pb.MerchantPoliciesResponse) *model.MerchantPolicyResponse {
+func (m *merchantPolicyResponseMapper) mapResponseMerchantPolicy(merchant *pb_merchant_policy.MerchantPoliciesResponse) *model.MerchantPolicyResponse {
 	return &model.MerchantPolicyResponse{
 		ID:          int32(merchant.Id),
 		MerchantID:  int32(merchant.MerchantId),
@@ -80,7 +81,7 @@ func (m *merchantPolicyResponseMapper) mapResponseMerchantPolicy(merchant *pb.Me
 	}
 }
 
-func (m *merchantPolicyResponseMapper) mapResponsesMerchantPolicy(merchants []*pb.MerchantPoliciesResponse) []*model.MerchantPolicyResponse {
+func (m *merchantPolicyResponseMapper) mapResponsesMerchantPolicy(merchants []*pb_merchant_policy.MerchantPoliciesResponse) []*model.MerchantPolicyResponse {
 	var mappedMerchants []*model.MerchantPolicyResponse
 	for _, merchant := range merchants {
 		mappedMerchants = append(mappedMerchants, m.mapResponseMerchantPolicy(merchant))
@@ -88,7 +89,7 @@ func (m *merchantPolicyResponseMapper) mapResponsesMerchantPolicy(merchants []*p
 	return mappedMerchants
 }
 
-func (m *merchantPolicyResponseMapper) mapResponseMerchantPolicyDeleteAt(merchant *pb.MerchantPoliciesResponseDeleteAt) *model.MerchantPolicyResponseDeleteAt {
+func (m *merchantPolicyResponseMapper) mapResponseMerchantPolicyDeleteAt(merchant *pb_merchant_policy.MerchantPoliciesResponseDeleteAt) *model.MerchantPolicyResponseDeleteAt {
 
 	return &model.MerchantPolicyResponseDeleteAt{
 		ID:          int32(merchant.Id),
@@ -101,7 +102,7 @@ func (m *merchantPolicyResponseMapper) mapResponseMerchantPolicyDeleteAt(merchan
 	}
 }
 
-func (m *merchantPolicyResponseMapper) mapResponsesMerchantPolicyDeleteAt(merchants []*pb.MerchantPoliciesResponseDeleteAt) []*model.MerchantPolicyResponseDeleteAt {
+func (m *merchantPolicyResponseMapper) mapResponsesMerchantPolicyDeleteAt(merchants []*pb_merchant_policy.MerchantPoliciesResponseDeleteAt) []*model.MerchantPolicyResponseDeleteAt {
 	var mappedMerchants []*model.MerchantPolicyResponseDeleteAt
 	for _, merchant := range merchants {
 		mappedMerchants = append(mappedMerchants, m.mapResponseMerchantPolicyDeleteAt(merchant))

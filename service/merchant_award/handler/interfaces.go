@@ -1,11 +1,11 @@
 package handler
 
-import "github.com/MamangRust/microservice-ecommerce-shared/pb"
+import "github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_award"
 
 type MerchantAwardQueryHandler interface {
-	pb.MerchantAwardQueryServiceServer
+	pb_merchant_award.MerchantAwardQueryServiceServer
 }
 
 type MerchantAwardCommandHandler interface {
-	pb.MerchantAwardCommandServiceServer
+	pb_merchant_award.MerchantAwardCommandServiceServer
 }

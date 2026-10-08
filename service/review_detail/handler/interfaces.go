@@ -3,25 +3,26 @@ package handler
 import (
 	"context"
 
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/review"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/review_detail"
 )
 
 type ReviewDetailQueryHandler interface {
-	pb.ReviewDetailQueryServiceServer
+	pb_review_detail.ReviewDetailQueryServiceServer
 }
 
 type ReviewDetailCommandHandler interface {
-	pb.ReviewDetailCommandServiceServer
+	pb_review_detail.ReviewDetailCommandServiceServer
 }
 
 type ReviewDetailHandleGrpc interface {
-	FindAll(ctx context.Context, request *pb.FindAllReviewRequest) (*pb.ApiResponsePaginationReviewDetails, error)
-	FindById(ctx context.Context, request *pb.FindByIdReviewDetailRequest) (*pb.ApiResponseReviewDetail, error)
-	FindByActive(ctx context.Context, request *pb.FindAllReviewRequest) (*pb.ApiResponsePaginationReviewDetailsDeleteAt, error)
-	FindByTrashed(ctx context.Context, request *pb.FindAllReviewRequest) (*pb.ApiResponsePaginationReviewDetailsDeleteAt, error)
-	Create(ctx context.Context, request *pb.CreateReviewDetailRequest) (*pb.ApiResponseReviewDetail, error)
-	Update(ctx context.Context, request *pb.UpdateReviewDetailRequest) (*pb.ApiResponseReviewDetail, error)
-	TrashedReviewDetail(ctx context.Context, request *pb.FindByIdReviewDetailRequest) (*pb.ApiResponseReviewDetailDeleteAt, error)
-	RestoreReviewDetail(ctx context.Context, request *pb.FindByIdReviewDetailRequest) (*pb.ApiResponseReviewDetailDeleteAt, error)
-	DeleteReviewDetailPermanent(ctx context.Context, request *pb.FindByIdReviewDetailRequest) (*pb.ApiResponseReviewDelete, error)
+	FindAll(ctx context.Context, request *pb_review.FindAllReviewRequest) (*pb_review_detail.ApiResponsePaginationReviewDetails, error)
+	FindById(ctx context.Context, request *pb_review_detail.FindByIdReviewDetailRequest) (*pb_review_detail.ApiResponseReviewDetail, error)
+	FindByActive(ctx context.Context, request *pb_review.FindAllReviewRequest) (*pb_review_detail.ApiResponsePaginationReviewDetailsDeleteAt, error)
+	FindByTrashed(ctx context.Context, request *pb_review.FindAllReviewRequest) (*pb_review_detail.ApiResponsePaginationReviewDetailsDeleteAt, error)
+	Create(ctx context.Context, request *pb_review_detail.CreateReviewDetailRequest) (*pb_review_detail.ApiResponseReviewDetail, error)
+	Update(ctx context.Context, request *pb_review_detail.UpdateReviewDetailRequest) (*pb_review_detail.ApiResponseReviewDetail, error)
+	TrashedReviewDetail(ctx context.Context, request *pb_review_detail.FindByIdReviewDetailRequest) (*pb_review_detail.ApiResponseReviewDetailDeleteAt, error)
+	RestoreReviewDetail(ctx context.Context, request *pb_review_detail.FindByIdReviewDetailRequest) (*pb_review_detail.ApiResponseReviewDetailDeleteAt, error)
+	DeleteReviewDetailPermanent(ctx context.Context, request *pb_review_detail.FindByIdReviewDetailRequest) (*pb_review.ApiResponseReviewDelete, error)
 }

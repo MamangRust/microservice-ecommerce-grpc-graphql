@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
+	mencache "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/redis"
 	"github.com/MamangRust/microservice-ecommerce-pkg/kafka"
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/response"
-	mencache "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/redis"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )

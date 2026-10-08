@@ -13,7 +13,6 @@ type RoleQueryRepository interface {
 	FindTrashed(ctx context.Context, req *requests.FindAllRole) ([]*db.GetTrashedRolesRow, error)
 	FindByID(ctx context.Context, role_id int) (*db.Role, error)
 	FindByName(ctx context.Context, name string) (*db.Role, error)
-	FindByUserId(ctx context.Context, user_id int) ([]*db.Role, error)
 }
 
 type RoleCommandRepository interface {
@@ -29,4 +28,5 @@ type RoleCommandRepository interface {
 type UserRoleRepository interface {
 	AssignRoleToUser(ctx context.Context, req *requests.CreateUserRoleRequest) (*db.UserRole, error)
 	RemoveRoleFromUser(ctx context.Context, req *requests.RemoveUserRoleRequest) error
+	FindByUserId(ctx context.Context, user_id int) ([]*db.Role, error)
 }

@@ -3,6 +3,7 @@ package upload_image
 import (
 	"fmt"
 	"io"
+	"encoding/json"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
 
-	"github.com/labstack/echo/v4"
 	"go.uber.org/zap"
 )
 
@@ -28,7 +28,7 @@ func getAllowedList(allowed map[string]bool) string {
 
 type ImageUploads interface {
 	EnsureUploadDirectory(uploadDir string) error
-	ProcessImageUpload(c echo.Context, uploadDir string, file *multipart.FileHeader, isDocument bool) (string, error)
+	ProcessImageUpload(w http.ResponseWriter, uploadDir string, file *multipart.FileHeader, isDocument bool) (string, error)
 	CleanupImageOnFailure(imagePath string)
 	SaveUploadedFile(file *multipart.FileHeader, dst string) error
 }
@@ -54,7 +54,7 @@ func (h *ImageUpload) EnsureUploadDirectory(uploadDir string) error {
 	return nil
 }
 
-func (h *ImageUpload) ProcessImageUpload(c echo.Context, uploadDir string, file *multipart.FileHeader, isDocument bool) (string, error) {
+func (h *ImageUpload) ProcessImageUpload(w http.ResponseWriter, uploadDir string, file *multipart.FileHeader, isDocument bool) (string, error) {
 	var allowedTypes map[string]bool
 	var maxSize int64
 
@@ -76,28 +76,37 @@ func (h *ImageUpload) ProcessImageUpload(c echo.Context, uploadDir string, file 
 	ext := strings.ToLower(filepath.Ext(file.Filename))
 	if !allowedTypes[ext] {
 		allowedList := getAllowedList(allowedTypes)
-		return "", c.JSON(http.StatusBadRequest, response.ErrorResponse{
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(response.ErrorResponse{
 			Status:  "invalid_file_type",
 			Message: fmt.Sprintf("Only %s are allowed", allowedList),
 			Code:    http.StatusBadRequest,
 		})
+		return "", fmt.Errorf("invalid file type")
 	}
 
 	if file.Size > maxSize {
 		sizeMB := float64(maxSize) / (1 << 20)
-		return "", c.JSON(http.StatusBadRequest, response.ErrorResponse{
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(response.ErrorResponse{
 			Status:  "invalid_file_size",
 			Message: fmt.Sprintf("File size must be less than %.0fMB", sizeMB),
 			Code:    http.StatusBadRequest,
 		})
+		return "", fmt.Errorf("invalid file size")
 	}
 
 	if err := h.EnsureUploadDirectory(uploadDir); err != nil {
-		return "", c.JSON(http.StatusInternalServerError, response.ErrorResponse{
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(response.ErrorResponse{
 			Status:  "server_error",
 			Message: "Failed to prepare storage for upload",
 			Code:    http.StatusInternalServerError,
 		})
+		return "", fmt.Errorf("server error")
 	}
 
 	// Gunakan ekstensi yang valid
@@ -109,11 +118,14 @@ func (h *ImageUpload) ProcessImageUpload(c echo.Context, uploadDir string, file 
 			zap.String("path", imagePath),
 			zap.Error(err),
 		)
-		return "", c.JSON(http.StatusInternalServerError, response.ErrorResponse{
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(response.ErrorResponse{
 			Status:  "upload_failed",
 			Message: "Failed to save uploaded file",
 			Code:    http.StatusInternalServerError,
 		})
+		return "", fmt.Errorf("upload failed")
 	}
 
 	h.logger.Debug("Successfully saved uploaded file",

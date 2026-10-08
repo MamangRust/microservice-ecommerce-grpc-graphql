@@ -1,11 +1,11 @@
 package handler
 
-import "github.com/MamangRust/microservice-ecommerce-shared/pb"
+import "github.com/MamangRust/microservice-ecommerce-grpc-pb/product"
 
 type ProductQueryHandler interface {
-	pb.ProductQueryServiceServer
+	pb_product.ProductQueryServiceServer
 }
 
 type ProductCommandHandler interface {
-	pb.ProductCommandServiceServer
+	pb_product.ProductCommandServiceServer
 }

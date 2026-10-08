@@ -6,6 +6,8 @@ import (
 	mencache "github.com/MamangRust/microservice-ecommerce-grpc-cart/cache"
 	"github.com/MamangRust/microservice-ecommerce-grpc-cart/repository"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-cart/database/schema"
+	productadapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/product"
+	useradapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/user"
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	"github.com/MamangRust/microservice-ecommerce-shared/errorhandler"
@@ -17,8 +19,8 @@ import (
 
 type cartCommandService struct {
 	cartCommandRepository  repository.CartCommandRepository
-	productQueryRepository repository.ProductQueryRepository
-	userQueryRepository    repository.UserQueryRepository
+	productQueryRepository productadapter.QueryRepository
+	userQueryRepository    useradapter.QueryRepository
 	mencache               mencache.CartMencache
 	observability          observability.TraceLoggerObservability
 	logger                 logger.LoggerInterface
@@ -26,8 +28,8 @@ type cartCommandService struct {
 
 type CartCommandServiceDeps struct {
 	CartCommandRepository  repository.CartCommandRepository
-	ProductQueryRepository repository.ProductQueryRepository
-	UserQueryRepository    repository.UserQueryRepository
+	ProductQueryRepository productadapter.QueryRepository
+	UserQueryRepository    useradapter.QueryRepository
 	Mencache               mencache.CartMencache
 	Observability          observability.TraceLoggerObservability
 	Logger                 logger.LoggerInterface
@@ -53,7 +55,7 @@ func (s *cartCommandService) Create(ctx context.Context, req *requests.CreateCar
 		end(status)
 	}()
 
-	product, err := s.productQueryRepository.FindById(ctx, req.ProductID)
+	product, err := s.productQueryRepository.FindByID(ctx, req.ProductID)
 	if err != nil {
 		status = "error"
 		return errorhandler.HandleError[*db.Cart](
@@ -69,12 +71,12 @@ func (s *cartCommandService) Create(ctx context.Context, req *requests.CreateCar
 		status = "error"
 		return errorhandler.HandleError[*db.Cart](s.logger, errors.ErrBadRequest.WithMessage("cart quantity must be greater than zero"), method, span)
 	}
-	if product.CountInStock < int32(req.Quantity) {
+	if product.CountStock < int32(req.Quantity) {
 		status = "error"
 		return errorhandler.HandleError[*db.Cart](s.logger, errors.ErrBadRequest.WithMessage("Insufficient product stock"), method, span)
 	}
 
-	_, err = s.userQueryRepository.FindById(ctx, req.UserID)
+	_, err = s.userQueryRepository.FindByID(ctx, req.UserID)
 	if err != nil {
 		status = "error"
 		return errorhandler.HandleError[*db.Cart](
@@ -86,15 +88,8 @@ func (s *cartCommandService) Create(ctx context.Context, req *requests.CreateCar
 		)
 	}
 
-	var imageProduct string
-	if product.ImageProduct != nil {
-		imageProduct = *product.ImageProduct
-	}
-
-	var weight int
-	if product.Weight != nil {
-		weight = int(*product.Weight)
-	}
+	imageProduct := product.ImageProduct
+	weight := int(product.Weight)
 
 	cartRecord := &requests.CartCreateRecord{
 		ProductID:    req.ProductID,

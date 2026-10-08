@@ -1,19 +1,19 @@
 package categorygraphqlmapper
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/category"
 )
 
 type CategoryGraphqlMapper interface {
-	ToGraphqlResponseCategory(res *pb.ApiResponseCategory) *model.APIResponseCategory
-	ToGraphqlResponseCategoryDeleteAt(res *pb.ApiResponseCategoryDeleteAt) *model.APIResponseCategoryDeleteAt
-	ToGraphqlResponseCategoryDelete(res *pb.ApiResponseCategoryDelete) *model.APIResponseCategoryDelete
-	ToGraphqlResponseCategoryAll(res *pb.ApiResponseCategoryAll) *model.APIResponseCategoryAll
-	ToGraphqlResponsePaginationCategoryDeleteAt(res *pb.ApiResponsePaginationCategoryDeleteAt) *model.APIResponsePaginationCategoryDeleteAt
-	ToGraphqlResponsePaginationCategory(res *pb.ApiResponsePaginationCategory) *model.APIResponsePaginationCategory
-	ToGraphqlCategoryMonthlyPrice(res *pb.ApiResponseCategoryMonthPrice) *model.APIResponseCategoryMonthPrice
-	ToGraphqlCategoryYearlyPrice(res *pb.ApiResponseCategoryYearPrice) *model.APIResponseCategoryYearPrice
-	ToGraphqlMonthlyTotalPrice(res *pb.ApiResponseCategoryMonthlyTotalPrice) *model.APIResponseCategoryMonthlyTotalPrice
-	ToGraphqlYearlyTotalPrice(res *pb.ApiResponseCategoryYearlyTotalPrice) *model.APIResponseCategoryYearlyTotalPrice
+	ToGraphqlResponseCategory(res *pb_category.ApiResponseCategory) *model.APIResponseCategory
+	ToGraphqlResponseCategoryDeleteAt(res *pb_category.ApiResponseCategoryDeleteAt) *model.APIResponseCategoryDeleteAt
+	ToGraphqlResponseCategoryDelete(res *pb_category.ApiResponseCategoryDelete) *model.APIResponseCategoryDelete
+	ToGraphqlResponseCategoryAll(res *pb_category.ApiResponseCategoryAll) *model.APIResponseCategoryAll
+	ToGraphqlResponsePaginationCategoryDeleteAt(res *pb_category.ApiResponsePaginationCategoryDeleteAt) *model.APIResponsePaginationCategoryDeleteAt
+	ToGraphqlResponsePaginationCategory(res *pb_category.ApiResponsePaginationCategory) *model.APIResponsePaginationCategory
+	ToGraphqlCategoryMonthlyPrice(res *pb_category.ApiResponseCategoryMonthPrice) *model.APIResponseCategoryMonthPrice
+	ToGraphqlCategoryYearlyPrice(res *pb_category.ApiResponseCategoryYearPrice) *model.APIResponseCategoryYearPrice
+	ToGraphqlMonthlyTotalPrice(res *pb_category.ApiResponseCategoryMonthlyTotalPrice) *model.APIResponseCategoryMonthlyTotalPrice
+	ToGraphqlYearlyTotalPrice(res *pb_category.ApiResponseCategoryYearlyTotalPrice) *model.APIResponseCategoryYearlyTotalPrice
 }

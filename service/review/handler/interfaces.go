@@ -1,16 +1,16 @@
 package handler
 
-import "github.com/MamangRust/microservice-ecommerce-shared/pb"
+import "github.com/MamangRust/microservice-ecommerce-grpc-pb/review"
 
 type ReviewHandleGrpc interface {
-	pb.ReviewQueryServiceServer
-	pb.ReviewCommandServiceServer
+	pb_review.ReviewQueryServiceServer
+	pb_review.ReviewCommandServiceServer
 }
 
 type ReviewQueryHandler interface {
-	pb.ReviewQueryServiceServer
+	pb_review.ReviewQueryServiceServer
 }
 
 type ReviewCommandHandler interface {
-	pb.ReviewCommandServiceServer
+	pb_review.ReviewCommandServiceServer
 }

@@ -6,18 +6,18 @@ import (
 	"errors"
 	"github.com/jackc/pgx/v5"
 
+	productadapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/product"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-review/database/schema"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	review_errors "github.com/MamangRust/microservice-ecommerce-shared/errors/review"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 )
 
 type reviewQueryRepository struct {
-	db             *db.Queries
-	productClient  pb.ProductQueryServiceClient
+	db            *db.Queries
+	productClient productadapter.QueryRepository
 }
 
-func NewReviewQueryRepository(db *db.Queries, productClient pb.ProductQueryServiceClient) *reviewQueryRepository {
+func NewReviewQueryRepository(db *db.Queries, productClient productadapter.QueryRepository) *reviewQueryRepository {
 	return &reviewQueryRepository{
 		db:            db,
 		productClient: productClient,
@@ -65,18 +65,14 @@ func (r *reviewQueryRepository) FindByMerchant(ctx context.Context, req *request
 	// The review service owns no products table (per-service DB split), so the
 	// merchant's product IDs are resolved via the product service gRPC before
 	// querying reviews. Fetch a large page to collect every product ID.
-	productRes, err := r.productClient.FindByMerchant(ctx, &pb.FindAllProductMerchantRequest{
-		MerchantId: int32(req.MerchantID),
-		Page:       1,
-		PageSize:   100000,
-	})
+	productRes, _, err := r.productClient.FindByMerchant(ctx, req.MerchantID, 1, 100000)
 	if err != nil {
 		return nil, review_errors.ErrFindReviewsByMerchant.WithInternal(err)
 	}
 
-	productIDs := make([]int32, 0, len(productRes.Data))
-	for _, p := range productRes.Data {
-		productIDs = append(productIDs, p.Id)
+	productIDs := make([]int32, 0, len(productRes))
+	for _, p := range productRes {
+		productIDs = append(productIDs, p.ProductID)
 	}
 
 	offset := (req.Page - 1) * req.PageSize

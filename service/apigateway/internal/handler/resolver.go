@@ -3,33 +3,57 @@ package graph
 import (
 	errorstd "errors"
 	"fmt"
+	"time"
 
+	apicache "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/cache"
+	graphql "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/mapper"
+	rolepermission "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/permission/role"
+	auth_cache "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/redis/api/auth"
+	banner_cache "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/redis/api/banner"
+	cart_cache "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/redis/api/cart"
+	category_cache "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/redis/api/category"
+	merchant_cache "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/redis/api/merchant"
+	merchantawards_cache "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/redis/api/merchant_awards"
+	merchantbusiness_cache "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/redis/api/merchant_business"
+	merchantdetail_cache "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/redis/api/merchant_detail"
+	merchantpolicies_cache "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/redis/api/merchant_policies"
+	order_cache "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/redis/api/order"
+	orderitem_cache "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/redis/api/order_item"
+	product_cache "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/redis/api/product"
+	review_cache "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/redis/api/review"
+	reviewdetail_cache "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/redis/api/review_detail"
+	role_cache "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/redis/api/role"
+	shippingaddress_cache "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/redis/api/shipping_address"
+	slider_cache "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/redis/api/slider"
+	transaction_cache "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/redis/api/transaction"
+	user_cache "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/redis/api/user"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/auth"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/banner"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/cart"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/category"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_award"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_business"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_detail"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_policy"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_social_link"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/order"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/order_item"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/product"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/review"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/review_detail"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/role"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/shipping_address"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/slider"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/transaction"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/user"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/user_role"
+	"github.com/MamangRust/microservice-ecommerce-pkg/kafka"
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
 	"github.com/MamangRust/microservice-ecommerce-pkg/upload_image"
 	"github.com/MamangRust/microservice-ecommerce-shared/cache"
 	"github.com/MamangRust/microservice-ecommerce-shared/errors"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	pb "github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphql "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/mapper"
-	auth_cache "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/redis/api/auth"
-	banner_cache "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/redis/api/banner"
-	cart_cache "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/redis/api/cart"
-	category_cache "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/redis/api/category"
-	merchant_cache "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/redis/api/merchant"
-	merchantawards_cache "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/redis/api/merchant_awards"
-	merchantbusiness_cache "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/redis/api/merchant_business"
-	merchantdetail_cache "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/redis/api/merchant_detail"
-	merchantpolicies_cache "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/redis/api/merchant_policies"
-	order_cache "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/redis/api/order"
-	orderitem_cache "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/redis/api/order_item"
-	product_cache "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/redis/api/product"
-	review_cache "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/redis/api/review"
-	reviewdetail_cache "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/redis/api/review_detail"
-	role_cache "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/redis/api/role"
-	shippingaddress_cache "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/redis/api/shipping_address"
-	slider_cache "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/redis/api/slider"
-	transaction_cache "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/redis/api/transaction"
-	user_cache "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/redis/api/user"
 	"github.com/go-playground/validator/v10"
 	"google.golang.org/grpc"
 )
@@ -59,7 +83,7 @@ type ServiceConnections struct {
 	MerchantPolicyClient     *grpc.ClientConn
 	ReviewDetailClient       *grpc.ClientConn
 	MerchantSocialLinkClient *grpc.ClientConn
-	StatsReaderClient         *grpc.ClientConn
+	StatsReaderClient        *grpc.ClientConn
 }
 
 type Resolver struct {
@@ -83,54 +107,57 @@ type Resolver struct {
 	ShippingAddressGraphql    *ShippingAddressHandleGraphql
 	SliderGraphql             *SliderHandleGraphql
 	TransactionGraphql        *TransactionHandleGraphql
+	StatsRead                 *StatsReadHandleGraphql
 	ResolverHandle            *resolverHandler
 }
 
 type GRPCClients struct {
-	AuthClient                       pb.AuthServiceClient
-	RoleCommandClient                pb.RoleCommandServiceClient
-	RoleQueryClient                  pb.RoleQueryServiceClient
-	UserCommandClient                pb.UserCommandServiceClient
-	UserQueryClient                  pb.UserQueryServiceClient
-	BannerCommandClient              pb.BannerCommandServiceClient
-	BannerQueryClient                pb.BannerQueryServiceClient
-	CartCommandClient                pb.CartCommandServiceClient
-	CartQueryClient                  pb.CartQueryServiceClient
-	CategoryCommandClient            pb.CategoryCommandServiceClient
-	CategoryQueryClient              pb.CategoryQueryServiceClient
-	CategoryStatsClient              pb.CategoryStatsServiceClient
-	CategoryStatsByMerchantClient    pb.CategoryStatsByMerchantServiceClient
-	CategoryStatsByIdClient          pb.CategoryStatsByIdServiceClient
-	MerchantCommandClient            pb.MerchantCommandServiceClient
-	MerchantQueryClient              pb.MerchantQueryServiceClient
-	MerchantAwardCommandClient       pb.MerchantAwardCommandServiceClient
-	MerchantAwardQueryClient         pb.MerchantAwardQueryServiceClient
-	MerchantBusinessCommandClient    pb.MerchantBusinessCommandServiceClient
-	MerchantBusinessQueryClient      pb.MerchantBusinessQueryServiceClient
-	MerchantDetailCommandClient      pb.MerchantDetailCommandServiceClient
-	MerchantDetailQueryClient        pb.MerchantDetailQueryServiceClient
-	MerchantPolicyCommandClient      pb.MerchantPolicyCommandServiceClient
-	MerchantPolicyQueryClient        pb.MerchantPolicyQueryServiceClient
-	MerchantSocialLinkClient         pb.MerchantSocialCommandServiceClient
-	OrderCommandClient               pb.OrderCommandServiceClient
-	OrderQueryClient                 pb.OrderQueryServiceClient
-	OrderStatsClient                 pb.OrderStatsServiceClient
-	OrderItemCommandClient           pb.OrderItemCommandServiceClient
-	OrderItemQueryClient             pb.OrderItemQueryServiceClient
-	ProductCommandClient             pb.ProductCommandServiceClient
-	ProductQueryClient               pb.ProductQueryServiceClient
-	ReviewCommandClient              pb.ReviewCommandServiceClient
-	ReviewQueryClient                pb.ReviewQueryServiceClient
-	ReviewDetailCommandClient        pb.ReviewDetailCommandServiceClient
-	ReviewDetailQueryClient          pb.ReviewDetailQueryServiceClient
-	ShippingCommandClient            pb.ShippingCommandServiceClient
-	ShippingQueryClient              pb.ShippingQueryServiceClient
-	SliderCommandClient              pb.SliderCommandServiceClient
-	SliderQueryClient                pb.SliderQueryServiceClient
-	TransactionCommandClient         pb.TransactionCommandServiceClient
-	TransactionQueryClient           pb.TransactionQueryServiceClient
-	TransactionStatsClient           pb.TransactionStatsServiceClient
-	TransactionStatsByMerchantClient pb.TransactionStatsByMerchantServiceClient
+	AuthClient                       pb_auth.AuthServiceClient
+	RoleCommandClient                pb_role.RoleCommandServiceClient
+	RoleQueryClient                  pb_role.RoleQueryServiceClient
+	UserRoleQueryClient              pb_user_role.UserRoleQueryServiceClient
+	UserCommandClient                pb_user.UserCommandServiceClient
+	UserQueryClient                  pb_user.UserQueryServiceClient
+	BannerCommandClient              pb_banner.BannerCommandServiceClient
+	BannerQueryClient                pb_banner.BannerQueryServiceClient
+	CartCommandClient                pb_cart.CartCommandServiceClient
+	CartQueryClient                  pb_cart.CartQueryServiceClient
+	CategoryCommandClient            pb_category.CategoryCommandServiceClient
+	CategoryQueryClient              pb_category.CategoryQueryServiceClient
+	CategoryStatsClient              pb_category.CategoryStatsServiceClient
+	CategoryStatsByMerchantClient    pb_category.CategoryStatsByMerchantServiceClient
+	CategoryStatsByIdClient          pb_category.CategoryStatsByIdServiceClient
+	MerchantCommandClient            pb_merchant.MerchantCommandServiceClient
+	MerchantQueryClient              pb_merchant.MerchantQueryServiceClient
+	MerchantAwardCommandClient       pb_merchant_award.MerchantAwardCommandServiceClient
+	MerchantAwardQueryClient         pb_merchant_award.MerchantAwardQueryServiceClient
+	MerchantBusinessCommandClient    pb_merchant_business.MerchantBusinessCommandServiceClient
+	MerchantBusinessQueryClient      pb_merchant_business.MerchantBusinessQueryServiceClient
+	MerchantDetailCommandClient      pb_merchant_detail.MerchantDetailCommandServiceClient
+	MerchantDetailQueryClient        pb_merchant_detail.MerchantDetailQueryServiceClient
+	MerchantPolicyCommandClient      pb_merchant_policy.MerchantPolicyCommandServiceClient
+	MerchantPolicyQueryClient        pb_merchant_policy.MerchantPolicyQueryServiceClient
+	MerchantSocialLinkClient         pb_merchant_social_link.MerchantSocialCommandServiceClient
+	OrderCommandClient               pb_order.OrderCommandServiceClient
+	OrderQueryClient                 pb_order.OrderQueryServiceClient
+	OrderStatsClient                 pb_order.OrderStatsServiceClient
+	OrderStatsByMerchantClient       pb_order.OrderStatsByMerchantServiceClient
+	OrderItemCommandClient           pb_order_item.OrderItemCommandServiceClient
+	OrderItemQueryClient             pb_order_item.OrderItemQueryServiceClient
+	ProductCommandClient             pb_product.ProductCommandServiceClient
+	ProductQueryClient               pb_product.ProductQueryServiceClient
+	ReviewCommandClient              pb_review.ReviewCommandServiceClient
+	ReviewQueryClient                pb_review.ReviewQueryServiceClient
+	ReviewDetailCommandClient        pb_review_detail.ReviewDetailCommandServiceClient
+	ReviewDetailQueryClient          pb_review_detail.ReviewDetailQueryServiceClient
+	ShippingCommandClient            pb_shipping_address.ShippingCommandServiceClient
+	ShippingQueryClient              pb_shipping_address.ShippingQueryServiceClient
+	SliderCommandClient              pb_slider.SliderCommandServiceClient
+	SliderQueryClient                pb_slider.SliderQueryServiceClient
+	TransactionCommandClient         pb_transaction.TransactionCommandServiceClient
+	TransactionQueryClient           pb_transaction.TransactionQueryServiceClient
+	TransactionStatsClient           pb_transaction.TransactionStatsServiceClient
+	TransactionStatsByMerchantClient pb_transaction.TransactionStatsByMerchantServiceClient
 }
 
 type Deps struct {
@@ -139,6 +166,7 @@ type Deps struct {
 	Mapping     *graphql.GraphqlMapper
 	Cache       *cache.CacheStore
 	ImageUpload upload_image.ImageUploads
+	Kafka       *kafka.Kafka
 }
 
 func NewResolver(deps *Deps) *Resolver {
@@ -149,6 +177,18 @@ func NewResolver(deps *Deps) *Resolver {
 
 	resolver := NewResolverHandler(obs, deps.Logger)
 
+	// RBAC for the @hasRole directive: roles are resolved through the Kafka
+	// request-role/response-role handshake against the role service's consumer
+	// and cached in Redis, matching the payment gateway's RolePermission.
+	rolePermission := rolepermission.NewRolePermission(
+		deps.Kafka,
+		"request-role",
+		"response-role",
+		5*time.Second,
+		deps.Logger,
+		apicache.NewRoleCache(deps.Cache),
+	)
+
 	return &Resolver{
 		AuthGraphql: &AuthHandleGraphql{
 			AuthClient: deps.Clients.AuthClient,
@@ -157,11 +197,13 @@ func NewResolver(deps *Deps) *Resolver {
 			Cache:      auth_cache.NewMencache(deps.Cache),
 		},
 		RoleGraphql: &RoleHandleGraphql{
-			RoleCommandClient: deps.Clients.RoleCommandClient,
-			RoleQueryClient:   deps.Clients.RoleQueryClient,
-			Mapping:           deps.Mapping.RoleGraphqlMapper,
-			Logger:            deps.Logger,
-			Cache:             role_cache.NewRoleMencache(deps.Cache),
+			RoleCommandClient:   deps.Clients.RoleCommandClient,
+			RoleQueryClient:     deps.Clients.RoleQueryClient,
+			UserRoleQueryClient: deps.Clients.UserRoleQueryClient,
+			Mapping:             deps.Mapping.RoleGraphqlMapper,
+			Logger:              deps.Logger,
+			Cache:               role_cache.NewRoleMencache(deps.Cache),
+			Permission:          rolePermission,
 		},
 		UserGraphql: &UserHandleGraphql{
 			UserCommandClient: deps.Clients.UserCommandClient,
@@ -185,15 +227,12 @@ func NewResolver(deps *Deps) *Resolver {
 			Cache:             cart_cache.NewCartMencache(deps.Cache),
 		},
 		CategoryGraphql: &CategoryHandleGraphql{
-			CategoryCommandClient:         deps.Clients.CategoryCommandClient,
-			CategoryQueryClient:           deps.Clients.CategoryQueryClient,
-			CategoryStatsClient:           deps.Clients.CategoryStatsClient,
-			CategoryStatsByMerchantClient: deps.Clients.CategoryStatsByMerchantClient,
-			CategoryStatsByIdClient:       deps.Clients.CategoryStatsByIdClient,
-			Mapping:                       deps.Mapping.CategoryGraphqlMapper,
-			Logger:                        deps.Logger,
-			Cache:                         category_cache.NewCategoryMencache(deps.Cache),
-			UploadImage:                   deps.ImageUpload,
+			CategoryCommandClient: deps.Clients.CategoryCommandClient,
+			CategoryQueryClient:   deps.Clients.CategoryQueryClient,
+			Mapping:               deps.Mapping.CategoryGraphqlMapper,
+			Logger:                deps.Logger,
+			Cache:                 category_cache.NewCategoryMencache(deps.Cache),
+			UploadImage:           deps.ImageUpload,
 		},
 		MerchantGraphql: &MerchantHandleGraphql{
 			MerchantCommandClient: deps.Clients.MerchantCommandClient,
@@ -239,7 +278,6 @@ func NewResolver(deps *Deps) *Resolver {
 		OrderGraphql: &OrderHandleGraphql{
 			OrderCommandClient: deps.Clients.OrderCommandClient,
 			OrderQueryClient:   deps.Clients.OrderQueryClient,
-			OrderStatsClient:   deps.Clients.OrderStatsClient,
 			Mapping:            deps.Mapping.OrderGraphqlMapper,
 			Logger:             deps.Logger,
 			Cache:              order_cache.OrderNewMencache(deps.Cache),
@@ -289,96 +327,107 @@ func NewResolver(deps *Deps) *Resolver {
 			Cache:               slider_cache.NewSliderMencache(deps.Cache),
 		},
 		TransactionGraphql: &TransactionHandleGraphql{
-			TransactionCommandClient:         deps.Clients.TransactionCommandClient,
-			TransactionQueryClient:           deps.Clients.TransactionQueryClient,
-			TransactionStatsClient:           deps.Clients.TransactionStatsClient,
-			TransactionStatsByMerchantClient: deps.Clients.TransactionStatsByMerchantClient,
-			Mapping:                          deps.Mapping.TransactionGraphqlMapper,
-			Logger:                           deps.Logger,
-			Cache:                            transaction_cache.NewTransactionMencache(deps.Cache),
+			TransactionCommandClient: deps.Clients.TransactionCommandClient,
+			TransactionQueryClient:   deps.Clients.TransactionQueryClient,
+			Mapping:                  deps.Mapping.TransactionGraphqlMapper,
+			Logger:                   deps.Logger,
+			Cache:                    transaction_cache.NewTransactionMencache(deps.Cache),
+		},
+		StatsRead: &StatsReadHandleGraphql{
+			CategoryStats:              deps.Clients.CategoryStatsClient,
+			CategoryStatsById:          deps.Clients.CategoryStatsByIdClient,
+			CategoryStatsByMerchant:    deps.Clients.CategoryStatsByMerchantClient,
+			OrderStats:                 deps.Clients.OrderStatsClient,
+			OrderStatsByMerchant:       deps.Clients.OrderStatsByMerchantClient,
+			TransactionStats:           deps.Clients.TransactionStatsClient,
+			TransactionStatsByMerchant: deps.Clients.TransactionStatsByMerchantClient,
 		},
 		ResolverHandle: resolver,
 	}
 }
 
 type AuthHandleGraphql struct {
-	AuthClient pb.AuthServiceClient
+	AuthClient pb_auth.AuthServiceClient
 	Mapping    graphql.AuthGraphqlMapper
 	Logger     logger.LoggerInterface
 	Cache      auth_cache.AuthMencache
 }
 
 type RoleHandleGraphql struct {
-	RoleCommandClient pb.RoleCommandServiceClient
-	RoleQueryClient   pb.RoleQueryServiceClient
-	Mapping           graphql.RoleGraphqlMapper
-	Logger            logger.LoggerInterface
-	Cache             role_cache.RoleMencache
+	RoleCommandClient   pb_role.RoleCommandServiceClient
+	RoleQueryClient     pb_role.RoleQueryServiceClient
+	UserRoleQueryClient pb_user_role.UserRoleQueryServiceClient
+	Mapping             graphql.RoleGraphqlMapper
+	Logger              logger.LoggerInterface
+	Cache               role_cache.RoleMencache
+
+	// Permission validates a user's roles over the role service's gRPC
+	// FindByUserId, caching the result in Redis. The @hasRole directive (and,
+	// for HTTP routes, middlewares.RequireRoles) use it to enforce role based
+	// access.
+	Permission rolepermission.RolePermission
 }
 
 type UserHandleGraphql struct {
-	UserCommandClient pb.UserCommandServiceClient
-	UserQueryClient   pb.UserQueryServiceClient
+	UserCommandClient pb_user.UserCommandServiceClient
+	UserQueryClient   pb_user.UserQueryServiceClient
 	Mapping           graphql.UserGraphqlMapper
 	Logger            logger.LoggerInterface
 	Cache             user_cache.UserMencache
 }
 
 type BannerHandleGraphql struct {
-	BannerCommandClient pb.BannerCommandServiceClient
-	BannerQueryClient   pb.BannerQueryServiceClient
+	BannerCommandClient pb_banner.BannerCommandServiceClient
+	BannerQueryClient   pb_banner.BannerQueryServiceClient
 	Mapping             graphql.BannerGraphqlMapper
 	Logger              logger.LoggerInterface
 	Cache               banner_cache.BannerMencache
 }
 
 type CartHandleGraphql struct {
-	CartCommandClient pb.CartCommandServiceClient
-	CartQueryClient   pb.CartQueryServiceClient
+	CartCommandClient pb_cart.CartCommandServiceClient
+	CartQueryClient   pb_cart.CartQueryServiceClient
 	Mapping           graphql.CartGraphqlMapper
 	Logger            logger.LoggerInterface
 	Cache             cart_cache.CartMencache
 }
 
 type CategoryHandleGraphql struct {
-	CategoryCommandClient         pb.CategoryCommandServiceClient
-	CategoryQueryClient           pb.CategoryQueryServiceClient
-	CategoryStatsClient           pb.CategoryStatsServiceClient
-	CategoryStatsByMerchantClient pb.CategoryStatsByMerchantServiceClient
-	CategoryStatsByIdClient       pb.CategoryStatsByIdServiceClient
-	Mapping                       graphql.CategoryGraphqlMapper
-	UploadImage                   upload_image.ImageUploads
-	Logger                        logger.LoggerInterface
-	Cache                         category_cache.CategoryMencache
+	CategoryCommandClient pb_category.CategoryCommandServiceClient
+	CategoryQueryClient   pb_category.CategoryQueryServiceClient
+	Mapping               graphql.CategoryGraphqlMapper
+	UploadImage           upload_image.ImageUploads
+	Logger                logger.LoggerInterface
+	Cache                 category_cache.CategoryMencache
 }
 
 type MerchantHandleGraphql struct {
-	MerchantCommandClient pb.MerchantCommandServiceClient
-	MerchantQueryClient   pb.MerchantQueryServiceClient
+	MerchantCommandClient pb_merchant.MerchantCommandServiceClient
+	MerchantQueryClient   pb_merchant.MerchantQueryServiceClient
 	Mapping               graphql.MerchantGraphqlMapper
 	Logger                logger.LoggerInterface
 	Cache                 merchant_cache.MerchantMencache
 }
 
 type MerchantAwardHandleGraphql struct {
-	MerchantAwardCommandClient pb.MerchantAwardCommandServiceClient
-	MerchantAwardQueryClient   pb.MerchantAwardQueryServiceClient
+	MerchantAwardCommandClient pb_merchant_award.MerchantAwardCommandServiceClient
+	MerchantAwardQueryClient   pb_merchant_award.MerchantAwardQueryServiceClient
 	Mapping                    graphql.MerchantAwardGraphqlMapper
 	Logger                     logger.LoggerInterface
 	Cache                      merchantawards_cache.MerchantAwardMencache
 }
 
 type MerchantBusinessHandleGraphql struct {
-	MerchantBusinessCommandClient pb.MerchantBusinessCommandServiceClient
-	MerchantBusinessQueryClient   pb.MerchantBusinessQueryServiceClient
+	MerchantBusinessCommandClient pb_merchant_business.MerchantBusinessCommandServiceClient
+	MerchantBusinessQueryClient   pb_merchant_business.MerchantBusinessQueryServiceClient
 	Mapping                       graphql.MerchantBusinessGraphqlMapper
 	Logger                        logger.LoggerInterface
 	Cache                         merchantbusiness_cache.MerchantBusinessMencache
 }
 
 type MerchantDetailHandleGraphql struct {
-	MerchantDetailCommandClient pb.MerchantDetailCommandServiceClient
-	MerchantDetailQueryClient   pb.MerchantDetailQueryServiceClient
+	MerchantDetailCommandClient pb_merchant_detail.MerchantDetailCommandServiceClient
+	MerchantDetailQueryClient   pb_merchant_detail.MerchantDetailQueryServiceClient
 	Mapping                     graphql.MerchantDetailGraphqlMapper
 	UploadImage                 upload_image.ImageUploads
 	Logger                      logger.LoggerInterface
@@ -386,39 +435,38 @@ type MerchantDetailHandleGraphql struct {
 }
 
 type MerchantPolicyHandleGraphql struct {
-	MerchantPolicyCommandClient pb.MerchantPolicyCommandServiceClient
-	MerchantPolicyQueryClient   pb.MerchantPolicyQueryServiceClient
+	MerchantPolicyCommandClient pb_merchant_policy.MerchantPolicyCommandServiceClient
+	MerchantPolicyQueryClient   pb_merchant_policy.MerchantPolicyQueryServiceClient
 	Mapping                     graphql.MerchantPolicyGraphqlMapper
 	Logger                      logger.LoggerInterface
 	Cache                       merchantpolicies_cache.MerchantPoliciesMencache
 }
 
 type MerchantSocialLinkHandleGraphql struct {
-	MerchantSocialLinkClient pb.MerchantSocialCommandServiceClient
+	MerchantSocialLinkClient pb_merchant_social_link.MerchantSocialCommandServiceClient
 	Mapping                  graphql.MerchantSocialLinkGraphqlMapper
 	Logger                   logger.LoggerInterface
 }
 
 type OrderHandleGraphql struct {
-	OrderCommandClient pb.OrderCommandServiceClient
-	OrderQueryClient   pb.OrderQueryServiceClient
-	OrderStatsClient   pb.OrderStatsServiceClient
+	OrderCommandClient pb_order.OrderCommandServiceClient
+	OrderQueryClient   pb_order.OrderQueryServiceClient
 	Mapping            graphql.OrderGraphqlMapper
 	Logger             logger.LoggerInterface
 	Cache              order_cache.OrderMencache
 }
 
 type OrderItemHandleGraphql struct {
-	OrderItemCommandClient pb.OrderItemCommandServiceClient
-	OrderItemQueryClient   pb.OrderItemQueryServiceClient
+	OrderItemCommandClient pb_order_item.OrderItemCommandServiceClient
+	OrderItemQueryClient   pb_order_item.OrderItemQueryServiceClient
 	Mapping                graphql.OrderItemGraphqlMapper
 	Logger                 logger.LoggerInterface
 	Cache                  orderitem_cache.OrderItemMencache
 }
 
 type ProductHandleGraphql struct {
-	ProductCommandClient pb.ProductCommandServiceClient
-	ProductQueryClient   pb.ProductQueryServiceClient
+	ProductCommandClient pb_product.ProductCommandServiceClient
+	ProductQueryClient   pb_product.ProductQueryServiceClient
 	Mapping              graphql.ProductGraphqlMapper
 	UploadImage          upload_image.ImageUploads
 	Logger               logger.LoggerInterface
@@ -426,32 +474,32 @@ type ProductHandleGraphql struct {
 }
 
 type ReviewHandleGraphql struct {
-	ReviewCommandClient pb.ReviewCommandServiceClient
-	ReviewQueryClient   pb.ReviewQueryServiceClient
+	ReviewCommandClient pb_review.ReviewCommandServiceClient
+	ReviewQueryClient   pb_review.ReviewQueryServiceClient
 	Mapping             graphql.ReviewGraphqlMapper
 	Logger              logger.LoggerInterface
 	Cache               review_cache.ReviewMencache
 }
 
 type ReviewDetailHandleGraphql struct {
-	ReviewDetailCommandClient pb.ReviewDetailCommandServiceClient
-	ReviewDetailQueryClient   pb.ReviewDetailQueryServiceClient
+	ReviewDetailCommandClient pb_review_detail.ReviewDetailCommandServiceClient
+	ReviewDetailQueryClient   pb_review_detail.ReviewDetailQueryServiceClient
 	Mapping                   graphql.ReviewDetailGraphqlMapper
 	Logger                    logger.LoggerInterface
 	Cache                     reviewdetail_cache.ReviewDetailMencache
 }
 
 type ShippingAddressHandleGraphql struct {
-	ShippingCommandClient pb.ShippingCommandServiceClient
-	ShippingQueryClient   pb.ShippingQueryServiceClient
+	ShippingCommandClient pb_shipping_address.ShippingCommandServiceClient
+	ShippingQueryClient   pb_shipping_address.ShippingQueryServiceClient
 	Mapping               graphql.ShippingAddresGraphqlMapper
 	Logger                logger.LoggerInterface
 	Cache                 shippingaddress_cache.ShippingAddressMencache
 }
 
 type SliderHandleGraphql struct {
-	SliderCommandClient pb.SliderCommandServiceClient
-	SliderQueryClient   pb.SliderQueryServiceClient
+	SliderCommandClient pb_slider.SliderCommandServiceClient
+	SliderQueryClient   pb_slider.SliderQueryServiceClient
 	Mapping             graphql.SliderGraphqlMapper
 	UploadImage         upload_image.ImageUploads
 	Logger              logger.LoggerInterface
@@ -459,13 +507,21 @@ type SliderHandleGraphql struct {
 }
 
 type TransactionHandleGraphql struct {
-	TransactionCommandClient         pb.TransactionCommandServiceClient
-	TransactionQueryClient           pb.TransactionQueryServiceClient
-	TransactionStatsClient           pb.TransactionStatsServiceClient
-	TransactionStatsByMerchantClient pb.TransactionStatsByMerchantServiceClient
-	Mapping                          graphql.TransactionGraphqlMapper
-	Logger                           logger.LoggerInterface
-	Cache                            transaction_cache.TransactionMencache
+	TransactionCommandClient pb_transaction.TransactionCommandServiceClient
+	TransactionQueryClient   pb_transaction.TransactionQueryServiceClient
+	Mapping                  graphql.TransactionGraphqlMapper
+	Logger                   logger.LoggerInterface
+	Cache                    transaction_cache.TransactionMencache
+}
+
+type StatsReadHandleGraphql struct {
+	CategoryStats              pb_category.CategoryStatsServiceClient
+	CategoryStatsById          pb_category.CategoryStatsByIdServiceClient
+	CategoryStatsByMerchant    pb_category.CategoryStatsByMerchantServiceClient
+	OrderStats                 pb_order.OrderStatsServiceClient
+	OrderStatsByMerchant       pb_order.OrderStatsByMerchantServiceClient
+	TransactionStats           pb_transaction.TransactionStatsServiceClient
+	TransactionStatsByMerchant pb_transaction.TransactionStatsByMerchantServiceClient
 }
 
 func (h *Resolver) handleGraphQLError(err error, operation string) *errors.AppError {

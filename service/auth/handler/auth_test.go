@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"testing"
 
-	dto "github.com/MamangRust/microservice-ecommerce-auth/dto"
 	"github.com/MamangRust/microservice-ecommerce-auth/service"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/auth"
+	useradapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/user"
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/response"
 	sharederrors "github.com/MamangRust/microservice-ecommerce-shared/errors"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -46,7 +46,7 @@ func (s passwordResetServiceStub) VerifyCode(ctx context.Context, code string) (
 
 type registrationServiceStub struct{}
 
-func (registrationServiceStub) Register(context.Context, *requests.RegisterRequest) (*dto.CreateUserRow, error) {
+func (registrationServiceStub) Register(context.Context, *requests.RegisterRequest) (*useradapter.User, error) {
 	return nil, nil
 }
 
@@ -62,11 +62,11 @@ func (identifyServiceStub) RefreshToken(context.Context, string) (*response.Toke
 	return nil, nil
 }
 
-func (identifyServiceStub) GetMe(context.Context, int) (*dto.GetUserByIDRow, error) {
+func (identifyServiceStub) GetMe(context.Context, int) (*useradapter.User, error) {
 	return nil, nil
 }
 
-func newAuthHandlerForTest(passwordReset service.PasswordResetService) pb.AuthServiceServer {
+func newAuthHandlerForTest(passwordReset service.PasswordResetService) pb_auth.AuthServiceServer {
 	return NewAuthHandleGrpc(&service.Service{
 		Register:      registrationServiceStub{},
 		Login:         loginServiceStub{},
@@ -84,7 +84,7 @@ func TestAuthHandlerVerifyCode(t *testing.T) {
 		},
 	})
 
-	got, err := handler.VerifyCode(context.Background(), &pb.VerifyCodeRequest{Code: "verify-123"})
+	got, err := handler.VerifyCode(context.Background(), &pb_auth.VerifyCodeRequest{Code: "verify-123"})
 	if err != nil {
 		t.Fatalf("VerifyCode() error = %v", err)
 	}
@@ -105,7 +105,7 @@ func TestAuthHandlerForgotPassword(t *testing.T) {
 		},
 	})
 
-	got, err := handler.ForgotPassword(context.Background(), &pb.ForgotPasswordRequest{Email: "user@example.com"})
+	got, err := handler.ForgotPassword(context.Background(), &pb_auth.ForgotPasswordRequest{Email: "user@example.com"})
 	if err != nil {
 		t.Fatalf("ForgotPassword() error = %v", err)
 	}
@@ -126,7 +126,7 @@ func TestAuthHandlerResetPassword(t *testing.T) {
 		},
 	})
 
-	got, err := handler.ResetPassword(context.Background(), &pb.ResetPasswordRequest{
+	got, err := handler.ResetPassword(context.Background(), &pb_auth.ResetPasswordRequest{
 		ResetToken:      "reset-123",
 		Password:        "new-password",
 		ConfirmPassword: "new-password",
@@ -149,29 +149,29 @@ func TestAuthHandlerPasswordResetErrorsBecomeGRPCErrors(t *testing.T) {
 	tests := []struct {
 		name     string
 		wantCode codes.Code
-		call     func(pb.AuthServiceServer) error
+		call     func(pb_auth.AuthServiceServer) error
 	}{
 		{
 			name:     "verify code",
 			wantCode: codes.NotFound,
-			call: func(handler pb.AuthServiceServer) error {
-				_, err := handler.VerifyCode(context.Background(), &pb.VerifyCodeRequest{Code: "bad-code"})
+			call: func(handler pb_auth.AuthServiceServer) error {
+				_, err := handler.VerifyCode(context.Background(), &pb_auth.VerifyCodeRequest{Code: "bad-code"})
 				return err
 			},
 		},
 		{
 			name:     "forgot password",
 			wantCode: codes.NotFound,
-			call: func(handler pb.AuthServiceServer) error {
-				_, err := handler.ForgotPassword(context.Background(), &pb.ForgotPasswordRequest{Email: "missing@example.com"})
+			call: func(handler pb_auth.AuthServiceServer) error {
+				_, err := handler.ForgotPassword(context.Background(), &pb_auth.ForgotPasswordRequest{Email: "missing@example.com"})
 				return err
 			},
 		},
 		{
 			name:     "reset password",
 			wantCode: codes.InvalidArgument,
-			call: func(handler pb.AuthServiceServer) error {
-				_, err := handler.ResetPassword(context.Background(), &pb.ResetPasswordRequest{ResetToken: "bad-token"})
+			call: func(handler pb_auth.AuthServiceServer) error {
+				_, err := handler.ResetPassword(context.Background(), &pb_auth.ResetPasswordRequest{ResetToken: "bad-token"})
 				return err
 			},
 		},

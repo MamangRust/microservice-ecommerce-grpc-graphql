@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	pb_review_detail "github.com/MamangRust/microservice-ecommerce-grpc-pb/review_detail"
 	detail_cache "github.com/MamangRust/microservice-ecommerce-grpc-review-detail/cache"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-review-detail/database/schema"
 	detail_handler "github.com/MamangRust/microservice-ecommerce-grpc-review-detail/handler"
@@ -11,16 +12,15 @@ import (
 	detail_service "github.com/MamangRust/microservice-ecommerce-grpc-review-detail/service"
 	"github.com/MamangRust/microservice-ecommerce-shared/cache"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	"github.com/MamangRust/microservice-ecommerce-test"
+	tests "github.com/MamangRust/microservice-ecommerce-test"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 )
 
 type ReviewDetailGapiTestSuite struct {
 	tests.BaseTestSuite
-	queryClient   pb.ReviewDetailQueryServiceClient
-	commandClient pb.ReviewDetailCommandServiceClient
+	queryClient   pb_review_detail.ReviewDetailQueryServiceClient
+	commandClient pb_review_detail.ReviewDetailCommandServiceClient
 }
 
 func (s *ReviewDetailGapiTestSuite) SetupSuite() {
@@ -60,14 +60,14 @@ func (s *ReviewDetailGapiTestSuite) SetupSuite() {
 
 	// Server
 	server := grpc.NewServer()
-	pb.RegisterReviewDetailQueryServiceServer(server, handler.ReviewDetailQuery)
-	pb.RegisterReviewDetailCommandServiceServer(server, handler.ReviewDetailCommand)
+	pb_review_detail.RegisterReviewDetailQueryServiceServer(server, handler.ReviewDetailQuery)
+	pb_review_detail.RegisterReviewDetailCommandServiceServer(server, handler.ReviewDetailCommand)
 
 	addr := s.RegisterServer(server)
 	conn := s.GetConnection(addr)
 
-	s.queryClient = pb.NewReviewDetailQueryServiceClient(conn)
-	s.commandClient = pb.NewReviewDetailCommandServiceClient(conn)
+	s.queryClient = pb_review_detail.NewReviewDetailQueryServiceClient(conn)
+	s.commandClient = pb_review_detail.NewReviewDetailCommandServiceClient(conn)
 }
 
 func (s *ReviewDetailGapiTestSuite) TestGapiLifecycle() {
@@ -81,7 +81,7 @@ func (s *ReviewDetailGapiTestSuite) TestGapiLifecycle() {
 	reviewID := s.SeedReview(ctx, userID, productID)
 
 	// Create Detail
-	createRes, err := s.commandClient.Create(ctx, &pb.CreateReviewDetailRequest{
+	createRes, err := s.commandClient.Create(ctx, &pb_review_detail.CreateReviewDetailRequest{
 		ReviewId: int32(reviewID),
 		Type:     "photo",
 		Url:      "http://example.com/image.jpg",
@@ -93,7 +93,7 @@ func (s *ReviewDetailGapiTestSuite) TestGapiLifecycle() {
 	detailID := createRes.Data.Id
 
 	// Get
-	getRes, err := s.queryClient.FindById(ctx, &pb.FindByIdReviewDetailRequest{Id: detailID})
+	getRes, err := s.queryClient.FindById(ctx, &pb_review_detail.FindByIdReviewDetailRequest{Id: detailID})
 	s.NoError(err)
 	s.Equal("GAPI Detail Comment", getRes.Data.Caption)
 }

@@ -4,6 +4,9 @@ import (
 	"context"
 	"testing"
 
+	pb_category "github.com/MamangRust/microservice-ecommerce-grpc-pb/category"
+	pb_merchant "github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
+	pb_product "github.com/MamangRust/microservice-ecommerce-grpc-pb/product"
 	prod_cache "github.com/MamangRust/microservice-ecommerce-grpc-product/cache"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-product/database/schema"
 	prod_handler "github.com/MamangRust/microservice-ecommerce-grpc-product/handler"
@@ -11,7 +14,6 @@ import (
 	prod_service "github.com/MamangRust/microservice-ecommerce-grpc-product/service"
 	"github.com/MamangRust/microservice-ecommerce-shared/cache"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	tests "github.com/MamangRust/microservice-ecommerce-test"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
@@ -22,8 +24,8 @@ import (
 
 type ProductGapiTestSuite struct {
 	tests.BaseTestSuite
-	queryClient   pb.ProductQueryServiceClient
-	commandClient pb.ProductCommandServiceClient
+	queryClient   pb_product.ProductQueryServiceClient
+	commandClient pb_product.ProductCommandServiceClient
 }
 
 func (s *ProductGapiTestSuite) SetupSuite() {
@@ -44,8 +46,9 @@ func (s *ProductGapiTestSuite) SetupSuite() {
 	mencache := prod_cache.NewMencache(cacheStore)
 	repos := prod_repo.NewRepositories(
 		queries,
-		pb.NewCategoryQueryServiceClient(s.Conns["category"]),
-		pb.NewMerchantQueryServiceClient(s.Conns["merchant"]),
+		pb_category.NewCategoryQueryServiceClient(s.Conns["category"]),
+		pb_merchant.NewMerchantQueryServiceClient(s.Conns["merchant"]),
+		prod_repo.GuardOptions{},
 	)
 	svc := prod_service.NewService(&prod_service.Deps{
 		Cache:         mencache,
@@ -62,14 +65,14 @@ func (s *ProductGapiTestSuite) SetupSuite() {
 
 	// Server
 	server := grpc.NewServer()
-	pb.RegisterProductQueryServiceServer(server, handler.ProductQuery)
-	pb.RegisterProductCommandServiceServer(server, handler.ProductCommand)
+	pb_product.RegisterProductQueryServiceServer(server, handler.ProductQuery)
+	pb_product.RegisterProductCommandServiceServer(server, handler.ProductCommand)
 
 	addr := s.RegisterServer(server)
 	conn := s.GetConnection(addr)
 
-	s.queryClient = pb.NewProductQueryServiceClient(conn)
-	s.commandClient = pb.NewProductCommandServiceClient(conn)
+	s.queryClient = pb_product.NewProductQueryServiceClient(conn)
+	s.commandClient = pb_product.NewProductCommandServiceClient(conn)
 }
 
 func (s *ProductGapiTestSuite) TestProductGapiLifecycle() {
@@ -81,7 +84,7 @@ func (s *ProductGapiTestSuite) TestProductGapiLifecycle() {
 	merchID := s.SeedMerchant(ctx, userID)
 
 	// 2. Create
-	createRes, err := s.commandClient.Create(ctx, &pb.CreateProductRequest{
+	createRes, err := s.commandClient.Create(ctx, &pb_product.CreateProductRequest{
 		MerchantId:   int32(merchID),
 		CategoryId:   int32(catID),
 		Name:         "GAPI Item",
@@ -99,22 +102,22 @@ func (s *ProductGapiTestSuite) TestProductGapiLifecycle() {
 	prodID := createRes.Data.Id
 
 	// 3. FindById
-	getRes, err := s.queryClient.FindById(ctx, &pb.FindByIdProductRequest{Id: prodID})
+	getRes, err := s.queryClient.FindById(ctx, &pb_product.FindByIdProductRequest{Id: prodID})
 	s.Require().NoError(err)
 	s.Equal("GAPI Item", getRes.Data.Name)
 
 	// 4. FindAll
-	allRes, err := s.queryClient.FindAll(ctx, &pb.FindAllProductRequest{Page: 1, PageSize: 10})
+	allRes, err := s.queryClient.FindAll(ctx, &pb_product.FindAllProductRequest{Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.NotEmpty(allRes.Data)
 
 	// 5. FindByActive
-	activeRes, err := s.queryClient.FindByActive(ctx, &pb.FindAllProductRequest{Page: 1, PageSize: 10})
+	activeRes, err := s.queryClient.FindByActive(ctx, &pb_product.FindAllProductRequest{Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.NotEmpty(activeRes.Data)
 
 	// 6. Update
-	updateRes, err := s.commandClient.Update(ctx, &pb.UpdateProductRequest{
+	updateRes, err := s.commandClient.Update(ctx, &pb_product.UpdateProductRequest{
 		ProductId:    prodID,
 		MerchantId:   int32(merchID),
 		CategoryId:   int32(catID),
@@ -132,21 +135,21 @@ func (s *ProductGapiTestSuite) TestProductGapiLifecycle() {
 	s.Equal("GAPI Item Updated", updateRes.Data.Name)
 
 	// 7. Trash
-	_, err = s.commandClient.TrashedProduct(ctx, &pb.FindByIdProductRequest{Id: prodID})
+	_, err = s.commandClient.TrashedProduct(ctx, &pb_product.FindByIdProductRequest{Id: prodID})
 	s.Require().NoError(err)
 
 	// 8. FindByTrashed
-	trashedRes, err := s.queryClient.FindByTrashed(ctx, &pb.FindAllProductRequest{Page: 1, PageSize: 10})
+	trashedRes, err := s.queryClient.FindByTrashed(ctx, &pb_product.FindAllProductRequest{Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.NotEmpty(trashedRes.Data)
 
 	// 9. Restore
-	_, err = s.commandClient.RestoreProduct(ctx, &pb.FindByIdProductRequest{Id: prodID})
+	_, err = s.commandClient.RestoreProduct(ctx, &pb_product.FindByIdProductRequest{Id: prodID})
 	s.Require().NoError(err)
 
 	// 10. DeletePermanent
-	_, _ = s.commandClient.TrashedProduct(ctx, &pb.FindByIdProductRequest{Id: prodID})
-	_, err = s.commandClient.DeleteProductPermanent(ctx, &pb.FindByIdProductRequest{Id: prodID})
+	_, _ = s.commandClient.TrashedProduct(ctx, &pb_product.FindByIdProductRequest{Id: prodID})
+	_, err = s.commandClient.DeleteProductPermanent(ctx, &pb_product.FindByIdProductRequest{Id: prodID})
 	s.Require().NoError(err)
 
 	// 11. RestoreAll
@@ -162,7 +165,7 @@ func (s *ProductGapiTestSuite) TestProductGapiNotFound() {
 	ctx := context.Background()
 
 	// FindById with a non-existent ID must map to codes.NotFound (404), not Internal.
-	_, err := s.queryClient.FindById(ctx, &pb.FindByIdProductRequest{Id: 999999})
+	_, err := s.queryClient.FindById(ctx, &pb_product.FindByIdProductRequest{Id: 999999})
 	s.Require().Error(err)
 	st, ok := status.FromError(err)
 	s.Require().True(ok, "expected a gRPC status error")
@@ -173,13 +176,13 @@ func (s *ProductGapiTestSuite) TestProductGapiInvalidID() {
 	ctx := context.Background()
 
 	// Command mutations with id=0 must be rejected as InvalidArgument before any DB work.
-	_, err := s.commandClient.TrashedProduct(ctx, &pb.FindByIdProductRequest{Id: 0})
+	_, err := s.commandClient.TrashedProduct(ctx, &pb_product.FindByIdProductRequest{Id: 0})
 	s.Require().Error(err)
 	st, ok := status.FromError(err)
 	s.Require().True(ok)
 	s.Equal(codes.InvalidArgument, st.Code(), "trash with id=0 must be InvalidArgument, got %v", st.Code())
 
-	_, err = s.commandClient.Update(ctx, &pb.UpdateProductRequest{
+	_, err = s.commandClient.Update(ctx, &pb_product.UpdateProductRequest{
 		Name:         "Invalid",
 		Description:  "Invalid",
 		Price:        1,

@@ -3,6 +3,7 @@ package apps
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/MamangRust/microservice-ecommerce-grpc-merchant/cache"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-merchant/database/schema"
@@ -10,15 +11,17 @@ import (
 	merchantKafka "github.com/MamangRust/microservice-ecommerce-grpc-merchant/kafka"
 	"github.com/MamangRust/microservice-ecommerce-grpc-merchant/repository"
 	"github.com/MamangRust/microservice-ecommerce-grpc-merchant/service"
+	pb_merchant "github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
+	pb_merchant_document "github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_document"
+	pb_user "github.com/MamangRust/microservice-ecommerce-grpc-pb/user"
+	"github.com/MamangRust/microservice-ecommerce-pkg/adapter"
 	"github.com/MamangRust/microservice-ecommerce-pkg/kafka"
 	"github.com/MamangRust/microservice-ecommerce-pkg/outbox"
+	"github.com/MamangRust/microservice-ecommerce-pkg/resilience"
 	"github.com/MamangRust/microservice-ecommerce-pkg/server"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
-
-	pkgresilience "github.com/MamangRust/microservice-ecommerce-pkg/resilience"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
@@ -45,15 +48,18 @@ func NewServer(cfg *server.Config) (*server.GRPCServer, error) {
 	userConn, err := grpc.NewClient(
 		userAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithChainUnaryInterceptor(pkgresilience.NewDependencyGuardInterceptor(srv.Logger).UnaryInterceptor()),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to user service: %w", err)
 	}
 
-	userQueryClient := pb.NewUserQueryServiceClient(userConn)
-
-	repos := repository.NewRepositories(queries, userQueryClient)
+	repos := repository.NewRepositories(queries, pb_user.NewUserQueryServiceClient(userConn),
+		repository.GuardOptions{
+			User: []adapter.GuardOption{
+				adapter.WithDependencyGuard(resilience.NewDependencyGuard("user", 5, 30, 100, 3*time.Second, srv.Logger)),
+			},
+		},
+	)
 	myKafka := kafka.NewKafka(srv.Logger, []string{viper.GetString("KAFKA_BROKERS")})
 	mencache := cache.NewMencache(srv.CacheStore)
 	obs, _ := observability.NewObservability(viper.GetString("merchant-server"), srv.Logger)
@@ -70,8 +76,6 @@ func NewServer(cfg *server.Config) (*server.GRPCServer, error) {
 		Observability: obs,
 	})
 
-	// Start the outbox relay so events committed with the business writes are
-	// published to Kafka with durable retry and dead-letter semantics.
 	go outboxService.Start(srv.Ctx, outbox.OutboxRelayInterval, outbox.OutboxRelayBatchSize)
 
 	h := handler.NewHandler(&handler.Deps{
@@ -84,10 +88,10 @@ func NewServer(cfg *server.Config) (*server.GRPCServer, error) {
 	}
 
 	srv.RegisterServices = func(gs *grpc.Server) {
-		pb.RegisterMerchantQueryServiceServer(gs, h.MerchantQuery)
-		pb.RegisterMerchantCommandServiceServer(gs, h.MerchantCommandHandler)
-		pb.RegisterMerchantDocumentQueryServiceServer(gs, h.MerchantDocumentQuery)
-		pb.RegisterMerchantDocumentCommandServiceServer(gs, h.MerchantDocumentCommand)
+		pb_merchant.RegisterMerchantQueryServiceServer(gs, h.MerchantQuery)
+		pb_merchant.RegisterMerchantCommandServiceServer(gs, h.MerchantCommandHandler)
+		pb_merchant_document.RegisterMerchantDocumentQueryServiceServer(gs, h.MerchantDocumentQuery)
+		pb_merchant_document.RegisterMerchantDocumentCommandServiceServer(gs, h.MerchantDocumentCommand)
 	}
 
 	return srv, nil

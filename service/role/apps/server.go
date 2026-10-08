@@ -1,6 +1,8 @@
 package apps
 
 import (
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/role"
+	pb_user_role "github.com/MamangRust/microservice-ecommerce-grpc-pb/user_role"
 	"github.com/MamangRust/microservice-ecommerce-grpc-role/cache"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-role/database/schema"
 	"github.com/MamangRust/microservice-ecommerce-grpc-role/handler"
@@ -8,7 +10,6 @@ import (
 	"github.com/MamangRust/microservice-ecommerce-grpc-role/service"
 	"github.com/MamangRust/microservice-ecommerce-pkg/server"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	"google.golang.org/grpc"
 )
 
@@ -37,8 +38,10 @@ func NewServer(cfg *server.Config) (*server.GRPCServer, error) {
 	})
 
 	srv.RegisterServices = func(gs *grpc.Server) {
-		pb.RegisterRoleQueryServiceServer(gs, h.RoleQuery)
-		pb.RegisterRoleCommandServiceServer(gs, h.RoleCommand)
+		pb_role.RegisterRoleQueryServiceServer(gs, h.RoleQuery)
+		pb_role.RegisterRoleCommandServiceServer(gs, h.RoleCommand)
+		pb_user_role.RegisterUserRoleQueryServiceServer(gs, h.UserRoleQuery)
+		pb_user_role.RegisterUserRoleCommandServiceServer(gs, h.UserRoleCommand)
 	}
 
 	return srv, nil

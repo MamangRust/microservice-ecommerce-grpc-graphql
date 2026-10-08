@@ -7,10 +7,11 @@ package graph
 import (
 	"context"
 
+	graphqlerror "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/errors"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/review"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/review_detail"
 	sharedErrors "github.com/MamangRust/microservice-ecommerce-shared/errors"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphqlerror "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/errors"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -21,7 +22,7 @@ func (r *mutationResolver) CreateReviewDetail(ctx context.Context, input model.C
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: review ID cannot be zero"))
 		}
 
-		req := &pb.CreateReviewDetailRequest{
+		req := &pb_review_detail.CreateReviewDetailRequest{
 			ReviewId: int32(input.ReviewID),
 			Type:     *input.Type,
 			Url:      *input.URL,
@@ -50,7 +51,7 @@ func (r *mutationResolver) UpdateReviewDetail(ctx context.Context, input model.U
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: review detail ID cannot be zero"))
 		}
 
-		req := &pb.UpdateReviewDetailRequest{
+		req := &pb_review_detail.UpdateReviewDetailRequest{
 			ReviewDetailId: id,
 			Type:           *input.Type,
 			Url:            *input.URL,
@@ -78,7 +79,7 @@ func (r *mutationResolver) TrashedReviewDetail(ctx context.Context, input model.
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: review detail ID cannot be zero"))
 		}
 
-		review, err := r.ReviewDetailGraphql.ReviewDetailCommandClient.TrashedReviewDetail(ctx, &pb.FindByIdReviewDetailRequest{
+		review, err := r.ReviewDetailGraphql.ReviewDetailCommandClient.TrashedReviewDetail(ctx, &pb_review_detail.FindByIdReviewDetailRequest{
 			Id: id,
 		})
 		if err != nil {
@@ -101,7 +102,7 @@ func (r *mutationResolver) RestoreReviewDetail(ctx context.Context, input model.
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: review detail ID cannot be zero"))
 		}
 
-		review, err := r.ReviewDetailGraphql.ReviewDetailCommandClient.RestoreReviewDetail(ctx, &pb.FindByIdReviewDetailRequest{
+		review, err := r.ReviewDetailGraphql.ReviewDetailCommandClient.RestoreReviewDetail(ctx, &pb_review_detail.FindByIdReviewDetailRequest{
 			Id: id,
 		})
 		if err != nil {
@@ -124,7 +125,7 @@ func (r *mutationResolver) DeleteReviewDetailPermanent(ctx context.Context, inpu
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: review detail ID cannot be zero"))
 		}
 
-		res, err := r.ReviewDetailGraphql.ReviewDetailCommandClient.DeleteReviewDetailPermanent(ctx, &pb.FindByIdReviewDetailRequest{
+		res, err := r.ReviewDetailGraphql.ReviewDetailCommandClient.DeleteReviewDetailPermanent(ctx, &pb_review_detail.FindByIdReviewDetailRequest{
 			Id: id,
 		})
 		if err != nil {
@@ -195,7 +196,7 @@ func (r *queryResolver) FindAllReviewDetails(ctx context.Context, input *model.F
 			return data, nil
 		}
 
-		req := &pb.FindAllReviewRequest{
+		req := &pb_review.FindAllReviewRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,
@@ -230,7 +231,7 @@ func (r *queryResolver) FindReviewDetailByID(ctx context.Context, input *model.F
 			return data, nil
 		}
 
-		review, err := r.ReviewDetailGraphql.ReviewDetailQueryClient.FindById(ctx, &pb.FindByIdReviewDetailRequest{
+		review, err := r.ReviewDetailGraphql.ReviewDetailQueryClient.FindById(ctx, &pb_review_detail.FindByIdReviewDetailRequest{
 			Id: int32(id),
 		})
 		if err != nil {
@@ -276,7 +277,7 @@ func (r *queryResolver) FindActiveReviewDetails(ctx context.Context, input *mode
 			return data, nil
 		}
 
-		req := &pb.FindAllReviewRequest{
+		req := &pb_review.FindAllReviewRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,
@@ -326,7 +327,7 @@ func (r *queryResolver) FindTrashedReviewDetails(ctx context.Context, input *mod
 			return data, nil
 		}
 
-		req := &pb.FindAllReviewRequest{
+		req := &pb_review.FindAllReviewRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,

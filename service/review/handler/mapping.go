@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"log"
 
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/review"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-review/database/schema"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
@@ -30,31 +30,31 @@ func (h *reviewHandleGrpc) mapResponse(data interface{}) interface{} {
 	case *db.UpdateReviewRow:
 		return h.mapUpdateReviewRow(v)
 	case []*db.GetReviewsRow:
-		res := make([]*pb.ReviewResponse, len(v))
+		res := make([]*pb_review.ReviewResponse, len(v))
 		for i, r := range v {
 			res[i] = h.mapGetReviewsRow(r)
 		}
 		return res
 	case []*db.GetReviewsActiveRow:
-		res := make([]*pb.ReviewResponseDeleteAt, len(v))
+		res := make([]*pb_review.ReviewResponseDeleteAt, len(v))
 		for i, r := range v {
 			res[i] = h.mapGetReviewsActiveRow(r)
 		}
 		return res
 	case []*db.GetReviewsTrashedRow:
-		res := make([]*pb.ReviewResponseDeleteAt, len(v))
+		res := make([]*pb_review.ReviewResponseDeleteAt, len(v))
 		for i, r := range v {
 			res[i] = h.mapGetReviewsTrashedRow(r)
 		}
 		return res
 	case []*db.GetReviewByProductIdRow:
-		res := make([]*pb.ReviewsDetailResponse, len(v))
+		res := make([]*pb_review.ReviewsDetailResponse, len(v))
 		for i, r := range v {
 			res[i] = h.mapGetReviewByProductIdRow(r)
 		}
 		return res
 	case []*db.GetReviewByMerchantIdRow:
-		res := make([]*pb.ReviewsDetailResponse, len(v))
+		res := make([]*pb_review.ReviewsDetailResponse, len(v))
 		for i, r := range v {
 			res[i] = h.mapGetReviewByMerchantIdRow(r)
 		}
@@ -64,13 +64,13 @@ func (h *reviewHandleGrpc) mapResponse(data interface{}) interface{} {
 	}
 }
 
-func (h *reviewHandleGrpc) mapReview(v *db.Review) *pb.ReviewResponseDeleteAt {
+func (h *reviewHandleGrpc) mapReview(v *db.Review) *pb_review.ReviewResponseDeleteAt {
 	var deletedAt string
 	if v.DeletedAt.Valid {
 		deletedAt = v.DeletedAt.Time.Format("2006-01-02")
 	}
 
-	return &pb.ReviewResponseDeleteAt{
+	return &pb_review.ReviewResponseDeleteAt{
 		Id:        int32(v.ReviewID),
 		UserId:    int32(v.UserID),
 		ProductId: int32(v.ProductID),
@@ -83,8 +83,8 @@ func (h *reviewHandleGrpc) mapReview(v *db.Review) *pb.ReviewResponseDeleteAt {
 	}
 }
 
-func (h *reviewHandleGrpc) mapGetReviewsRow(v *db.GetReviewsRow) *pb.ReviewResponse {
-	return &pb.ReviewResponse{
+func (h *reviewHandleGrpc) mapGetReviewsRow(v *db.GetReviewsRow) *pb_review.ReviewResponse {
+	return &pb_review.ReviewResponse{
 		Id:        int32(v.ReviewID),
 		UserId:    int32(v.UserID),
 		ProductId: int32(v.ProductID),
@@ -96,13 +96,13 @@ func (h *reviewHandleGrpc) mapGetReviewsRow(v *db.GetReviewsRow) *pb.ReviewRespo
 	}
 }
 
-func (h *reviewHandleGrpc) mapGetReviewsActiveRow(v *db.GetReviewsActiveRow) *pb.ReviewResponseDeleteAt {
+func (h *reviewHandleGrpc) mapGetReviewsActiveRow(v *db.GetReviewsActiveRow) *pb_review.ReviewResponseDeleteAt {
 	var deletedAt string
 	if v.DeletedAt.Valid {
 		deletedAt = v.DeletedAt.Time.Format("2006-01-02")
 	}
 
-	return &pb.ReviewResponseDeleteAt{
+	return &pb_review.ReviewResponseDeleteAt{
 		Id:        int32(v.ReviewID),
 		UserId:    int32(v.UserID),
 		ProductId: int32(v.ProductID),
@@ -115,13 +115,13 @@ func (h *reviewHandleGrpc) mapGetReviewsActiveRow(v *db.GetReviewsActiveRow) *pb
 	}
 }
 
-func (h *reviewHandleGrpc) mapGetReviewsTrashedRow(v *db.GetReviewsTrashedRow) *pb.ReviewResponseDeleteAt {
+func (h *reviewHandleGrpc) mapGetReviewsTrashedRow(v *db.GetReviewsTrashedRow) *pb_review.ReviewResponseDeleteAt {
 	var deletedAt string
 	if v.DeletedAt.Valid {
 		deletedAt = v.DeletedAt.Time.Format("2006-01-02")
 	}
 
-	return &pb.ReviewResponseDeleteAt{
+	return &pb_review.ReviewResponseDeleteAt{
 		Id:        int32(v.ReviewID),
 		UserId:    int32(v.UserID),
 		ProductId: int32(v.ProductID),
@@ -134,8 +134,8 @@ func (h *reviewHandleGrpc) mapGetReviewsTrashedRow(v *db.GetReviewsTrashedRow) *
 	}
 }
 
-func (h *reviewHandleGrpc) mapGetReviewByProductIdRow(v *db.GetReviewByProductIdRow) *pb.ReviewsDetailResponse {
-	res := &pb.ReviewsDetailResponse{
+func (h *reviewHandleGrpc) mapGetReviewByProductIdRow(v *db.GetReviewByProductIdRow) *pb_review.ReviewsDetailResponse {
+	res := &pb_review.ReviewsDetailResponse{
 		Id:        int32(v.ReviewID),
 		UserId:    int32(v.UserID),
 		ProductId: int32(v.ProductID),
@@ -157,8 +157,8 @@ func (h *reviewHandleGrpc) mapGetReviewByProductIdRow(v *db.GetReviewByProductId
 	return res
 }
 
-func (h *reviewHandleGrpc) mapGetReviewByMerchantIdRow(v *db.GetReviewByMerchantIdRow) *pb.ReviewsDetailResponse {
-	res := &pb.ReviewsDetailResponse{
+func (h *reviewHandleGrpc) mapGetReviewByMerchantIdRow(v *db.GetReviewByMerchantIdRow) *pb_review.ReviewsDetailResponse {
+	res := &pb_review.ReviewsDetailResponse{
 		Id:        int32(v.ReviewID),
 		UserId:    int32(v.UserID),
 		ProductId: int32(v.ProductID),
@@ -180,8 +180,8 @@ func (h *reviewHandleGrpc) mapGetReviewByMerchantIdRow(v *db.GetReviewByMerchant
 	return res
 }
 
-func (h *reviewHandleGrpc) mapGetReviewByIDRow(v *db.GetReviewByIDRow) *pb.ReviewResponse {
-	return &pb.ReviewResponse{
+func (h *reviewHandleGrpc) mapGetReviewByIDRow(v *db.GetReviewByIDRow) *pb_review.ReviewResponse {
+	return &pb_review.ReviewResponse{
 		Id:        int32(v.ReviewID),
 		UserId:    int32(v.UserID),
 		ProductId: int32(v.ProductID),
@@ -193,8 +193,8 @@ func (h *reviewHandleGrpc) mapGetReviewByIDRow(v *db.GetReviewByIDRow) *pb.Revie
 	}
 }
 
-func (h *reviewHandleGrpc) mapCreateReviewRow(v *db.CreateReviewRow) *pb.ReviewResponse {
-	return &pb.ReviewResponse{
+func (h *reviewHandleGrpc) mapCreateReviewRow(v *db.CreateReviewRow) *pb_review.ReviewResponse {
+	return &pb_review.ReviewResponse{
 		Id:        int32(v.ReviewID),
 		UserId:    int32(v.UserID),
 		ProductId: int32(v.ProductID),
@@ -206,8 +206,8 @@ func (h *reviewHandleGrpc) mapCreateReviewRow(v *db.CreateReviewRow) *pb.ReviewR
 	}
 }
 
-func (h *reviewHandleGrpc) mapUpdateReviewRow(v *db.UpdateReviewRow) *pb.ReviewResponse {
-	return &pb.ReviewResponse{
+func (h *reviewHandleGrpc) mapUpdateReviewRow(v *db.UpdateReviewRow) *pb_review.ReviewResponse {
+	return &pb_review.ReviewResponse{
 		Id:        int32(v.ReviewID),
 		UserId:    int32(v.UserID),
 		ProductId: int32(v.ProductID),
@@ -219,7 +219,7 @@ func (h *reviewHandleGrpc) mapUpdateReviewRow(v *db.UpdateReviewRow) *pb.ReviewR
 	}
 }
 
-func (h *reviewHandleGrpc) mapReviewDetails(reviewDetails interface{}, res *pb.ReviewsDetailResponse) {
+func (h *reviewHandleGrpc) mapReviewDetails(reviewDetails interface{}, res *pb_review.ReviewsDetailResponse) {
 	var details []struct {
 		DetailID  int    `json:"detail_id"`
 		Type      string `json:"type"`
@@ -242,7 +242,7 @@ func (h *reviewHandleGrpc) mapReviewDetails(reviewDetails interface{}, res *pb.R
 
 	if len(details) > 0 {
 		firstDetail := details[0]
-		res.ReviewDetail = &pb.ReviewDetailResponse{
+		res.ReviewDetail = &pb_review.ReviewDetailResponse{
 			Id:        int32(firstDetail.DetailID),
 			Type:      firstDetail.Type,
 			Url:       firstDetail.URL,

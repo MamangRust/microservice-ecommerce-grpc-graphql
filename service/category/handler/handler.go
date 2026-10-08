@@ -2,8 +2,8 @@ package handler
 
 import (
 	"github.com/MamangRust/microservice-ecommerce-grpc-category/service"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/category"
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 )
 
 type Deps struct {
@@ -14,8 +14,8 @@ type Deps struct {
 // F5: legacy OLTP category stats handlers were removed; stats are served by
 // service/stats_reader from ClickHouse.
 type Handler struct {
-	CategoryQuery   pb.CategoryQueryServiceServer
-	CategoryCommand pb.CategoryCommandServiceServer
+	CategoryQuery   pb_category.CategoryQueryServiceServer
+	CategoryCommand pb_category.CategoryCommandServiceServer
 }
 
 func NewHandler(deps *Deps) *Handler {

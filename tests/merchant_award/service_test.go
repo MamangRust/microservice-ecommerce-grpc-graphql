@@ -8,10 +8,10 @@ import (
 	db "github.com/MamangRust/microservice-ecommerce-grpc-merchant_award/database/schema"
 	"github.com/MamangRust/microservice-ecommerce-grpc-merchant_award/repository"
 	"github.com/MamangRust/microservice-ecommerce-grpc-merchant_award/service"
+	pb_merchant "github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
 	"github.com/MamangRust/microservice-ecommerce-shared/cache"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	tests "github.com/MamangRust/microservice-ecommerce-test"
 	"github.com/stretchr/testify/suite"
 )
@@ -37,7 +37,8 @@ func (s *MerchantAwardServiceTestSuite) SetupSuite() {
 	mencache := award_cache.NewMencache(cacheStore)
 	repos := repository.NewRepositories(
 		queries,
-		pb.NewMerchantQueryServiceClient(s.Conns["merchant"]),
+		pb_merchant.NewMerchantQueryServiceClient(s.Conns["merchant"]),
+		repository.GuardOptions{},
 	)
 
 	s.svc = service.NewService(&service.Deps{

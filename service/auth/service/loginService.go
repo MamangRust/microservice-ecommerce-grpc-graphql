@@ -6,6 +6,7 @@ import (
 	mencache "github.com/MamangRust/microservice-ecommerce-auth/cache"
 	"github.com/MamangRust/microservice-ecommerce-auth/repository"
 
+	useradapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/user"
 	"github.com/MamangRust/microservice-ecommerce-pkg/auth"
 	"github.com/MamangRust/microservice-ecommerce-pkg/hash"
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
@@ -24,8 +25,8 @@ type LoginServiceDeps struct {
 	Logger logger.LoggerInterface
 	Hash   hash.HashPassword
 
-	UserRepository repository.UserRepository
-	RefreshToken   repository.RefreshTokenRepository
+	User         useradapter.QueryRepository
+	RefreshToken repository.RefreshTokenRepository
 
 	Token        auth.TokenManager
 	TokenService *tokenService
@@ -38,7 +39,7 @@ type loginService struct {
 	logger   logger.LoggerInterface
 	hash     hash.HashPassword
 
-	user         repository.UserRepository
+	user         useradapter.QueryRepository
 	refreshToken repository.RefreshTokenRepository
 
 	token        auth.TokenManager
@@ -52,7 +53,7 @@ func NewLoginService(params *LoginServiceDeps) *loginService {
 		mencache:      params.Cache,
 		logger:        params.Logger,
 		hash:          params.Hash,
-		user:          params.UserRepository,
+		user:          params.User,
 		refreshToken:  params.RefreshToken,
 		token:         params.Token,
 		tokenService:  params.TokenService,
@@ -79,7 +80,7 @@ func (s *loginService) Login(ctx context.Context, request *requests.AuthRequest)
 		return sharederrorhandler.HandleError[*response.TokenResponse](s.logger, user_errors.ErrAccountLocked, method, span, zap.String("email", request.Email))
 	}
 
-	res, err := s.user.FindByEmailAndVerify(ctx, request.Email)
+	res, err := s.user.FindByEmail(ctx, request.Email)
 	if err != nil {
 		status = "error"
 		return sharederrorhandler.HandleError[*response.TokenResponse](s.logger, err, method, span, zap.String("email", request.Email))

@@ -1,6 +1,7 @@
 package apps
 
 import (
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/slider"
 	"github.com/MamangRust/microservice-ecommerce-grpc-slider/cache"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-slider/database/schema"
 	"github.com/MamangRust/microservice-ecommerce-grpc-slider/handler"
@@ -8,7 +9,6 @@ import (
 	"github.com/MamangRust/microservice-ecommerce-grpc-slider/service"
 	"github.com/MamangRust/microservice-ecommerce-pkg/server"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	"google.golang.org/grpc"
 )
 
@@ -37,8 +37,8 @@ func NewServer(cfg *server.Config) (*server.GRPCServer, error) {
 	})
 
 	srv.RegisterServices = func(gs *grpc.Server) {
-		pb.RegisterSliderQueryServiceServer(gs, h.SliderQuery)
-		pb.RegisterSliderCommandServiceServer(gs, h.SliderCommand)
+		pb_slider.RegisterSliderQueryServiceServer(gs, h.SliderQuery)
+		pb_slider.RegisterSliderCommandServiceServer(gs, h.SliderCommand)
 	}
 
 	return srv, nil

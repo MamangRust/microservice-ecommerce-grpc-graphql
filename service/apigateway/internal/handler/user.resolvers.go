@@ -7,11 +7,11 @@ package graph
 import (
 	"context"
 
+	graphqlerror "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/errors"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/user"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	sharedErrors "github.com/MamangRust/microservice-ecommerce-shared/errors"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphqlerror "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/errors"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -30,7 +30,7 @@ func (r *mutationResolver) CreateUser(ctx context.Context, input model.CreateUse
 		return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewValidationError(validations))
 	}
 
-	req := &pb.CreateUserRequest{
+	req := &pb_user.CreateUserRequest{
 		Firstname:       input.Firstname,
 		Lastname:        input.Lastname,
 		Email:           input.Email,
@@ -88,7 +88,7 @@ func (r *mutationResolver) UpdateUser(ctx context.Context, input model.UpdateUse
 		return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewValidationError(validations))
 	}
 
-	req := &pb.UpdateUserRequest{
+	req := &pb_user.UpdateUserRequest{
 		Id:              id,
 		Firstname:       firstname,
 		Lastname:        lastname,
@@ -114,7 +114,7 @@ func (r *mutationResolver) TrashedUser(ctx context.Context, input model.FindByID
 		return nil, graphqlerror.ErrGraphqlUserInvalidId
 	}
 
-	user, errResp := r.UserGraphql.UserCommandClient.TrashedUser(ctx, &pb.FindByIdUserRequest{Id: id})
+	user, errResp := r.UserGraphql.UserCommandClient.TrashedUser(ctx, &pb_user.FindByIdUserRequest{Id: id})
 	if errResp != nil {
 		return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(errResp)
 	}
@@ -131,7 +131,7 @@ func (r *mutationResolver) RestoreUser(ctx context.Context, input model.FindByID
 		return nil, graphqlerror.ErrGraphqlUserInvalidId
 	}
 
-	user, errResp := r.UserGraphql.UserCommandClient.RestoreUser(ctx, &pb.FindByIdUserRequest{Id: id})
+	user, errResp := r.UserGraphql.UserCommandClient.RestoreUser(ctx, &pb_user.FindByIdUserRequest{Id: id})
 	if errResp != nil {
 		return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(errResp)
 	}
@@ -148,7 +148,7 @@ func (r *mutationResolver) DeleteUserPermanent(ctx context.Context, input model.
 		return nil, graphqlerror.ErrGraphqlUserInvalidId
 	}
 
-	res, errResp := r.UserGraphql.UserCommandClient.DeleteUserPermanent(ctx, &pb.FindByIdUserRequest{Id: id})
+	res, errResp := r.UserGraphql.UserCommandClient.DeleteUserPermanent(ctx, &pb_user.FindByIdUserRequest{Id: id})
 	if errResp != nil {
 		return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(errResp)
 	}
@@ -205,7 +205,7 @@ func (r *queryResolver) FindAllUsers(ctx context.Context, input *model.FindAllUs
 		pageSize = 10
 	}
 
-	res, err := r.UserGraphql.UserQueryClient.FindAll(ctx, &pb.FindAllUserRequest{
+	res, err := r.UserGraphql.UserQueryClient.FindAll(ctx, &pb_user.FindAllUserRequest{
 		Page:     page,
 		PageSize: pageSize,
 		Search:   search,
@@ -226,7 +226,7 @@ func (r *queryResolver) FindByIDUser(ctx context.Context, input model.FindByIDUs
 		return nil, graphqlerror.ErrGraphqlInvalidUserID
 	}
 
-	user, errResp := r.UserGraphql.UserQueryClient.FindById(ctx, &pb.FindByIdUserRequest{
+	user, errResp := r.UserGraphql.UserQueryClient.FindById(ctx, &pb_user.FindByIdUserRequest{
 		Id: id,
 	})
 	if errResp != nil {
@@ -261,7 +261,7 @@ func (r *queryResolver) FindByActiveUsers(ctx context.Context, input *model.Find
 		pageSize = 10
 	}
 
-	res, err := r.UserGraphql.UserQueryClient.FindByActive(ctx, &pb.FindAllUserRequest{
+	res, err := r.UserGraphql.UserQueryClient.FindByActive(ctx, &pb_user.FindAllUserRequest{
 		Page:     page,
 		PageSize: pageSize,
 		Search:   search,
@@ -298,7 +298,7 @@ func (r *queryResolver) FindByTrashedUsers(ctx context.Context, input *model.Fin
 		pageSize = 10
 	}
 
-	res, err := r.UserGraphql.UserQueryClient.FindByTrashed(ctx, &pb.FindAllUserRequest{
+	res, err := r.UserGraphql.UserQueryClient.FindByTrashed(ctx, &pb_user.FindAllUserRequest{
 		Page:     page,
 		PageSize: pageSize,
 		Search:   search,

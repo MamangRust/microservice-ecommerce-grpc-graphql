@@ -7,10 +7,11 @@ package graph
 import (
 	"context"
 
+	graphqlerror "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/errors"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_detail"
 	sharedErrors "github.com/MamangRust/microservice-ecommerce-shared/errors"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphqlerror "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/errors"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -40,7 +41,7 @@ func (r *mutationResolver) CreateMerchantDetail(ctx context.Context, input model
 				return nil, err
 			}
 
-			req := &pb.CreateMerchantDetailRequest{
+			req := &pb_merchant_detail.CreateMerchantDetailRequest{
 				MerchantId:       int32(input.MerchantID),
 				DisplayName:      input.DisplayName,
 				CoverImageUrl:    coverPath,
@@ -92,7 +93,7 @@ func (r *mutationResolver) UpdateMerchantDetail(ctx context.Context, input model
 				return nil, err
 			}
 
-			req := &pb.UpdateMerchantDetailRequest{
+			req := &pb_merchant_detail.UpdateMerchantDetailRequest{
 				MerchantDetailId: id,
 				DisplayName:      input.DisplayName,
 				CoverImageUrl:    coverPath,
@@ -126,7 +127,7 @@ func (r *mutationResolver) TrashMerchantDetail(ctx context.Context, input model.
 				return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: merchant detail ID cannot be zero"))
 			}
 
-			res, err := r.MerchantDetailGraphql.MerchantDetailCommandClient.TrashedMerchantDetail(ctx, &pb.FindByIdMerchantDetailRequest{
+			res, err := r.MerchantDetailGraphql.MerchantDetailCommandClient.TrashedMerchantDetail(ctx, &pb_merchant_detail.FindByIdMerchantDetailRequest{
 				Id: id,
 			})
 			if err != nil {
@@ -149,7 +150,7 @@ func (r *mutationResolver) RestoreMerchantDetail(ctx context.Context, input mode
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: merchant detail ID cannot be zero"))
 		}
 
-		result, err := r.MerchantDetailGraphql.MerchantDetailCommandClient.RestoreMerchantDetail(ctx, &pb.FindByIdMerchantDetailRequest{
+		result, err := r.MerchantDetailGraphql.MerchantDetailCommandClient.RestoreMerchantDetail(ctx, &pb_merchant_detail.FindByIdMerchantDetailRequest{
 			Id: id,
 		})
 		if err != nil {
@@ -173,7 +174,7 @@ func (r *mutationResolver) DeleteMerchantDetailPermanent(ctx context.Context, in
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: merchant detail ID cannot be zero"))
 		}
 
-		res, err := r.MerchantDetailGraphql.MerchantDetailCommandClient.DeleteMerchantDetailPermanent(ctx, &pb.FindByIdMerchantDetailRequest{
+		res, err := r.MerchantDetailGraphql.MerchantDetailCommandClient.DeleteMerchantDetailPermanent(ctx, &pb_merchant_detail.FindByIdMerchantDetailRequest{
 			Id: id,
 		})
 		if err != nil {
@@ -244,7 +245,7 @@ func (r *queryResolver) FindAllMerchantDetails(ctx context.Context, input model.
 			return data, nil
 		}
 
-		reqService := &pb.FindAllMerchantRequest{
+		reqService := &pb_merchant.FindAllMerchantRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,
@@ -275,7 +276,7 @@ func (r *queryResolver) FindMerchantDetailByID(ctx context.Context, input model.
 			return data, nil
 		}
 
-		res, err := r.MerchantDetailGraphql.MerchantDetailQueryClient.FindById(ctx, &pb.FindByIdMerchantDetailRequest{
+		res, err := r.MerchantDetailGraphql.MerchantDetailQueryClient.FindById(ctx, &pb_merchant_detail.FindByIdMerchantDetailRequest{
 			Id: int32(id),
 		})
 		if err != nil {
@@ -319,7 +320,7 @@ func (r *queryResolver) FindActiveMerchantDetails(ctx context.Context, input mod
 			return data, nil
 		}
 
-		reqService := &pb.FindAllMerchantRequest{
+		reqService := &pb_merchant.FindAllMerchantRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,
@@ -366,7 +367,7 @@ func (r *queryResolver) FindTrashedMerchantDetails(ctx context.Context, input mo
 			return data, nil
 		}
 
-		reqService := &pb.FindAllMerchantRequest{
+		reqService := &pb_merchant.FindAllMerchantRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,

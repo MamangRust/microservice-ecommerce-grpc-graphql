@@ -13,7 +13,7 @@ import (
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/introspection"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
 	gqlparser "github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
 )
@@ -43,6 +43,7 @@ type ResolverRoot interface {
 }
 
 type DirectiveRoot struct {
+	HasRole func(ctx context.Context, obj any, next graphql.Resolver, roles []string) (res any, err error)
 }
 
 type ComplexityRoot struct {
@@ -10317,6 +10318,26 @@ extend type Mutation {
   total_records: Int!
 }
 `, BuiltIn: false},
+	{Name: "../../graphql/directives.graphqls", Input: `"""
+Requires the authenticated user to hold at least one of the given roles.
+
+It is evaluated by the GraphQL executor (gqlgen field directive), so the check
+happens per operation rather than per HTTP request — the gateway exposes a
+single POST /query endpoint, which makes path based HTTP middlewares useless for
+role enforcement.
+
+Semantics:
+  * no authenticated user in the context -> the field passes through. The
+    authority for admitting/rejecting unauthenticated traffic is AuthMiddleware,
+    which whitelists the public operations (loginUser/registerUser/refreshToken).
+  * authenticated user without any of the listed roles -> the field fails with
+    "forbidden: role not permitted" and the operation returns no data.
+
+Role names are matched against the roles reported by the role service, for
+example "Admin" (seeded) or "ROLE_ADMIN" (e2e pre-seeded).
+"""
+directive @hasRole(roles: [String!]!) on FIELD_DEFINITION
+`, BuiltIn: false},
 	{Name: "../../graphql/merchant.graphqls", Input: `input FindAllMerchantInput {
   page: Int = 1
   page_size: Int = 10
@@ -11908,25 +11929,27 @@ type ApiResponsePaginationRoleDeleteAt {
   pagination: PaginationMeta
 }
 
+# Role administration is admin-only, mirroring the REST gateway policy
+# (RequireRoles("Admin", "ROLE_ADMIN") on /api/role-query and /api/role-command).
 extend type Query {
-  findAllRole(input: FindAllRoleInput): ApiResponsePaginationRole
-  findByIdRole(input: FindByIdRoleInput!): ApiResponseRole
+  findAllRole(input: FindAllRoleInput): ApiResponsePaginationRole @hasRole(roles: ["Admin", "ROLE_ADMIN"])
+  findByIdRole(input: FindByIdRoleInput!): ApiResponseRole @hasRole(roles: ["Admin", "ROLE_ADMIN"])
 
-  findByActiveRole(input: FindAllRoleInput): ApiResponsePaginationRoleDeleteAt
-  findByTrashedRole(input: FindAllRoleInput): ApiResponsePaginationRoleDeleteAt
+  findByActiveRole(input: FindAllRoleInput): ApiResponsePaginationRoleDeleteAt @hasRole(roles: ["Admin", "ROLE_ADMIN"])
+  findByTrashedRole(input: FindAllRoleInput): ApiResponsePaginationRoleDeleteAt @hasRole(roles: ["Admin", "ROLE_ADMIN"])
 
-  findByUserIdRole(input: FindByIdUserRoleInput!): ApiResponsesRole
+  findByUserIdRole(input: FindByIdUserRoleInput!): ApiResponsesRole @hasRole(roles: ["Admin", "ROLE_ADMIN"])
 }
 
 extend type Mutation {
-  createRole(input: CreateRoleInput!): ApiResponseRole
-  updateRole(input: UpdateRoleInput!): ApiResponseRole
-  trashedRole(input: FindByIdRoleInput!): ApiResponseRoleDeleteAt
-  restoreRole(input: FindByIdRoleInput!): ApiResponseRoleDeleteAt
-  deleteRolePermanent(input: FindByIdRoleInput!): ApiResponseRoleDelete
+  createRole(input: CreateRoleInput!): ApiResponseRole @hasRole(roles: ["Admin", "ROLE_ADMIN"])
+  updateRole(input: UpdateRoleInput!): ApiResponseRole @hasRole(roles: ["Admin", "ROLE_ADMIN"])
+  trashedRole(input: FindByIdRoleInput!): ApiResponseRoleDeleteAt @hasRole(roles: ["Admin", "ROLE_ADMIN"])
+  restoreRole(input: FindByIdRoleInput!): ApiResponseRoleDeleteAt @hasRole(roles: ["Admin", "ROLE_ADMIN"])
+  deleteRolePermanent(input: FindByIdRoleInput!): ApiResponseRoleDelete @hasRole(roles: ["Admin", "ROLE_ADMIN"])
 
-  restoreAllRole: ApiResponseRoleAll
-  deleteAllRolePermanent: ApiResponseRoleAll
+  restoreAllRole: ApiResponseRoleAll @hasRole(roles: ["Admin", "ROLE_ADMIN"])
+  deleteAllRolePermanent: ApiResponseRoleAll @hasRole(roles: ["Admin", "ROLE_ADMIN"])
 }
 `, BuiltIn: false},
 	{Name: "../../graphql/shipping_address.graphqls", Input: `input FindByIdShippingRequest {
@@ -12565,10 +12588,21 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 
 // region    ***************************** args.gotpl *****************************
 
+func (ec *executionContext) dir_hasRole_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "roles", ec.unmarshalNString2ᚕstringᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["roles"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_createBanner_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateBannerInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateBannerInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateBannerInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateBannerInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12579,7 +12613,7 @@ func (ec *executionContext) field_Mutation_createBanner_args(ctx context.Context
 func (ec *executionContext) field_Mutation_createCart_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateCartInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateCartInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateCartInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateCartInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12590,7 +12624,7 @@ func (ec *executionContext) field_Mutation_createCart_args(ctx context.Context, 
 func (ec *executionContext) field_Mutation_createCategory_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateCategoryInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateCategoryInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateCategoryInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateCategoryInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12601,7 +12635,7 @@ func (ec *executionContext) field_Mutation_createCategory_args(ctx context.Conte
 func (ec *executionContext) field_Mutation_createMerchantAward_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateMerchantAwardInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantAwardInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateMerchantAwardInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantAwardInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12612,7 +12646,7 @@ func (ec *executionContext) field_Mutation_createMerchantAward_args(ctx context.
 func (ec *executionContext) field_Mutation_createMerchantBusiness_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateMerchantBusinessInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantBusinessInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateMerchantBusinessInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantBusinessInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12623,7 +12657,7 @@ func (ec *executionContext) field_Mutation_createMerchantBusiness_args(ctx conte
 func (ec *executionContext) field_Mutation_createMerchantDetail_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateMerchantDetailInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantDetailInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateMerchantDetailInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantDetailInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12634,7 +12668,7 @@ func (ec *executionContext) field_Mutation_createMerchantDetail_args(ctx context
 func (ec *executionContext) field_Mutation_createMerchantPolicy_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateMerchantPoliciesInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantPoliciesInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateMerchantPoliciesInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantPoliciesInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12645,7 +12679,7 @@ func (ec *executionContext) field_Mutation_createMerchantPolicy_args(ctx context
 func (ec *executionContext) field_Mutation_createMerchantSocialLink_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOCreateMerchantSocialInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantSocialInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOCreateMerchantSocialInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantSocialInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12656,7 +12690,7 @@ func (ec *executionContext) field_Mutation_createMerchantSocialLink_args(ctx con
 func (ec *executionContext) field_Mutation_createMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12667,7 +12701,7 @@ func (ec *executionContext) field_Mutation_createMerchant_args(ctx context.Conte
 func (ec *executionContext) field_Mutation_createOrder_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateOrderInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateOrderInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12678,7 +12712,7 @@ func (ec *executionContext) field_Mutation_createOrder_args(ctx context.Context,
 func (ec *executionContext) field_Mutation_createProduct_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateProductInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateProductInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateProductInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateProductInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12689,7 +12723,7 @@ func (ec *executionContext) field_Mutation_createProduct_args(ctx context.Contex
 func (ec *executionContext) field_Mutation_createReviewDetail_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateReviewDetailInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateReviewDetailInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateReviewDetailInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateReviewDetailInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12700,7 +12734,7 @@ func (ec *executionContext) field_Mutation_createReviewDetail_args(ctx context.C
 func (ec *executionContext) field_Mutation_createReview_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateReviewRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateReviewRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateReviewRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateReviewRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -12711,7 +12745,7 @@ func (ec *executionContext) field_Mutation_createReview_args(ctx context.Context
 func (ec *executionContext) field_Mutation_createRole_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateRoleInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateRoleInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateRoleInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateRoleInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12722,7 +12756,7 @@ func (ec *executionContext) field_Mutation_createRole_args(ctx context.Context, 
 func (ec *executionContext) field_Mutation_createSlider_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateSliderRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateSliderRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateSliderRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateSliderRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -12733,7 +12767,7 @@ func (ec *executionContext) field_Mutation_createSlider_args(ctx context.Context
 func (ec *executionContext) field_Mutation_createTransaction_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateTransactionRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateTransactionRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateTransactionRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateTransactionRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -12744,7 +12778,7 @@ func (ec *executionContext) field_Mutation_createTransaction_args(ctx context.Co
 func (ec *executionContext) field_Mutation_createUser_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateUserInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateUserInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateUserInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateUserInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12755,7 +12789,7 @@ func (ec *executionContext) field_Mutation_createUser_args(ctx context.Context, 
 func (ec *executionContext) field_Mutation_deleteAllCarts_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNDeleteCartsInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐDeleteCartsInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNDeleteCartsInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐDeleteCartsInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12766,7 +12800,7 @@ func (ec *executionContext) field_Mutation_deleteAllCarts_args(ctx context.Conte
 func (ec *executionContext) field_Mutation_deleteBannerPermanent_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdBannerInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDBannerInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdBannerInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDBannerInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12777,7 +12811,7 @@ func (ec *executionContext) field_Mutation_deleteBannerPermanent_args(ctx contex
 func (ec *executionContext) field_Mutation_deleteCart_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNDeleteCartInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐDeleteCartInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNDeleteCartInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐDeleteCartInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12788,7 +12822,7 @@ func (ec *executionContext) field_Mutation_deleteCart_args(ctx context.Context, 
 func (ec *executionContext) field_Mutation_deleteCategoryPermanent_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdCategoryInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDCategoryInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdCategoryInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDCategoryInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12799,7 +12833,7 @@ func (ec *executionContext) field_Mutation_deleteCategoryPermanent_args(ctx cont
 func (ec *executionContext) field_Mutation_deleteMerchantAwardPermanent_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantAwardInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantAwardInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantAwardInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantAwardInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12810,7 +12844,7 @@ func (ec *executionContext) field_Mutation_deleteMerchantAwardPermanent_args(ctx
 func (ec *executionContext) field_Mutation_deleteMerchantBusinessPermanent_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantBusinessInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantBusinessInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantBusinessInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantBusinessInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12821,7 +12855,7 @@ func (ec *executionContext) field_Mutation_deleteMerchantBusinessPermanent_args(
 func (ec *executionContext) field_Mutation_deleteMerchantDetailPermanent_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantDetailInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantDetailInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantDetailInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantDetailInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12832,7 +12866,7 @@ func (ec *executionContext) field_Mutation_deleteMerchantDetailPermanent_args(ct
 func (ec *executionContext) field_Mutation_deleteMerchantPermanent_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12843,7 +12877,7 @@ func (ec *executionContext) field_Mutation_deleteMerchantPermanent_args(ctx cont
 func (ec *executionContext) field_Mutation_deleteMerchantPolicyPermanent_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantPoliciesInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantPoliciesInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantPoliciesInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantPoliciesInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12854,7 +12888,7 @@ func (ec *executionContext) field_Mutation_deleteMerchantPolicyPermanent_args(ct
 func (ec *executionContext) field_Mutation_deleteOrderPermanent_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDOrderInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDOrderInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12865,7 +12899,7 @@ func (ec *executionContext) field_Mutation_deleteOrderPermanent_args(ctx context
 func (ec *executionContext) field_Mutation_deleteProductPermanent_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdProductInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDProductInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdProductInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDProductInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12876,7 +12910,7 @@ func (ec *executionContext) field_Mutation_deleteProductPermanent_args(ctx conte
 func (ec *executionContext) field_Mutation_deleteReviewDetailPermanent_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdReviewDetailInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDReviewDetailInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdReviewDetailInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDReviewDetailInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12887,7 +12921,7 @@ func (ec *executionContext) field_Mutation_deleteReviewDetailPermanent_args(ctx 
 func (ec *executionContext) field_Mutation_deleteReviewPermanent_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdReviewRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDReviewRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdReviewRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDReviewRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -12898,7 +12932,7 @@ func (ec *executionContext) field_Mutation_deleteReviewPermanent_args(ctx contex
 func (ec *executionContext) field_Mutation_deleteRolePermanent_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdRoleInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDRoleInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdRoleInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDRoleInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12909,7 +12943,7 @@ func (ec *executionContext) field_Mutation_deleteRolePermanent_args(ctx context.
 func (ec *executionContext) field_Mutation_deleteShippingPermanent_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdShippingRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDShippingRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdShippingRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDShippingRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -12920,7 +12954,7 @@ func (ec *executionContext) field_Mutation_deleteShippingPermanent_args(ctx cont
 func (ec *executionContext) field_Mutation_deleteSliderPermanent_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdSliderRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDSliderRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdSliderRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDSliderRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -12931,7 +12965,7 @@ func (ec *executionContext) field_Mutation_deleteSliderPermanent_args(ctx contex
 func (ec *executionContext) field_Mutation_deleteTransactionPermanent_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdTransactionRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDTransactionRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdTransactionRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDTransactionRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -12942,7 +12976,7 @@ func (ec *executionContext) field_Mutation_deleteTransactionPermanent_args(ctx c
 func (ec *executionContext) field_Mutation_deleteUserPermanent_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdUserInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDUserInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdUserInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDUserInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12953,7 +12987,7 @@ func (ec *executionContext) field_Mutation_deleteUserPermanent_args(ctx context.
 func (ec *executionContext) field_Mutation_forgotPassword_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNForgotPasswordInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐForgotPasswordInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNForgotPasswordInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐForgotPasswordInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12964,7 +12998,7 @@ func (ec *executionContext) field_Mutation_forgotPassword_args(ctx context.Conte
 func (ec *executionContext) field_Mutation_loginUser_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNLoginInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐLoginInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNLoginInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐLoginInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12975,7 +13009,7 @@ func (ec *executionContext) field_Mutation_loginUser_args(ctx context.Context, r
 func (ec *executionContext) field_Mutation_refreshToken_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNRefreshTokenInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐRefreshTokenInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNRefreshTokenInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐRefreshTokenInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12986,7 +13020,7 @@ func (ec *executionContext) field_Mutation_refreshToken_args(ctx context.Context
 func (ec *executionContext) field_Mutation_registerUser_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNRegisterInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐRegisterInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNRegisterInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐRegisterInput)
 	if err != nil {
 		return nil, err
 	}
@@ -12997,7 +13031,7 @@ func (ec *executionContext) field_Mutation_registerUser_args(ctx context.Context
 func (ec *executionContext) field_Mutation_resetPassword_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNResetPasswordInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐResetPasswordInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNResetPasswordInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐResetPasswordInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13008,7 +13042,7 @@ func (ec *executionContext) field_Mutation_resetPassword_args(ctx context.Contex
 func (ec *executionContext) field_Mutation_restoreBanner_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdBannerInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDBannerInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdBannerInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDBannerInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13019,7 +13053,7 @@ func (ec *executionContext) field_Mutation_restoreBanner_args(ctx context.Contex
 func (ec *executionContext) field_Mutation_restoreCategory_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdCategoryInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDCategoryInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdCategoryInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDCategoryInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13030,7 +13064,7 @@ func (ec *executionContext) field_Mutation_restoreCategory_args(ctx context.Cont
 func (ec *executionContext) field_Mutation_restoreMerchantAward_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantAwardInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantAwardInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantAwardInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantAwardInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13041,7 +13075,7 @@ func (ec *executionContext) field_Mutation_restoreMerchantAward_args(ctx context
 func (ec *executionContext) field_Mutation_restoreMerchantBusiness_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantBusinessInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantBusinessInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantBusinessInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantBusinessInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13052,7 +13086,7 @@ func (ec *executionContext) field_Mutation_restoreMerchantBusiness_args(ctx cont
 func (ec *executionContext) field_Mutation_restoreMerchantDetail_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantDetailInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantDetailInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantDetailInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantDetailInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13063,7 +13097,7 @@ func (ec *executionContext) field_Mutation_restoreMerchantDetail_args(ctx contex
 func (ec *executionContext) field_Mutation_restoreMerchantPolicy_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantPoliciesInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantPoliciesInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantPoliciesInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantPoliciesInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13074,7 +13108,7 @@ func (ec *executionContext) field_Mutation_restoreMerchantPolicy_args(ctx contex
 func (ec *executionContext) field_Mutation_restoreMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13085,7 +13119,7 @@ func (ec *executionContext) field_Mutation_restoreMerchant_args(ctx context.Cont
 func (ec *executionContext) field_Mutation_restoreOrder_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDOrderInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDOrderInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13096,7 +13130,7 @@ func (ec *executionContext) field_Mutation_restoreOrder_args(ctx context.Context
 func (ec *executionContext) field_Mutation_restoreProduct_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdProductInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDProductInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdProductInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDProductInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13107,7 +13141,7 @@ func (ec *executionContext) field_Mutation_restoreProduct_args(ctx context.Conte
 func (ec *executionContext) field_Mutation_restoreReviewDetail_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdReviewDetailInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDReviewDetailInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdReviewDetailInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDReviewDetailInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13118,7 +13152,7 @@ func (ec *executionContext) field_Mutation_restoreReviewDetail_args(ctx context.
 func (ec *executionContext) field_Mutation_restoreReview_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdReviewRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDReviewRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdReviewRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDReviewRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -13129,7 +13163,7 @@ func (ec *executionContext) field_Mutation_restoreReview_args(ctx context.Contex
 func (ec *executionContext) field_Mutation_restoreRole_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdRoleInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDRoleInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdRoleInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDRoleInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13140,7 +13174,7 @@ func (ec *executionContext) field_Mutation_restoreRole_args(ctx context.Context,
 func (ec *executionContext) field_Mutation_restoreShipping_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdShippingRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDShippingRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdShippingRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDShippingRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -13151,7 +13185,7 @@ func (ec *executionContext) field_Mutation_restoreShipping_args(ctx context.Cont
 func (ec *executionContext) field_Mutation_restoreSlider_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdSliderRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDSliderRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdSliderRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDSliderRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -13162,7 +13196,7 @@ func (ec *executionContext) field_Mutation_restoreSlider_args(ctx context.Contex
 func (ec *executionContext) field_Mutation_restoreTransaction_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdTransactionRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDTransactionRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdTransactionRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDTransactionRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -13173,7 +13207,7 @@ func (ec *executionContext) field_Mutation_restoreTransaction_args(ctx context.C
 func (ec *executionContext) field_Mutation_restoreUser_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdUserInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDUserInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdUserInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDUserInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13184,7 +13218,7 @@ func (ec *executionContext) field_Mutation_restoreUser_args(ctx context.Context,
 func (ec *executionContext) field_Mutation_trashBanner_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdBannerInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDBannerInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdBannerInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDBannerInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13195,7 +13229,7 @@ func (ec *executionContext) field_Mutation_trashBanner_args(ctx context.Context,
 func (ec *executionContext) field_Mutation_trashCategory_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdCategoryInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDCategoryInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdCategoryInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDCategoryInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13206,7 +13240,7 @@ func (ec *executionContext) field_Mutation_trashCategory_args(ctx context.Contex
 func (ec *executionContext) field_Mutation_trashMerchantAward_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantAwardInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantAwardInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantAwardInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantAwardInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13217,7 +13251,7 @@ func (ec *executionContext) field_Mutation_trashMerchantAward_args(ctx context.C
 func (ec *executionContext) field_Mutation_trashMerchantBusiness_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantBusinessInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantBusinessInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantBusinessInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantBusinessInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13228,7 +13262,7 @@ func (ec *executionContext) field_Mutation_trashMerchantBusiness_args(ctx contex
 func (ec *executionContext) field_Mutation_trashMerchantDetail_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantDetailInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantDetailInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantDetailInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantDetailInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13239,7 +13273,7 @@ func (ec *executionContext) field_Mutation_trashMerchantDetail_args(ctx context.
 func (ec *executionContext) field_Mutation_trashMerchantPolicy_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantPoliciesInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantPoliciesInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantPoliciesInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantPoliciesInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13250,7 +13284,7 @@ func (ec *executionContext) field_Mutation_trashMerchantPolicy_args(ctx context.
 func (ec *executionContext) field_Mutation_trashMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13261,7 +13295,7 @@ func (ec *executionContext) field_Mutation_trashMerchant_args(ctx context.Contex
 func (ec *executionContext) field_Mutation_trashOrder_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDOrderInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDOrderInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13272,7 +13306,7 @@ func (ec *executionContext) field_Mutation_trashOrder_args(ctx context.Context, 
 func (ec *executionContext) field_Mutation_trashedProduct_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdProductInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDProductInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdProductInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDProductInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13283,7 +13317,7 @@ func (ec *executionContext) field_Mutation_trashedProduct_args(ctx context.Conte
 func (ec *executionContext) field_Mutation_trashedReviewDetail_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdReviewDetailInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDReviewDetailInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdReviewDetailInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDReviewDetailInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13294,7 +13328,7 @@ func (ec *executionContext) field_Mutation_trashedReviewDetail_args(ctx context.
 func (ec *executionContext) field_Mutation_trashedReview_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdReviewRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDReviewRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdReviewRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDReviewRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -13305,7 +13339,7 @@ func (ec *executionContext) field_Mutation_trashedReview_args(ctx context.Contex
 func (ec *executionContext) field_Mutation_trashedRole_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdRoleInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDRoleInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdRoleInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDRoleInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13316,7 +13350,7 @@ func (ec *executionContext) field_Mutation_trashedRole_args(ctx context.Context,
 func (ec *executionContext) field_Mutation_trashedShipping_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdShippingRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDShippingRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdShippingRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDShippingRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -13327,7 +13361,7 @@ func (ec *executionContext) field_Mutation_trashedShipping_args(ctx context.Cont
 func (ec *executionContext) field_Mutation_trashedSlider_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdSliderRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDSliderRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdSliderRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDSliderRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -13338,7 +13372,7 @@ func (ec *executionContext) field_Mutation_trashedSlider_args(ctx context.Contex
 func (ec *executionContext) field_Mutation_trashedTransaction_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdTransactionRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDTransactionRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdTransactionRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDTransactionRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -13349,7 +13383,7 @@ func (ec *executionContext) field_Mutation_trashedTransaction_args(ctx context.C
 func (ec *executionContext) field_Mutation_trashedUser_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdUserInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDUserInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdUserInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDUserInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13360,7 +13394,7 @@ func (ec *executionContext) field_Mutation_trashedUser_args(ctx context.Context,
 func (ec *executionContext) field_Mutation_updateBanner_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateBannerInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateBannerInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateBannerInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateBannerInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13371,7 +13405,7 @@ func (ec *executionContext) field_Mutation_updateBanner_args(ctx context.Context
 func (ec *executionContext) field_Mutation_updateCategory_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateCategoryInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateCategoryInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateCategoryInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateCategoryInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13382,7 +13416,7 @@ func (ec *executionContext) field_Mutation_updateCategory_args(ctx context.Conte
 func (ec *executionContext) field_Mutation_updateMerchantAward_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateMerchantAwardInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantAwardInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateMerchantAwardInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantAwardInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13393,7 +13427,7 @@ func (ec *executionContext) field_Mutation_updateMerchantAward_args(ctx context.
 func (ec *executionContext) field_Mutation_updateMerchantBusiness_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateMerchantBusinessInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantBusinessInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateMerchantBusinessInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantBusinessInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13404,7 +13438,7 @@ func (ec *executionContext) field_Mutation_updateMerchantBusiness_args(ctx conte
 func (ec *executionContext) field_Mutation_updateMerchantDetail_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateMerchantDetailInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantDetailInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateMerchantDetailInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantDetailInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13415,7 +13449,7 @@ func (ec *executionContext) field_Mutation_updateMerchantDetail_args(ctx context
 func (ec *executionContext) field_Mutation_updateMerchantPolicy_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateMerchantPoliciesInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantPoliciesInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateMerchantPoliciesInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantPoliciesInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13426,7 +13460,7 @@ func (ec *executionContext) field_Mutation_updateMerchantPolicy_args(ctx context
 func (ec *executionContext) field_Mutation_updateMerchantSocialLink_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOUpdateMerchantSocialInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantSocialInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOUpdateMerchantSocialInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantSocialInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13437,7 +13471,7 @@ func (ec *executionContext) field_Mutation_updateMerchantSocialLink_args(ctx con
 func (ec *executionContext) field_Mutation_updateMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13448,7 +13482,7 @@ func (ec *executionContext) field_Mutation_updateMerchant_args(ctx context.Conte
 func (ec *executionContext) field_Mutation_updateOrder_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateOrderInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateOrderInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13459,7 +13493,7 @@ func (ec *executionContext) field_Mutation_updateOrder_args(ctx context.Context,
 func (ec *executionContext) field_Mutation_updateProduct_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateProductInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateProductInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateProductInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateProductInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13470,7 +13504,7 @@ func (ec *executionContext) field_Mutation_updateProduct_args(ctx context.Contex
 func (ec *executionContext) field_Mutation_updateReviewDetail_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateReviewDetailInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateReviewDetailInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateReviewDetailInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateReviewDetailInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13481,7 +13515,7 @@ func (ec *executionContext) field_Mutation_updateReviewDetail_args(ctx context.C
 func (ec *executionContext) field_Mutation_updateReview_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateReviewRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateReviewRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateReviewRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateReviewRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -13492,7 +13526,7 @@ func (ec *executionContext) field_Mutation_updateReview_args(ctx context.Context
 func (ec *executionContext) field_Mutation_updateRole_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateRoleInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateRoleInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateRoleInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateRoleInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13503,7 +13537,7 @@ func (ec *executionContext) field_Mutation_updateRole_args(ctx context.Context, 
 func (ec *executionContext) field_Mutation_updateSlider_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateSliderRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateSliderRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateSliderRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateSliderRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -13514,7 +13548,7 @@ func (ec *executionContext) field_Mutation_updateSlider_args(ctx context.Context
 func (ec *executionContext) field_Mutation_updateTransaction_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateTransactionRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateTransactionRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateTransactionRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateTransactionRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -13525,7 +13559,7 @@ func (ec *executionContext) field_Mutation_updateTransaction_args(ctx context.Co
 func (ec *executionContext) field_Mutation_updateUser_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateUserInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateUserInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNUpdateUserInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateUserInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13536,7 +13570,7 @@ func (ec *executionContext) field_Mutation_updateUser_args(ctx context.Context, 
 func (ec *executionContext) field_Mutation_verifyCode_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNVerifyCodeInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐVerifyCodeInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNVerifyCodeInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐVerifyCodeInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13558,7 +13592,7 @@ func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs
 func (ec *executionContext) field_Query_findActiveBanners_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllBannerInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllBannerInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllBannerInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllBannerInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13569,7 +13603,7 @@ func (ec *executionContext) field_Query_findActiveBanners_args(ctx context.Conte
 func (ec *executionContext) field_Query_findActiveCategories_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllCategoryInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllCategoryInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllCategoryInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllCategoryInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13580,7 +13614,7 @@ func (ec *executionContext) field_Query_findActiveCategories_args(ctx context.Co
 func (ec *executionContext) field_Query_findActiveMerchantAwards_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantAwardInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantAwardInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantAwardInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantAwardInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13591,7 +13625,7 @@ func (ec *executionContext) field_Query_findActiveMerchantAwards_args(ctx contex
 func (ec *executionContext) field_Query_findActiveMerchantBusinesses_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantBusinessInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantBusinessInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantBusinessInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantBusinessInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13602,7 +13636,7 @@ func (ec *executionContext) field_Query_findActiveMerchantBusinesses_args(ctx co
 func (ec *executionContext) field_Query_findActiveMerchantDetails_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantDetailInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantDetailInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantDetailInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantDetailInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13613,7 +13647,7 @@ func (ec *executionContext) field_Query_findActiveMerchantDetails_args(ctx conte
 func (ec *executionContext) field_Query_findActiveMerchantPolicies_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantPoliciesInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantPoliciesInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantPoliciesInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantPoliciesInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13624,7 +13658,7 @@ func (ec *executionContext) field_Query_findActiveMerchantPolicies_args(ctx cont
 func (ec *executionContext) field_Query_findActiveMerchants_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13635,7 +13669,7 @@ func (ec *executionContext) field_Query_findActiveMerchants_args(ctx context.Con
 func (ec *executionContext) field_Query_findActiveOrderItems_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllOrderItemInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderItemInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllOrderItemInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderItemInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13646,7 +13680,7 @@ func (ec *executionContext) field_Query_findActiveOrderItems_args(ctx context.Co
 func (ec *executionContext) field_Query_findActiveOrders_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13657,7 +13691,7 @@ func (ec *executionContext) field_Query_findActiveOrders_args(ctx context.Contex
 func (ec *executionContext) field_Query_findActiveProducts_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllProductInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllProductInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllProductInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllProductInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13668,7 +13702,7 @@ func (ec *executionContext) field_Query_findActiveProducts_args(ctx context.Cont
 func (ec *executionContext) field_Query_findActiveReviewDetails_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllReviewDetailInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllReviewDetailInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllReviewDetailInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllReviewDetailInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13679,7 +13713,7 @@ func (ec *executionContext) field_Query_findActiveReviewDetails_args(ctx context
 func (ec *executionContext) field_Query_findActiveReviews_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllReviewRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllReviewRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllReviewRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllReviewRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -13690,7 +13724,7 @@ func (ec *executionContext) field_Query_findActiveReviews_args(ctx context.Conte
 func (ec *executionContext) field_Query_findActiveShipping_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllShippingRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllShippingRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllShippingRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllShippingRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -13701,7 +13735,7 @@ func (ec *executionContext) field_Query_findActiveShipping_args(ctx context.Cont
 func (ec *executionContext) field_Query_findActiveSliders_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllSliderRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllSliderRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllSliderRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllSliderRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -13712,7 +13746,7 @@ func (ec *executionContext) field_Query_findActiveSliders_args(ctx context.Conte
 func (ec *executionContext) field_Query_findAllBanners_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllBannerInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllBannerInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllBannerInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllBannerInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13723,7 +13757,7 @@ func (ec *executionContext) field_Query_findAllBanners_args(ctx context.Context,
 func (ec *executionContext) field_Query_findAllCarts_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllCartInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllCartInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllCartInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllCartInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13734,7 +13768,7 @@ func (ec *executionContext) field_Query_findAllCarts_args(ctx context.Context, r
 func (ec *executionContext) field_Query_findAllCategories_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllCategoryInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllCategoryInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllCategoryInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllCategoryInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13745,7 +13779,7 @@ func (ec *executionContext) field_Query_findAllCategories_args(ctx context.Conte
 func (ec *executionContext) field_Query_findAllMerchantAwards_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantAwardInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantAwardInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantAwardInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantAwardInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13756,7 +13790,7 @@ func (ec *executionContext) field_Query_findAllMerchantAwards_args(ctx context.C
 func (ec *executionContext) field_Query_findAllMerchantBusinesses_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantBusinessInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantBusinessInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantBusinessInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantBusinessInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13767,7 +13801,7 @@ func (ec *executionContext) field_Query_findAllMerchantBusinesses_args(ctx conte
 func (ec *executionContext) field_Query_findAllMerchantDetails_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantDetailInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantDetailInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantDetailInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantDetailInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13778,7 +13812,7 @@ func (ec *executionContext) field_Query_findAllMerchantDetails_args(ctx context.
 func (ec *executionContext) field_Query_findAllMerchantPolicies_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantPoliciesInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantPoliciesInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantPoliciesInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantPoliciesInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13789,7 +13823,7 @@ func (ec *executionContext) field_Query_findAllMerchantPolicies_args(ctx context
 func (ec *executionContext) field_Query_findAllMerchants_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13800,7 +13834,7 @@ func (ec *executionContext) field_Query_findAllMerchants_args(ctx context.Contex
 func (ec *executionContext) field_Query_findAllOrderItems_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllOrderItemInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderItemInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllOrderItemInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderItemInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13811,7 +13845,7 @@ func (ec *executionContext) field_Query_findAllOrderItems_args(ctx context.Conte
 func (ec *executionContext) field_Query_findAllOrders_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13822,7 +13856,7 @@ func (ec *executionContext) field_Query_findAllOrders_args(ctx context.Context, 
 func (ec *executionContext) field_Query_findAllProducts_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllProductInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllProductInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllProductInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllProductInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13833,7 +13867,7 @@ func (ec *executionContext) field_Query_findAllProducts_args(ctx context.Context
 func (ec *executionContext) field_Query_findAllReviewDetails_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllReviewDetailInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllReviewDetailInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllReviewDetailInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllReviewDetailInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13844,7 +13878,7 @@ func (ec *executionContext) field_Query_findAllReviewDetails_args(ctx context.Co
 func (ec *executionContext) field_Query_findAllReviews_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllReviewRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllReviewRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllReviewRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllReviewRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -13855,7 +13889,7 @@ func (ec *executionContext) field_Query_findAllReviews_args(ctx context.Context,
 func (ec *executionContext) field_Query_findAllRole_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllRoleInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllRoleInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllRoleInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllRoleInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13866,7 +13900,7 @@ func (ec *executionContext) field_Query_findAllRole_args(ctx context.Context, ra
 func (ec *executionContext) field_Query_findAllShipping_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllShippingRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllShippingRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllShippingRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllShippingRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -13877,7 +13911,7 @@ func (ec *executionContext) field_Query_findAllShipping_args(ctx context.Context
 func (ec *executionContext) field_Query_findAllSliders_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllSliderRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllSliderRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllSliderRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllSliderRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -13888,7 +13922,7 @@ func (ec *executionContext) field_Query_findAllSliders_args(ctx context.Context,
 func (ec *executionContext) field_Query_findAllTransaction_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllTransactionRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllTransactionRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllTransactionRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllTransactionRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -13899,7 +13933,7 @@ func (ec *executionContext) field_Query_findAllTransaction_args(ctx context.Cont
 func (ec *executionContext) field_Query_findAllUsers_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllUserInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllUserInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllUserInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllUserInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13910,7 +13944,7 @@ func (ec *executionContext) field_Query_findAllUsers_args(ctx context.Context, r
 func (ec *executionContext) field_Query_findBannerById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdBannerInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDBannerInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdBannerInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDBannerInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13921,7 +13955,7 @@ func (ec *executionContext) field_Query_findBannerById_args(ctx context.Context,
 func (ec *executionContext) field_Query_findByActiveRole_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllRoleInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllRoleInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllRoleInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllRoleInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13932,7 +13966,7 @@ func (ec *executionContext) field_Query_findByActiveRole_args(ctx context.Contex
 func (ec *executionContext) field_Query_findByActiveUsers_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllUserInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllUserInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllUserInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllUserInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13943,7 +13977,7 @@ func (ec *executionContext) field_Query_findByActiveUsers_args(ctx context.Conte
 func (ec *executionContext) field_Query_findByActive_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllTransactionRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllTransactionRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllTransactionRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllTransactionRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -13954,7 +13988,7 @@ func (ec *executionContext) field_Query_findByActive_args(ctx context.Context, r
 func (ec *executionContext) field_Query_findByIdRole_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdRoleInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDRoleInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdRoleInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDRoleInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13965,7 +13999,7 @@ func (ec *executionContext) field_Query_findByIdRole_args(ctx context.Context, r
 func (ec *executionContext) field_Query_findByIdUser_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdUserInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDUserInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdUserInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDUserInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13976,7 +14010,7 @@ func (ec *executionContext) field_Query_findByIdUser_args(ctx context.Context, r
 func (ec *executionContext) field_Query_findByTrashedRole_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllRoleInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllRoleInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllRoleInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllRoleInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13987,7 +14021,7 @@ func (ec *executionContext) field_Query_findByTrashedRole_args(ctx context.Conte
 func (ec *executionContext) field_Query_findByTrashedUsers_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllUserInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllUserInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllUserInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllUserInput)
 	if err != nil {
 		return nil, err
 	}
@@ -13998,7 +14032,7 @@ func (ec *executionContext) field_Query_findByTrashedUsers_args(ctx context.Cont
 func (ec *executionContext) field_Query_findByTrashed_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllTransactionRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllTransactionRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllTransactionRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllTransactionRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -14009,7 +14043,7 @@ func (ec *executionContext) field_Query_findByTrashed_args(ctx context.Context, 
 func (ec *executionContext) field_Query_findByUserIdRole_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdUserRoleInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDUserRoleInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdUserRoleInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDUserRoleInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14020,7 +14054,7 @@ func (ec *executionContext) field_Query_findByUserIdRole_args(ctx context.Contex
 func (ec *executionContext) field_Query_findCategoryById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdCategoryInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDCategoryInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdCategoryInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDCategoryInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14031,7 +14065,7 @@ func (ec *executionContext) field_Query_findCategoryById_args(ctx context.Contex
 func (ec *executionContext) field_Query_findMerchantAwardById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantAwardInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantAwardInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantAwardInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantAwardInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14042,7 +14076,7 @@ func (ec *executionContext) field_Query_findMerchantAwardById_args(ctx context.C
 func (ec *executionContext) field_Query_findMerchantBusinessById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantBusinessInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantBusinessInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantBusinessInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantBusinessInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14053,7 +14087,7 @@ func (ec *executionContext) field_Query_findMerchantBusinessById_args(ctx contex
 func (ec *executionContext) field_Query_findMerchantById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14064,7 +14098,7 @@ func (ec *executionContext) field_Query_findMerchantById_args(ctx context.Contex
 func (ec *executionContext) field_Query_findMerchantDetailById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantDetailInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantDetailInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantDetailInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantDetailInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14075,7 +14109,7 @@ func (ec *executionContext) field_Query_findMerchantDetailById_args(ctx context.
 func (ec *executionContext) field_Query_findMerchantPolicyById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantPoliciesInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantPoliciesInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdMerchantPoliciesInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantPoliciesInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14086,7 +14120,7 @@ func (ec *executionContext) field_Query_findMerchantPolicyById_args(ctx context.
 func (ec *executionContext) field_Query_findMonthMethodByMerchantFailed_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNMonthTransactionMethodByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMonthTransactionMethodByMerchant)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNMonthTransactionMethodByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMonthTransactionMethodByMerchant)
 	if err != nil {
 		return nil, err
 	}
@@ -14097,7 +14131,7 @@ func (ec *executionContext) field_Query_findMonthMethodByMerchantFailed_args(ctx
 func (ec *executionContext) field_Query_findMonthMethodByMerchantSuccess_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNMonthTransactionMethodByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMonthTransactionMethodByMerchant)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNMonthTransactionMethodByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMonthTransactionMethodByMerchant)
 	if err != nil {
 		return nil, err
 	}
@@ -14108,7 +14142,7 @@ func (ec *executionContext) field_Query_findMonthMethodByMerchantSuccess_args(ct
 func (ec *executionContext) field_Query_findMonthMethodFailed_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNMonthTransactionMethod2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMonthTransactionMethod)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNMonthTransactionMethod2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMonthTransactionMethod)
 	if err != nil {
 		return nil, err
 	}
@@ -14119,7 +14153,7 @@ func (ec *executionContext) field_Query_findMonthMethodFailed_args(ctx context.C
 func (ec *executionContext) field_Query_findMonthMethodSuccess_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNMonthTransactionMethod2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMonthTransactionMethod)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNMonthTransactionMethod2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMonthTransactionMethod)
 	if err != nil {
 		return nil, err
 	}
@@ -14130,7 +14164,7 @@ func (ec *executionContext) field_Query_findMonthMethodSuccess_args(ctx context.
 func (ec *executionContext) field_Query_findMonthPriceById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCategoryByIdInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearCategoryByIDInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCategoryByIdInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearCategoryByIDInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14141,7 +14175,7 @@ func (ec *executionContext) field_Query_findMonthPriceById_args(ctx context.Cont
 func (ec *executionContext) field_Query_findMonthPriceByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCategoryByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearCategoryByMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCategoryByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearCategoryByMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14152,7 +14186,7 @@ func (ec *executionContext) field_Query_findMonthPriceByMerchant_args(ctx contex
 func (ec *executionContext) field_Query_findMonthPrice_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14163,7 +14197,7 @@ func (ec *executionContext) field_Query_findMonthPrice_args(ctx context.Context,
 func (ec *executionContext) field_Query_findMonthStatusFailedByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindMonthlyTransactionStatusByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindMonthlyTransactionStatusByMerchant)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindMonthlyTransactionStatusByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindMonthlyTransactionStatusByMerchant)
 	if err != nil {
 		return nil, err
 	}
@@ -14174,7 +14208,7 @@ func (ec *executionContext) field_Query_findMonthStatusFailedByMerchant_args(ctx
 func (ec *executionContext) field_Query_findMonthStatusFailed_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindMonthlyTransactionStatus2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindMonthlyTransactionStatus)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindMonthlyTransactionStatus2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindMonthlyTransactionStatus)
 	if err != nil {
 		return nil, err
 	}
@@ -14185,7 +14219,7 @@ func (ec *executionContext) field_Query_findMonthStatusFailed_args(ctx context.C
 func (ec *executionContext) field_Query_findMonthStatusSuccessByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindMonthlyTransactionStatusByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindMonthlyTransactionStatusByMerchant)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindMonthlyTransactionStatusByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindMonthlyTransactionStatusByMerchant)
 	if err != nil {
 		return nil, err
 	}
@@ -14196,7 +14230,7 @@ func (ec *executionContext) field_Query_findMonthStatusSuccessByMerchant_args(ct
 func (ec *executionContext) field_Query_findMonthStatusSuccess_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindMonthlyTransactionStatus2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindMonthlyTransactionStatus)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindMonthlyTransactionStatus2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindMonthlyTransactionStatus)
 	if err != nil {
 		return nil, err
 	}
@@ -14207,7 +14241,7 @@ func (ec *executionContext) field_Query_findMonthStatusSuccess_args(ctx context.
 func (ec *executionContext) field_Query_findMonthlyRevenueByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearOrderByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearOrderByMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearOrderByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearOrderByMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14218,7 +14252,7 @@ func (ec *executionContext) field_Query_findMonthlyRevenueByMerchant_args(ctx co
 func (ec *executionContext) field_Query_findMonthlyRevenue_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindMonthYearOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindMonthYearOrderInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindMonthYearOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindMonthYearOrderInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14229,7 +14263,7 @@ func (ec *executionContext) field_Query_findMonthlyRevenue_args(ctx context.Cont
 func (ec *executionContext) field_Query_findMonthlyTotalPricesById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearMonthTotalPriceByIdInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalPriceByIDInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearMonthTotalPriceByIdInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalPriceByIDInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14240,7 +14274,7 @@ func (ec *executionContext) field_Query_findMonthlyTotalPricesById_args(ctx cont
 func (ec *executionContext) field_Query_findMonthlyTotalPricesByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearMonthTotalPriceByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalPriceByMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearMonthTotalPriceByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalPriceByMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14251,7 +14285,7 @@ func (ec *executionContext) field_Query_findMonthlyTotalPricesByMerchant_args(ct
 func (ec *executionContext) field_Query_findMonthlyTotalPrices_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearMonthTotalPricesInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalPricesInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearMonthTotalPricesInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalPricesInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14262,7 +14296,7 @@ func (ec *executionContext) field_Query_findMonthlyTotalPrices_args(ctx context.
 func (ec *executionContext) field_Query_findMonthlyTotalRevenueByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearMonthTotalRevenueByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalRevenueByMerchant)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearMonthTotalRevenueByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalRevenueByMerchant)
 	if err != nil {
 		return nil, err
 	}
@@ -14273,7 +14307,7 @@ func (ec *executionContext) field_Query_findMonthlyTotalRevenueByMerchant_args(c
 func (ec *executionContext) field_Query_findMonthlyTotalRevenue_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearMonthTotalRevenue2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalRevenue)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearMonthTotalRevenue2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalRevenue)
 	if err != nil {
 		return nil, err
 	}
@@ -14284,7 +14318,7 @@ func (ec *executionContext) field_Query_findMonthlyTotalRevenue_args(ctx context
 func (ec *executionContext) field_Query_findOrderById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDOrderInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDOrderInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14295,7 +14329,7 @@ func (ec *executionContext) field_Query_findOrderById_args(ctx context.Context, 
 func (ec *executionContext) field_Query_findOrderItemsByOrder_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdOrderItemInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDOrderItemInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdOrderItemInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDOrderItemInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14306,7 +14340,7 @@ func (ec *executionContext) field_Query_findOrderItemsByOrder_args(ctx context.C
 func (ec *executionContext) field_Query_findProductById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindByIdProductInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDProductInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindByIdProductInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDProductInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14317,7 +14351,7 @@ func (ec *executionContext) field_Query_findProductById_args(ctx context.Context
 func (ec *executionContext) field_Query_findProductsByCategory_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllProductCategoryInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllProductCategoryInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllProductCategoryInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllProductCategoryInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14328,7 +14362,7 @@ func (ec *executionContext) field_Query_findProductsByCategory_args(ctx context.
 func (ec *executionContext) field_Query_findProductsByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllProductMerchantInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllProductMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllProductMerchantInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllProductMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14339,7 +14373,7 @@ func (ec *executionContext) field_Query_findProductsByMerchant_args(ctx context.
 func (ec *executionContext) field_Query_findReviewDetailById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindByIdReviewDetailInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDReviewDetailInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindByIdReviewDetailInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDReviewDetailInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14350,7 +14384,7 @@ func (ec *executionContext) field_Query_findReviewDetailById_args(ctx context.Co
 func (ec *executionContext) field_Query_findReviewsByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllReviewMerchantRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllReviewMerchantRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllReviewMerchantRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllReviewMerchantRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -14361,7 +14395,7 @@ func (ec *executionContext) field_Query_findReviewsByMerchant_args(ctx context.C
 func (ec *executionContext) field_Query_findReviewsByProduct_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllReviewProductRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllReviewProductRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllReviewProductRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllReviewProductRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -14372,7 +14406,7 @@ func (ec *executionContext) field_Query_findReviewsByProduct_args(ctx context.Co
 func (ec *executionContext) field_Query_findShippingById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindByIdShippingRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDShippingRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindByIdShippingRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDShippingRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -14383,7 +14417,7 @@ func (ec *executionContext) field_Query_findShippingById_args(ctx context.Contex
 func (ec *executionContext) field_Query_findShippingByOrder_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindByIdShippingRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDShippingRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindByIdShippingRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDShippingRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -14394,7 +14428,7 @@ func (ec *executionContext) field_Query_findShippingByOrder_args(ctx context.Con
 func (ec *executionContext) field_Query_findTransactionById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdTransactionRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDTransactionRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindByIdTransactionRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDTransactionRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -14405,7 +14439,7 @@ func (ec *executionContext) field_Query_findTransactionById_args(ctx context.Con
 func (ec *executionContext) field_Query_findTransactionByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllTransactionMerchantRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllTransactionMerchantRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllTransactionMerchantRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllTransactionMerchantRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -14416,7 +14450,7 @@ func (ec *executionContext) field_Query_findTransactionByMerchant_args(ctx conte
 func (ec *executionContext) field_Query_findTrashedBanners_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllBannerInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllBannerInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllBannerInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllBannerInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14427,7 +14461,7 @@ func (ec *executionContext) field_Query_findTrashedBanners_args(ctx context.Cont
 func (ec *executionContext) field_Query_findTrashedCategories_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllCategoryInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllCategoryInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllCategoryInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllCategoryInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14438,7 +14472,7 @@ func (ec *executionContext) field_Query_findTrashedCategories_args(ctx context.C
 func (ec *executionContext) field_Query_findTrashedMerchantAwards_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantAwardInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantAwardInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantAwardInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantAwardInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14449,7 +14483,7 @@ func (ec *executionContext) field_Query_findTrashedMerchantAwards_args(ctx conte
 func (ec *executionContext) field_Query_findTrashedMerchantBusinesses_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantBusinessInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantBusinessInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantBusinessInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantBusinessInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14460,7 +14494,7 @@ func (ec *executionContext) field_Query_findTrashedMerchantBusinesses_args(ctx c
 func (ec *executionContext) field_Query_findTrashedMerchantDetails_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantDetailInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantDetailInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantDetailInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantDetailInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14471,7 +14505,7 @@ func (ec *executionContext) field_Query_findTrashedMerchantDetails_args(ctx cont
 func (ec *executionContext) field_Query_findTrashedMerchantPolicies_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantPoliciesInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantPoliciesInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantPoliciesInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantPoliciesInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14482,7 +14516,7 @@ func (ec *executionContext) field_Query_findTrashedMerchantPolicies_args(ctx con
 func (ec *executionContext) field_Query_findTrashedMerchants_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14493,7 +14527,7 @@ func (ec *executionContext) field_Query_findTrashedMerchants_args(ctx context.Co
 func (ec *executionContext) field_Query_findTrashedOrderItems_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllOrderItemInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderItemInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllOrderItemInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderItemInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14504,7 +14538,7 @@ func (ec *executionContext) field_Query_findTrashedOrderItems_args(ctx context.C
 func (ec *executionContext) field_Query_findTrashedOrders_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindAllOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14515,7 +14549,7 @@ func (ec *executionContext) field_Query_findTrashedOrders_args(ctx context.Conte
 func (ec *executionContext) field_Query_findTrashedProducts_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllProductInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllProductInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllProductInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllProductInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14526,7 +14560,7 @@ func (ec *executionContext) field_Query_findTrashedProducts_args(ctx context.Con
 func (ec *executionContext) field_Query_findTrashedReviewDetails_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllReviewDetailInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllReviewDetailInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllReviewDetailInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllReviewDetailInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14537,7 +14571,7 @@ func (ec *executionContext) field_Query_findTrashedReviewDetails_args(ctx contex
 func (ec *executionContext) field_Query_findTrashedReviews_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllReviewRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllReviewRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllReviewRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllReviewRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -14548,7 +14582,7 @@ func (ec *executionContext) field_Query_findTrashedReviews_args(ctx context.Cont
 func (ec *executionContext) field_Query_findTrashedShipping_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllShippingRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllShippingRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllShippingRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllShippingRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -14559,7 +14593,7 @@ func (ec *executionContext) field_Query_findTrashedShipping_args(ctx context.Con
 func (ec *executionContext) field_Query_findTrashedSliders_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllSliderRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllSliderRequest)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalOFindAllSliderRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllSliderRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -14570,7 +14604,7 @@ func (ec *executionContext) field_Query_findTrashedSliders_args(ctx context.Cont
 func (ec *executionContext) field_Query_findYearMethodByMerchantFailed_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNYearTransactionMethodByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐYearTransactionMethodByMerchant)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNYearTransactionMethodByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐYearTransactionMethodByMerchant)
 	if err != nil {
 		return nil, err
 	}
@@ -14581,7 +14615,7 @@ func (ec *executionContext) field_Query_findYearMethodByMerchantFailed_args(ctx 
 func (ec *executionContext) field_Query_findYearMethodByMerchantSuccess_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNYearTransactionMethodByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐYearTransactionMethodByMerchant)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNYearTransactionMethodByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐYearTransactionMethodByMerchant)
 	if err != nil {
 		return nil, err
 	}
@@ -14592,7 +14626,7 @@ func (ec *executionContext) field_Query_findYearMethodByMerchantSuccess_args(ctx
 func (ec *executionContext) field_Query_findYearMethodFailed_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNYearTransactionMethod2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐYearTransactionMethod)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNYearTransactionMethod2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐYearTransactionMethod)
 	if err != nil {
 		return nil, err
 	}
@@ -14603,7 +14637,7 @@ func (ec *executionContext) field_Query_findYearMethodFailed_args(ctx context.Co
 func (ec *executionContext) field_Query_findYearMethodSuccess_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNYearTransactionMethod2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐYearTransactionMethod)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNYearTransactionMethod2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐYearTransactionMethod)
 	if err != nil {
 		return nil, err
 	}
@@ -14614,7 +14648,7 @@ func (ec *executionContext) field_Query_findYearMethodSuccess_args(ctx context.C
 func (ec *executionContext) field_Query_findYearPriceById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCategoryByIdInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearCategoryByIDInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCategoryByIdInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearCategoryByIDInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14625,7 +14659,7 @@ func (ec *executionContext) field_Query_findYearPriceById_args(ctx context.Conte
 func (ec *executionContext) field_Query_findYearPriceByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCategoryByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearCategoryByMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCategoryByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearCategoryByMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14636,7 +14670,7 @@ func (ec *executionContext) field_Query_findYearPriceByMerchant_args(ctx context
 func (ec *executionContext) field_Query_findYearPrice_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14647,7 +14681,7 @@ func (ec *executionContext) field_Query_findYearPrice_args(ctx context.Context, 
 func (ec *executionContext) field_Query_findYearStatusFailedByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearlyTransactionStatusByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearlyTransactionStatusByMerchant)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearlyTransactionStatusByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearlyTransactionStatusByMerchant)
 	if err != nil {
 		return nil, err
 	}
@@ -14658,7 +14692,7 @@ func (ec *executionContext) field_Query_findYearStatusFailedByMerchant_args(ctx 
 func (ec *executionContext) field_Query_findYearStatusFailed_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearlyTransactionStatus2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearlyTransactionStatus)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearlyTransactionStatus2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearlyTransactionStatus)
 	if err != nil {
 		return nil, err
 	}
@@ -14669,7 +14703,7 @@ func (ec *executionContext) field_Query_findYearStatusFailed_args(ctx context.Co
 func (ec *executionContext) field_Query_findYearStatusSuccessByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearlyTransactionStatusByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearlyTransactionStatusByMerchant)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearlyTransactionStatusByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearlyTransactionStatusByMerchant)
 	if err != nil {
 		return nil, err
 	}
@@ -14680,7 +14714,7 @@ func (ec *executionContext) field_Query_findYearStatusSuccessByMerchant_args(ctx
 func (ec *executionContext) field_Query_findYearStatusSuccess_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearlyTransactionStatus2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearlyTransactionStatus)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearlyTransactionStatus2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearlyTransactionStatus)
 	if err != nil {
 		return nil, err
 	}
@@ -14691,7 +14725,7 @@ func (ec *executionContext) field_Query_findYearStatusSuccess_args(ctx context.C
 func (ec *executionContext) field_Query_findYearlyRevenueByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearOrderByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearOrderByMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearOrderByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearOrderByMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14702,7 +14736,7 @@ func (ec *executionContext) field_Query_findYearlyRevenueByMerchant_args(ctx con
 func (ec *executionContext) field_Query_findYearlyRevenue_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearOrderInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearOrderInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14713,7 +14747,7 @@ func (ec *executionContext) field_Query_findYearlyRevenue_args(ctx context.Conte
 func (ec *executionContext) field_Query_findYearlyTotalPricesById_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCategoryByIdInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearCategoryByIDInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearCategoryByIdInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearCategoryByIDInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14724,7 +14758,7 @@ func (ec *executionContext) field_Query_findYearlyTotalPricesById_args(ctx conte
 func (ec *executionContext) field_Query_findYearlyTotalPricesByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearTotalPriceByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalPriceByMerchantInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearTotalPriceByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalPriceByMerchantInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14735,7 +14769,7 @@ func (ec *executionContext) field_Query_findYearlyTotalPricesByMerchant_args(ctx
 func (ec *executionContext) field_Query_findYearlyTotalPrices_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearTotalPricesInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalPricesInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearTotalPricesInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalPricesInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14746,7 +14780,7 @@ func (ec *executionContext) field_Query_findYearlyTotalPrices_args(ctx context.C
 func (ec *executionContext) field_Query_findYearlyTotalRevenueByMerchant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearTotalRevenueByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalRevenueByMerchant)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearTotalRevenueByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalRevenueByMerchant)
 	if err != nil {
 		return nil, err
 	}
@@ -14757,7 +14791,7 @@ func (ec *executionContext) field_Query_findYearlyTotalRevenueByMerchant_args(ct
 func (ec *executionContext) field_Query_findYearlyTotalRevenue_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearTotalRevenue2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalRevenue)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNFindYearTotalRevenue2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalRevenue)
 	if err != nil {
 		return nil, err
 	}
@@ -14768,7 +14802,7 @@ func (ec *executionContext) field_Query_findYearlyTotalRevenue_args(ctx context.
 func (ec *executionContext) field_Query_getMe_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNGetMeInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐGetMeInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNGetMeInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐGetMeInput)
 	if err != nil {
 		return nil, err
 	}
@@ -14896,7 +14930,7 @@ func (ec *executionContext) _ApiResponseBanner_data(ctx context.Context, field g
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOBannerResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐBannerResponse,
+		ec.marshalOBannerResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐBannerResponse,
 		true,
 		false,
 	)
@@ -15119,7 +15153,7 @@ func (ec *executionContext) _ApiResponseBannerDeleteAt_data(ctx context.Context,
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOBannerResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐBannerResponseDeleteAt,
+		ec.marshalOBannerResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐBannerResponseDeleteAt,
 		true,
 		false,
 	)
@@ -15228,7 +15262,7 @@ func (ec *executionContext) _ApiResponseCart_data(ctx context.Context, field gra
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOCartResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCartResponse,
+		ec.marshalOCartResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCartResponse,
 		true,
 		false,
 	)
@@ -15455,7 +15489,7 @@ func (ec *executionContext) _ApiResponseCategory_data(ctx context.Context, field
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOCategoryResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCategoryResponse,
+		ec.marshalOCategoryResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCategoryResponse,
 		true,
 		false,
 	)
@@ -15674,7 +15708,7 @@ func (ec *executionContext) _ApiResponseCategoryDeleteAt_data(ctx context.Contex
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOCategoryResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseDeleteAt,
+		ec.marshalOCategoryResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseDeleteAt,
 		true,
 		false,
 	)
@@ -15779,7 +15813,7 @@ func (ec *executionContext) _ApiResponseCategoryMonthPrice_data(ctx context.Cont
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNCategoryMonthPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCategoryMonthPriceResponseᚄ,
+		ec.marshalNCategoryMonthPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCategoryMonthPriceResponseᚄ,
 		true,
 		true,
 	)
@@ -15880,7 +15914,7 @@ func (ec *executionContext) _ApiResponseCategoryMonthlyTotalPrice_data(ctx conte
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNCategoryMonthlyTotalPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCategoryMonthlyTotalPriceResponseᚄ,
+		ec.marshalNCategoryMonthlyTotalPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCategoryMonthlyTotalPriceResponseᚄ,
 		true,
 		true,
 	)
@@ -15975,7 +16009,7 @@ func (ec *executionContext) _ApiResponseCategoryYearPrice_data(ctx context.Conte
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNCategoryYearPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCategoryYearPriceResponseᚄ,
+		ec.marshalNCategoryYearPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCategoryYearPriceResponseᚄ,
 		true,
 		true,
 	)
@@ -16078,7 +16112,7 @@ func (ec *executionContext) _ApiResponseCategoryYearlyTotalPrice_data(ctx contex
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNCategoryYearlyTotalPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCategoryYearlyTotalPriceResponseᚄ,
+		ec.marshalNCategoryYearlyTotalPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCategoryYearlyTotalPriceResponseᚄ,
 		true,
 		true,
 	)
@@ -16229,7 +16263,7 @@ func (ec *executionContext) _ApiResponseGetMe_data(ctx context.Context, field gr
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUserResponse,
+		ec.marshalOUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUserResponse,
 		true,
 		false,
 	)
@@ -16330,7 +16364,7 @@ func (ec *executionContext) _ApiResponseLogin_data(ctx context.Context, field gr
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOTokenResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTokenResponse,
+		ec.marshalOTokenResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTokenResponse,
 		true,
 		false,
 	)
@@ -16423,7 +16457,7 @@ func (ec *executionContext) _ApiResponseMerchant_data(ctx context.Context, field
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOMerchantResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantResponse,
+		ec.marshalOMerchantResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantResponse,
 		true,
 		false,
 	)
@@ -16590,7 +16624,7 @@ func (ec *executionContext) _ApiResponseMerchantAward_data(ctx context.Context, 
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOMerchantAwardResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantAwardResponse,
+		ec.marshalOMerchantAwardResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantAwardResponse,
 		true,
 		false,
 	)
@@ -16817,7 +16851,7 @@ func (ec *executionContext) _ApiResponseMerchantAwardDeleteAt_data(ctx context.C
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOMerchantAwardResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantAwardResponseDeleteAt,
+		ec.marshalOMerchantAwardResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantAwardResponseDeleteAt,
 		true,
 		false,
 	)
@@ -16928,7 +16962,7 @@ func (ec *executionContext) _ApiResponseMerchantBusiness_data(ctx context.Contex
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOMerchantBusinessResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantBusinessResponse,
+		ec.marshalOMerchantBusinessResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantBusinessResponse,
 		true,
 		false,
 	)
@@ -17153,7 +17187,7 @@ func (ec *executionContext) _ApiResponseMerchantBusinessDeleteAt_data(ctx contex
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOMerchantBusinessResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantBusinessResponseDeleteAt,
+		ec.marshalOMerchantBusinessResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantBusinessResponseDeleteAt,
 		true,
 		false,
 	)
@@ -17322,7 +17356,7 @@ func (ec *executionContext) _ApiResponseMerchantDeleteAt_data(ctx context.Contex
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOMerchantResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseDeleteAt,
+		ec.marshalOMerchantResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseDeleteAt,
 		true,
 		false,
 	)
@@ -17433,7 +17467,7 @@ func (ec *executionContext) _ApiResponseMerchantDetail_data(ctx context.Context,
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOMerchantDetailResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailResponse,
+		ec.marshalOMerchantDetailResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailResponse,
 		true,
 		false,
 	)
@@ -17656,7 +17690,7 @@ func (ec *executionContext) _ApiResponseMerchantDetailDeleteAt_data(ctx context.
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOMerchantDetailResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailResponseDeleteAt,
+		ec.marshalOMerchantDetailResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailResponseDeleteAt,
 		true,
 		false,
 	)
@@ -17765,7 +17799,7 @@ func (ec *executionContext) _ApiResponseMerchantDetailRelation_data(ctx context.
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOMerchantDetailRelationResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailRelationResponse,
+		ec.marshalOMerchantDetailRelationResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailRelationResponse,
 		true,
 		false,
 	)
@@ -17874,7 +17908,7 @@ func (ec *executionContext) _ApiResponseMerchantPolicy_data(ctx context.Context,
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOMerchantPolicyResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantPolicyResponse,
+		ec.marshalOMerchantPolicyResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantPolicyResponse,
 		true,
 		false,
 	)
@@ -18093,7 +18127,7 @@ func (ec *executionContext) _ApiResponseMerchantPolicyDeleteAt_data(ctx context.
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOMerchantPolicyResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantPolicyResponseDeleteAt,
+		ec.marshalOMerchantPolicyResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantPolicyResponseDeleteAt,
 		true,
 		false,
 	)
@@ -18198,7 +18232,7 @@ func (ec *executionContext) _ApiResponseMerchantSocialMediaLink_data(ctx context
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNMerchantSocialMediaLinkResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantSocialMediaLinkResponse,
+		ec.marshalNMerchantSocialMediaLinkResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantSocialMediaLinkResponse,
 		true,
 		true,
 	)
@@ -18293,7 +18327,7 @@ func (ec *executionContext) _ApiResponseOrder_data(ctx context.Context, field gr
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOOrderResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderResponse,
+		ec.marshalOOrderResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderResponse,
 		true,
 		false,
 	)
@@ -18510,7 +18544,7 @@ func (ec *executionContext) _ApiResponseOrderDeleteAt_data(ctx context.Context, 
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOOrderResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderResponseDeleteAt,
+		ec.marshalOOrderResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderResponseDeleteAt,
 		true,
 		false,
 	)
@@ -18613,7 +18647,7 @@ func (ec *executionContext) _ApiResponseOrderItem_data(ctx context.Context, fiel
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOOrderItemResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponse,
+		ec.marshalOOrderItemResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponse,
 		true,
 		false,
 	)
@@ -18832,7 +18866,7 @@ func (ec *executionContext) _ApiResponseOrderMonthly_data(ctx context.Context, f
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNOrderMonthlyResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyResponseᚄ,
+		ec.marshalNOrderMonthlyResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyResponseᚄ,
 		true,
 		true,
 	)
@@ -18929,7 +18963,7 @@ func (ec *executionContext) _ApiResponseOrderMonthlyTotalRevenue_data(ctx contex
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNOrderMonthlyTotalRevenueResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyTotalRevenueResponseᚄ,
+		ec.marshalNOrderMonthlyTotalRevenueResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyTotalRevenueResponseᚄ,
 		true,
 		true,
 	)
@@ -19028,7 +19062,7 @@ func (ec *executionContext) _ApiResponseOrderYearly_data(ctx context.Context, fi
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNOrderYearlyResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyResponseᚄ,
+		ec.marshalNOrderYearlyResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyResponseᚄ,
 		true,
 		true,
 	)
@@ -19129,7 +19163,7 @@ func (ec *executionContext) _ApiResponseOrderYearlyTotalRevenue_data(ctx context
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNOrderYearlyTotalRevenueResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyTotalRevenueResponseᚄ,
+		ec.marshalNOrderYearlyTotalRevenueResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyTotalRevenueResponseᚄ,
 		true,
 		true,
 	)
@@ -19230,7 +19264,7 @@ func (ec *executionContext) _ApiResponsePaginationBanner_data(ctx context.Contex
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNBannerResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐBannerResponseᚄ,
+		ec.marshalNBannerResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐBannerResponseᚄ,
 		true,
 		true,
 	)
@@ -19279,7 +19313,7 @@ func (ec *executionContext) _ApiResponsePaginationBanner_pagination(ctx context.
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -19376,7 +19410,7 @@ func (ec *executionContext) _ApiResponsePaginationBannerDeleteAt_data(ctx contex
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNBannerResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐBannerResponseDeleteAtᚄ,
+		ec.marshalNBannerResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐBannerResponseDeleteAtᚄ,
 		true,
 		true,
 	)
@@ -19427,7 +19461,7 @@ func (ec *executionContext) _ApiResponsePaginationBannerDeleteAt_pagination(ctx 
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -19524,7 +19558,7 @@ func (ec *executionContext) _ApiResponsePaginationCart_data(ctx context.Context,
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNCartResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCartResponseᚄ,
+		ec.marshalNCartResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCartResponseᚄ,
 		true,
 		true,
 	)
@@ -19577,7 +19611,7 @@ func (ec *executionContext) _ApiResponsePaginationCart_pagination(ctx context.Co
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -19674,7 +19708,7 @@ func (ec *executionContext) _ApiResponsePaginationCategory_data(ctx context.Cont
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNCategoryResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseᚄ,
+		ec.marshalNCategoryResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseᚄ,
 		true,
 		true,
 	)
@@ -19719,7 +19753,7 @@ func (ec *executionContext) _ApiResponsePaginationCategory_pagination(ctx contex
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -19816,7 +19850,7 @@ func (ec *executionContext) _ApiResponsePaginationCategoryDeleteAt_data(ctx cont
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNCategoryResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseDeleteAtᚄ,
+		ec.marshalNCategoryResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseDeleteAtᚄ,
 		true,
 		true,
 	)
@@ -19863,7 +19897,7 @@ func (ec *executionContext) _ApiResponsePaginationCategoryDeleteAt_pagination(ct
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -19960,7 +19994,7 @@ func (ec *executionContext) _ApiResponsePaginationMerchant_data(ctx context.Cont
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNMerchantResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseᚄ,
+		ec.marshalNMerchantResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseᚄ,
 		true,
 		true,
 	)
@@ -20011,7 +20045,7 @@ func (ec *executionContext) _ApiResponsePaginationMerchant_pagination(ctx contex
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -20108,7 +20142,7 @@ func (ec *executionContext) _ApiResponsePaginationMerchantAward_data(ctx context
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNMerchantAwardResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantAwardResponseᚄ,
+		ec.marshalNMerchantAwardResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantAwardResponseᚄ,
 		true,
 		true,
 	)
@@ -20161,7 +20195,7 @@ func (ec *executionContext) _ApiResponsePaginationMerchantAward_pagination(ctx c
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -20258,7 +20292,7 @@ func (ec *executionContext) _ApiResponsePaginationMerchantAwardDeleteAt_data(ctx
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNMerchantAwardResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantAwardResponseDeleteAtᚄ,
+		ec.marshalNMerchantAwardResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantAwardResponseDeleteAtᚄ,
 		true,
 		true,
 	)
@@ -20311,7 +20345,7 @@ func (ec *executionContext) _ApiResponsePaginationMerchantAwardDeleteAt_paginati
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -20408,7 +20442,7 @@ func (ec *executionContext) _ApiResponsePaginationMerchantBusiness_data(ctx cont
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNMerchantBusinessResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantBusinessResponseᚄ,
+		ec.marshalNMerchantBusinessResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantBusinessResponseᚄ,
 		true,
 		true,
 	)
@@ -20459,7 +20493,7 @@ func (ec *executionContext) _ApiResponsePaginationMerchantBusiness_pagination(ct
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -20556,7 +20590,7 @@ func (ec *executionContext) _ApiResponsePaginationMerchantBusinessDeleteAt_data(
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNMerchantBusinessResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantBusinessResponseDeleteAtᚄ,
+		ec.marshalNMerchantBusinessResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantBusinessResponseDeleteAtᚄ,
 		true,
 		true,
 	)
@@ -20609,7 +20643,7 @@ func (ec *executionContext) _ApiResponsePaginationMerchantBusinessDeleteAt_pagin
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -20706,7 +20740,7 @@ func (ec *executionContext) _ApiResponsePaginationMerchantDeleteAt_data(ctx cont
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNMerchantResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseDeleteAtᚄ,
+		ec.marshalNMerchantResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseDeleteAtᚄ,
 		true,
 		true,
 	)
@@ -20759,7 +20793,7 @@ func (ec *executionContext) _ApiResponsePaginationMerchantDeleteAt_pagination(ct
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -20856,7 +20890,7 @@ func (ec *executionContext) _ApiResponsePaginationMerchantDetail_data(ctx contex
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNMerchantDetailRelationResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailRelationResponseᚄ,
+		ec.marshalNMerchantDetailRelationResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailRelationResponseᚄ,
 		true,
 		true,
 	)
@@ -20907,7 +20941,7 @@ func (ec *executionContext) _ApiResponsePaginationMerchantDetail_pagination(ctx 
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -21004,7 +21038,7 @@ func (ec *executionContext) _ApiResponsePaginationMerchantDetailDeleteAt_data(ct
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNMerchantDetailRelationResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailRelationResponseDeleteAtᚄ,
+		ec.marshalNMerchantDetailRelationResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailRelationResponseDeleteAtᚄ,
 		true,
 		true,
 	)
@@ -21057,7 +21091,7 @@ func (ec *executionContext) _ApiResponsePaginationMerchantDetailDeleteAt_paginat
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -21154,7 +21188,7 @@ func (ec *executionContext) _ApiResponsePaginationMerchantPolicy_data(ctx contex
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNMerchantPolicyResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantPolicyResponseᚄ,
+		ec.marshalNMerchantPolicyResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantPolicyResponseᚄ,
 		true,
 		true,
 	)
@@ -21199,7 +21233,7 @@ func (ec *executionContext) _ApiResponsePaginationMerchantPolicy_pagination(ctx 
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -21296,7 +21330,7 @@ func (ec *executionContext) _ApiResponsePaginationMerchantPolicyDeleteAt_data(ct
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNMerchantPolicyResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantPolicyResponseDeleteAtᚄ,
+		ec.marshalNMerchantPolicyResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantPolicyResponseDeleteAtᚄ,
 		true,
 		true,
 	)
@@ -21343,7 +21377,7 @@ func (ec *executionContext) _ApiResponsePaginationMerchantPolicyDeleteAt_paginat
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -21440,7 +21474,7 @@ func (ec *executionContext) _ApiResponsePaginationOrder_data(ctx context.Context
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNOrderResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderResponseᚄ,
+		ec.marshalNOrderResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderResponseᚄ,
 		true,
 		true,
 	)
@@ -21483,7 +21517,7 @@ func (ec *executionContext) _ApiResponsePaginationOrder_pagination(ctx context.C
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -21580,7 +21614,7 @@ func (ec *executionContext) _ApiResponsePaginationOrderDeleteAt_data(ctx context
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNOrderResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderResponseDeleteAtᚄ,
+		ec.marshalNOrderResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderResponseDeleteAtᚄ,
 		true,
 		true,
 	)
@@ -21625,7 +21659,7 @@ func (ec *executionContext) _ApiResponsePaginationOrderDeleteAt_pagination(ctx c
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -21722,7 +21756,7 @@ func (ec *executionContext) _ApiResponsePaginationOrderItem_data(ctx context.Con
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNOrderItemResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponseᚄ,
+		ec.marshalNOrderItemResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponseᚄ,
 		true,
 		true,
 	)
@@ -21767,7 +21801,7 @@ func (ec *executionContext) _ApiResponsePaginationOrderItem_pagination(ctx conte
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -21864,7 +21898,7 @@ func (ec *executionContext) _ApiResponsePaginationOrderItemDeleteAt_data(ctx con
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNOrderItemResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponseDeleteAtᚄ,
+		ec.marshalNOrderItemResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponseDeleteAtᚄ,
 		true,
 		true,
 	)
@@ -21911,7 +21945,7 @@ func (ec *executionContext) _ApiResponsePaginationOrderItemDeleteAt_pagination(c
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -22008,7 +22042,7 @@ func (ec *executionContext) _ApiResponsePaginationProduct_data(ctx context.Conte
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOProductResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐProductResponseᚄ,
+		ec.marshalOProductResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐProductResponseᚄ,
 		true,
 		false,
 	)
@@ -22067,7 +22101,7 @@ func (ec *executionContext) _ApiResponsePaginationProduct_pagination(ctx context
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -22164,7 +22198,7 @@ func (ec *executionContext) _ApiResponsePaginationProductDeleteAt_data(ctx conte
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOProductResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐProductResponseDeleteAtᚄ,
+		ec.marshalOProductResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐProductResponseDeleteAtᚄ,
 		true,
 		false,
 	)
@@ -22225,7 +22259,7 @@ func (ec *executionContext) _ApiResponsePaginationProductDeleteAt_pagination(ctx
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -22322,7 +22356,7 @@ func (ec *executionContext) _ApiResponsePaginationReview_data(ctx context.Contex
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNReviewResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewResponseᚄ,
+		ec.marshalNReviewResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewResponseᚄ,
 		true,
 		true,
 	)
@@ -22369,7 +22403,7 @@ func (ec *executionContext) _ApiResponsePaginationReview_pagination(ctx context.
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		false,
 	)
@@ -22466,7 +22500,7 @@ func (ec *executionContext) _ApiResponsePaginationReviewDeleteAt_data(ctx contex
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNReviewResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewResponseDeleteAtᚄ,
+		ec.marshalNReviewResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewResponseDeleteAtᚄ,
 		true,
 		true,
 	)
@@ -22515,7 +22549,7 @@ func (ec *executionContext) _ApiResponsePaginationReviewDeleteAt_pagination(ctx 
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		false,
 	)
@@ -22612,7 +22646,7 @@ func (ec *executionContext) _ApiResponsePaginationReviewDetails_data(ctx context
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOReviewDetailResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewDetailResponse,
+		ec.marshalOReviewDetailResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewDetailResponse,
 		true,
 		false,
 	)
@@ -22657,7 +22691,7 @@ func (ec *executionContext) _ApiResponsePaginationReviewDetails_pagination(ctx c
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		false,
 	)
@@ -22754,7 +22788,7 @@ func (ec *executionContext) _ApiResponsePaginationReviewDetailsDeleteAt_data(ctx
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOReviewDetailResponseDeletedAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewDetailResponseDeletedAt,
+		ec.marshalOReviewDetailResponseDeletedAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewDetailResponseDeletedAt,
 		true,
 		false,
 	)
@@ -22801,7 +22835,7 @@ func (ec *executionContext) _ApiResponsePaginationReviewDetailsDeleteAt_paginati
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		false,
 	)
@@ -22898,7 +22932,7 @@ func (ec *executionContext) _ApiResponsePaginationReviewRelationDetail_data(ctx 
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNReviewRelationDetailResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewRelationDetailResponseᚄ,
+		ec.marshalNReviewRelationDetailResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewRelationDetailResponseᚄ,
 		true,
 		true,
 	)
@@ -22949,7 +22983,7 @@ func (ec *executionContext) _ApiResponsePaginationReviewRelationDetail_paginatio
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		false,
 	)
@@ -23046,7 +23080,7 @@ func (ec *executionContext) _ApiResponsePaginationRole_data(ctx context.Context,
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalORoleResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐRoleResponseᚄ,
+		ec.marshalORoleResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐRoleResponseᚄ,
 		true,
 		false,
 	)
@@ -23085,7 +23119,7 @@ func (ec *executionContext) _ApiResponsePaginationRole_pagination(ctx context.Co
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		false,
 	)
@@ -23182,7 +23216,7 @@ func (ec *executionContext) _ApiResponsePaginationRoleDeleteAt_data(ctx context.
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalORoleResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐRoleResponseDeleteAtᚄ,
+		ec.marshalORoleResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐRoleResponseDeleteAtᚄ,
 		true,
 		false,
 	)
@@ -23223,7 +23257,7 @@ func (ec *executionContext) _ApiResponsePaginationRoleDeleteAt_pagination(ctx co
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		false,
 	)
@@ -23320,7 +23354,7 @@ func (ec *executionContext) _ApiResponsePaginationShipping_data(ctx context.Cont
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNShippingResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐShippingResponseᚄ,
+		ec.marshalNShippingResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐShippingResponseᚄ,
 		true,
 		true,
 	)
@@ -23371,7 +23405,7 @@ func (ec *executionContext) _ApiResponsePaginationShipping_pagination(ctx contex
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		false,
 	)
@@ -23468,7 +23502,7 @@ func (ec *executionContext) _ApiResponsePaginationShippingDeleteAt_data(ctx cont
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNShippingResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐShippingResponseDeleteAtᚄ,
+		ec.marshalNShippingResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐShippingResponseDeleteAtᚄ,
 		true,
 		true,
 	)
@@ -23521,7 +23555,7 @@ func (ec *executionContext) _ApiResponsePaginationShippingDeleteAt_pagination(ct
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		false,
 	)
@@ -23618,7 +23652,7 @@ func (ec *executionContext) _ApiResponsePaginationSlider_data(ctx context.Contex
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNSliderResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐSliderResponseᚄ,
+		ec.marshalNSliderResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐSliderResponseᚄ,
 		true,
 		true,
 	)
@@ -23659,7 +23693,7 @@ func (ec *executionContext) _ApiResponsePaginationSlider_pagination(ctx context.
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		false,
 	)
@@ -23756,7 +23790,7 @@ func (ec *executionContext) _ApiResponsePaginationSliderDeleteAt_data(ctx contex
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNSliderResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐSliderResponseDeleteAtᚄ,
+		ec.marshalNSliderResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐSliderResponseDeleteAtᚄ,
 		true,
 		true,
 	)
@@ -23799,7 +23833,7 @@ func (ec *executionContext) _ApiResponsePaginationSliderDeleteAt_pagination(ctx 
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		false,
 	)
@@ -23896,7 +23930,7 @@ func (ec *executionContext) _ApiResponsePaginationTransaction_data(ctx context.C
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOTransactionResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionResponse,
+		ec.marshalOTransactionResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionResponse,
 		true,
 		false,
 	)
@@ -23943,7 +23977,7 @@ func (ec *executionContext) _ApiResponsePaginationTransaction_pagination(ctx con
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		false,
 	)
@@ -24040,7 +24074,7 @@ func (ec *executionContext) _ApiResponsePaginationTransactionDeleteAt_data(ctx c
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOTransactionResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionResponseDeleteAt,
+		ec.marshalOTransactionResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionResponseDeleteAt,
 		true,
 		false,
 	)
@@ -24089,7 +24123,7 @@ func (ec *executionContext) _ApiResponsePaginationTransactionDeleteAt_pagination
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		false,
 	)
@@ -24186,7 +24220,7 @@ func (ec *executionContext) _ApiResponsePaginationUser_data(ctx context.Context,
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNUserResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUserResponseᚄ,
+		ec.marshalNUserResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUserResponseᚄ,
 		true,
 		true,
 	)
@@ -24229,7 +24263,7 @@ func (ec *executionContext) _ApiResponsePaginationUser_pagination(ctx context.Co
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -24326,7 +24360,7 @@ func (ec *executionContext) _ApiResponsePaginationUserDeleteAt_data(ctx context.
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNUserResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUserResponseDeleteAtᚄ,
+		ec.marshalNUserResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUserResponseDeleteAtᚄ,
 		true,
 		true,
 	)
@@ -24371,7 +24405,7 @@ func (ec *executionContext) _ApiResponsePaginationUserDeleteAt_pagination(ctx co
 			return obj.Pagination, nil
 		},
 		nil,
-		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
+		ec.marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta,
 		true,
 		true,
 	)
@@ -24468,7 +24502,7 @@ func (ec *executionContext) _ApiResponseProduct_data(ctx context.Context, field 
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNProductResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐProductResponse,
+		ec.marshalNProductResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐProductResponse,
 		true,
 		true,
 	)
@@ -24701,7 +24735,7 @@ func (ec *executionContext) _ApiResponseProductDeleteAt_data(ctx context.Context
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNProductResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐProductResponseDeleteAt,
+		ec.marshalNProductResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐProductResponseDeleteAt,
 		true,
 		true,
 	)
@@ -24820,7 +24854,7 @@ func (ec *executionContext) _ApiResponseRefreshToken_data(ctx context.Context, f
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOTokenResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTokenResponse,
+		ec.marshalOTokenResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTokenResponse,
 		true,
 		false,
 	)
@@ -24913,7 +24947,7 @@ func (ec *executionContext) _ApiResponseRegister_data(ctx context.Context, field
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUserResponse,
+		ec.marshalOUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUserResponse,
 		true,
 		false,
 	)
@@ -25072,7 +25106,7 @@ func (ec *executionContext) _ApiResponseReview_data(ctx context.Context, field g
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOReviewResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewResponse,
+		ec.marshalOReviewResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewResponse,
 		true,
 		false,
 	)
@@ -25293,7 +25327,7 @@ func (ec *executionContext) _ApiResponseReviewDeleteAt_data(ctx context.Context,
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOReviewResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewResponseDeleteAt,
+		ec.marshalOReviewResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewResponseDeleteAt,
 		true,
 		false,
 	)
@@ -25400,7 +25434,7 @@ func (ec *executionContext) _ApiResponseReviewDetail_data(ctx context.Context, f
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOReviewDetailResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewDetailResponse,
+		ec.marshalOReviewDetailResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewDetailResponse,
 		true,
 		false,
 	)
@@ -25619,7 +25653,7 @@ func (ec *executionContext) _ApiResponseReviewDetailDeleteAt_data(ctx context.Co
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOReviewDetailResponseDeletedAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewDetailResponseDeletedAt,
+		ec.marshalOReviewDetailResponseDeletedAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewDetailResponseDeletedAt,
 		true,
 		false,
 	)
@@ -25724,7 +25758,7 @@ func (ec *executionContext) _ApiResponseRole_data(ctx context.Context, field gra
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalORoleResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐRoleResponse,
+		ec.marshalORoleResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐRoleResponse,
 		true,
 		false,
 	)
@@ -25937,7 +25971,7 @@ func (ec *executionContext) _ApiResponseRoleDeleteAt_data(ctx context.Context, f
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalORoleResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐRoleResponseDeleteAt,
+		ec.marshalORoleResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐRoleResponseDeleteAt,
 		true,
 		false,
 	)
@@ -26036,7 +26070,7 @@ func (ec *executionContext) _ApiResponseShipping_data(ctx context.Context, field
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOShippingResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐShippingResponse,
+		ec.marshalOShippingResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐShippingResponse,
 		true,
 		false,
 	)
@@ -26261,7 +26295,7 @@ func (ec *executionContext) _ApiResponseShippingDeleteAt_data(ctx context.Contex
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOShippingResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐShippingResponseDeleteAt,
+		ec.marshalOShippingResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐShippingResponseDeleteAt,
 		true,
 		false,
 	)
@@ -26372,7 +26406,7 @@ func (ec *executionContext) _ApiResponseSlider_data(ctx context.Context, field g
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOSliderResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐSliderResponse,
+		ec.marshalOSliderResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐSliderResponse,
 		true,
 		false,
 	)
@@ -26587,7 +26621,7 @@ func (ec *executionContext) _ApiResponseSliderDeleteAt_data(ctx context.Context,
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOSliderResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐSliderResponseDeleteAt,
+		ec.marshalOSliderResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐSliderResponseDeleteAt,
 		true,
 		false,
 	)
@@ -26688,7 +26722,7 @@ func (ec *executionContext) _ApiResponseTransaction_data(ctx context.Context, fi
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOTransactionResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionResponse,
+		ec.marshalOTransactionResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionResponse,
 		true,
 		false,
 	)
@@ -26909,7 +26943,7 @@ func (ec *executionContext) _ApiResponseTransactionDeleteAt_data(ctx context.Con
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOTransactionResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionResponseDeleteAt,
+		ec.marshalOTransactionResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionResponseDeleteAt,
 		true,
 		false,
 	)
@@ -27016,7 +27050,7 @@ func (ec *executionContext) _ApiResponseTransactionMonthAmountFailed_data(ctx co
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOTransactionMonthlyAmountFailed2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountFailed,
+		ec.marshalOTransactionMonthlyAmountFailed2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountFailed,
 		true,
 		false,
 	)
@@ -27113,7 +27147,7 @@ func (ec *executionContext) _ApiResponseTransactionMonthAmountSuccess_data(ctx c
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOTransactionMonthlyAmountSuccess2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountSuccess,
+		ec.marshalOTransactionMonthlyAmountSuccess2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountSuccess,
 		true,
 		false,
 	)
@@ -27210,7 +27244,7 @@ func (ec *executionContext) _ApiResponseTransactionMonthPaymentMethod_data(ctx c
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOTransactionMonthlyMethod2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyMethod,
+		ec.marshalOTransactionMonthlyMethod2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyMethod,
 		true,
 		false,
 	)
@@ -27307,7 +27341,7 @@ func (ec *executionContext) _ApiResponseTransactionYearAmountFailed_data(ctx con
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOTransactionYearlyAmountFailed2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountFailed,
+		ec.marshalOTransactionYearlyAmountFailed2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountFailed,
 		true,
 		false,
 	)
@@ -27402,7 +27436,7 @@ func (ec *executionContext) _ApiResponseTransactionYearAmountSuccess_data(ctx co
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOTransactionYearlyAmountSuccess2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountSuccess,
+		ec.marshalOTransactionYearlyAmountSuccess2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountSuccess,
 		true,
 		false,
 	)
@@ -27497,7 +27531,7 @@ func (ec *executionContext) _ApiResponseTransactionYearPaymentMethod_data(ctx co
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOTransactionYearlyMethod2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyMethod,
+		ec.marshalOTransactionYearlyMethod2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyMethod,
 		true,
 		false,
 	)
@@ -27710,7 +27744,7 @@ func (ec *executionContext) _ApiResponseUserResponse_data(ctx context.Context, f
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUserResponse,
+		ec.marshalOUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUserResponse,
 		true,
 		false,
 	)
@@ -27811,7 +27845,7 @@ func (ec *executionContext) _ApiResponseUserResponseDeleteAt_data(ctx context.Co
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOUserResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUserResponseDeleteAt,
+		ec.marshalOUserResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUserResponseDeleteAt,
 		true,
 		false,
 	)
@@ -27972,7 +28006,7 @@ func (ec *executionContext) _ApiResponsesBanner_data(ctx context.Context, field 
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNBannerResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐBannerResponseᚄ,
+		ec.marshalNBannerResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐBannerResponseᚄ,
 		true,
 		true,
 	)
@@ -28079,7 +28113,7 @@ func (ec *executionContext) _ApiResponsesMerchant_data(ctx context.Context, fiel
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNMerchantResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseᚄ,
+		ec.marshalNMerchantResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseᚄ,
 		true,
 		true,
 	)
@@ -28188,7 +28222,7 @@ func (ec *executionContext) _ApiResponsesMerchantAward_data(ctx context.Context,
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNMerchantAwardResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantAwardResponseᚄ,
+		ec.marshalNMerchantAwardResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantAwardResponseᚄ,
 		true,
 		true,
 	)
@@ -28299,7 +28333,7 @@ func (ec *executionContext) _ApiResponsesMerchantBusiness_data(ctx context.Conte
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNMerchantBusinessResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantBusinessResponseᚄ,
+		ec.marshalNMerchantBusinessResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantBusinessResponseᚄ,
 		true,
 		true,
 	)
@@ -28408,7 +28442,7 @@ func (ec *executionContext) _ApiResponsesMerchantDetail_data(ctx context.Context
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNMerchantDetailResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailResponseᚄ,
+		ec.marshalNMerchantDetailResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailResponseᚄ,
 		true,
 		true,
 	)
@@ -28515,7 +28549,7 @@ func (ec *executionContext) _ApiResponsesMerchantPolicy_data(ctx context.Context
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNMerchantPolicyResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantPolicyResponseᚄ,
+		ec.marshalNMerchantPolicyResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantPolicyResponseᚄ,
 		true,
 		true,
 	)
@@ -28618,7 +28652,7 @@ func (ec *executionContext) _ApiResponsesOrder_data(ctx context.Context, field g
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNOrderResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderResponseᚄ,
+		ec.marshalNOrderResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderResponseᚄ,
 		true,
 		true,
 	)
@@ -28719,7 +28753,7 @@ func (ec *executionContext) _ApiResponsesOrderItem_data(ctx context.Context, fie
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNOrderItemResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponseᚄ,
+		ec.marshalNOrderItemResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponseᚄ,
 		true,
 		true,
 	)
@@ -28822,7 +28856,7 @@ func (ec *executionContext) _ApiResponsesProduct_data(ctx context.Context, field
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOProductResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐProductResponseᚄ,
+		ec.marshalOProductResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐProductResponseᚄ,
 		true,
 		false,
 	)
@@ -28939,7 +28973,7 @@ func (ec *executionContext) _ApiResponsesReview_data(ctx context.Context, field 
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNReviewResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewResponseᚄ,
+		ec.marshalNReviewResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewResponseᚄ,
 		true,
 		true,
 	)
@@ -29044,7 +29078,7 @@ func (ec *executionContext) _ApiResponsesReviewDetails_data(ctx context.Context,
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalOReviewDetailResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewDetailResponse,
+		ec.marshalOReviewDetailResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewDetailResponse,
 		true,
 		false,
 	)
@@ -29147,7 +29181,7 @@ func (ec *executionContext) _ApiResponsesRole_data(ctx context.Context, field gr
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalORoleResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐRoleResponseᚄ,
+		ec.marshalORoleResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐRoleResponseᚄ,
 		true,
 		false,
 	)
@@ -29244,7 +29278,7 @@ func (ec *executionContext) _ApiResponsesShipping_data(ctx context.Context, fiel
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNShippingResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐShippingResponseᚄ,
+		ec.marshalNShippingResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐShippingResponseᚄ,
 		true,
 		true,
 	)
@@ -29353,7 +29387,7 @@ func (ec *executionContext) _ApiResponsesSlider_data(ctx context.Context, field 
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNSliderResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐSliderResponseᚄ,
+		ec.marshalNSliderResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐSliderResponseᚄ,
 		true,
 		true,
 	)
@@ -29452,7 +29486,7 @@ func (ec *executionContext) _ApiResponsesUser_data(ctx context.Context, field gr
 			return obj.Data, nil
 		},
 		nil,
-		ec.marshalNUserResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUserResponseᚄ,
+		ec.marshalNUserResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUserResponseᚄ,
 		true,
 		true,
 	)
@@ -32772,7 +32806,7 @@ func (ec *executionContext) _MerchantDetailRelationResponse_social_media_links(c
 			return obj.SocialMediaLinks, nil
 		},
 		nil,
-		ec.marshalNMerchantSocialMediaLinkResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantSocialMediaLinkResponseᚄ,
+		ec.marshalNMerchantSocialMediaLinkResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantSocialMediaLinkResponseᚄ,
 		true,
 		true,
 	)
@@ -33070,7 +33104,7 @@ func (ec *executionContext) _MerchantDetailRelationResponseDeleteAt_social_media
 			return obj.SocialMediaLinks, nil
 		},
 		nil,
-		ec.marshalNMerchantSocialMediaLinkResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantSocialMediaLinkResponseᚄ,
+		ec.marshalNMerchantSocialMediaLinkResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantSocialMediaLinkResponseᚄ,
 		true,
 		true,
 	)
@@ -34877,7 +34911,7 @@ func (ec *executionContext) _Mutation_verifyCode(ctx context.Context, field grap
 			return ec.resolvers.Mutation().VerifyCode(ctx, fc.Args["input"].(model.VerifyCodeInput))
 		},
 		nil,
-		ec.marshalNApiResponseVerifyCode2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseVerifyCode,
+		ec.marshalNApiResponseVerifyCode2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseVerifyCode,
 		true,
 		true,
 	)
@@ -34924,7 +34958,7 @@ func (ec *executionContext) _Mutation_forgotPassword(ctx context.Context, field 
 			return ec.resolvers.Mutation().ForgotPassword(ctx, fc.Args["input"].(model.ForgotPasswordInput))
 		},
 		nil,
-		ec.marshalNApiResponseForgotPassword2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseForgotPassword,
+		ec.marshalNApiResponseForgotPassword2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseForgotPassword,
 		true,
 		true,
 	)
@@ -34971,7 +35005,7 @@ func (ec *executionContext) _Mutation_resetPassword(ctx context.Context, field g
 			return ec.resolvers.Mutation().ResetPassword(ctx, fc.Args["input"].(model.ResetPasswordInput))
 		},
 		nil,
-		ec.marshalNApiResponseResetPassword2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseResetPassword,
+		ec.marshalNApiResponseResetPassword2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseResetPassword,
 		true,
 		true,
 	)
@@ -35018,7 +35052,7 @@ func (ec *executionContext) _Mutation_registerUser(ctx context.Context, field gr
 			return ec.resolvers.Mutation().RegisterUser(ctx, fc.Args["input"].(model.RegisterInput))
 		},
 		nil,
-		ec.marshalNApiResponseRegister2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRegister,
+		ec.marshalNApiResponseRegister2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRegister,
 		true,
 		true,
 	)
@@ -35067,7 +35101,7 @@ func (ec *executionContext) _Mutation_loginUser(ctx context.Context, field graph
 			return ec.resolvers.Mutation().LoginUser(ctx, fc.Args["input"].(model.LoginInput))
 		},
 		nil,
-		ec.marshalNApiResponseLogin2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseLogin,
+		ec.marshalNApiResponseLogin2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseLogin,
 		true,
 		true,
 	)
@@ -35116,7 +35150,7 @@ func (ec *executionContext) _Mutation_refreshToken(ctx context.Context, field gr
 			return ec.resolvers.Mutation().RefreshToken(ctx, fc.Args["input"].(model.RefreshTokenInput))
 		},
 		nil,
-		ec.marshalNApiResponseRefreshToken2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRefreshToken,
+		ec.marshalNApiResponseRefreshToken2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRefreshToken,
 		true,
 		true,
 	)
@@ -35165,7 +35199,7 @@ func (ec *executionContext) _Mutation_createBanner(ctx context.Context, field gr
 			return ec.resolvers.Mutation().CreateBanner(ctx, fc.Args["input"].(model.CreateBannerInput))
 		},
 		nil,
-		ec.marshalNApiResponseBanner2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBanner,
+		ec.marshalNApiResponseBanner2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBanner,
 		true,
 		true,
 	)
@@ -35214,7 +35248,7 @@ func (ec *executionContext) _Mutation_updateBanner(ctx context.Context, field gr
 			return ec.resolvers.Mutation().UpdateBanner(ctx, fc.Args["input"].(model.UpdateBannerInput))
 		},
 		nil,
-		ec.marshalNApiResponseBanner2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBanner,
+		ec.marshalNApiResponseBanner2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBanner,
 		true,
 		true,
 	)
@@ -35263,7 +35297,7 @@ func (ec *executionContext) _Mutation_trashBanner(ctx context.Context, field gra
 			return ec.resolvers.Mutation().TrashBanner(ctx, fc.Args["input"].(model.FindByIDBannerInput))
 		},
 		nil,
-		ec.marshalNApiResponseBannerDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBannerDeleteAt,
+		ec.marshalNApiResponseBannerDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBannerDeleteAt,
 		true,
 		true,
 	)
@@ -35312,7 +35346,7 @@ func (ec *executionContext) _Mutation_restoreBanner(ctx context.Context, field g
 			return ec.resolvers.Mutation().RestoreBanner(ctx, fc.Args["input"].(model.FindByIDBannerInput))
 		},
 		nil,
-		ec.marshalNApiResponseBannerDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBannerDeleteAt,
+		ec.marshalNApiResponseBannerDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBannerDeleteAt,
 		true,
 		true,
 	)
@@ -35361,7 +35395,7 @@ func (ec *executionContext) _Mutation_deleteBannerPermanent(ctx context.Context,
 			return ec.resolvers.Mutation().DeleteBannerPermanent(ctx, fc.Args["input"].(model.FindByIDBannerInput))
 		},
 		nil,
-		ec.marshalNApiResponseBannerDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBannerDelete,
+		ec.marshalNApiResponseBannerDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBannerDelete,
 		true,
 		true,
 	)
@@ -35407,7 +35441,7 @@ func (ec *executionContext) _Mutation_restoreAllBanners(ctx context.Context, fie
 			return ec.resolvers.Mutation().RestoreAllBanners(ctx)
 		},
 		nil,
-		ec.marshalNApiResponseBannerAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBannerAll,
+		ec.marshalNApiResponseBannerAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBannerAll,
 		true,
 		true,
 	)
@@ -35442,7 +35476,7 @@ func (ec *executionContext) _Mutation_deleteAllBannersPermanent(ctx context.Cont
 			return ec.resolvers.Mutation().DeleteAllBannersPermanent(ctx)
 		},
 		nil,
-		ec.marshalNApiResponseBannerAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBannerAll,
+		ec.marshalNApiResponseBannerAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBannerAll,
 		true,
 		true,
 	)
@@ -35478,7 +35512,7 @@ func (ec *executionContext) _Mutation_createCart(ctx context.Context, field grap
 			return ec.resolvers.Mutation().CreateCart(ctx, fc.Args["input"].(model.CreateCartInput))
 		},
 		nil,
-		ec.marshalNApiResponseCart2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCart,
+		ec.marshalNApiResponseCart2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCart,
 		true,
 		true,
 	)
@@ -35527,7 +35561,7 @@ func (ec *executionContext) _Mutation_deleteCart(ctx context.Context, field grap
 			return ec.resolvers.Mutation().DeleteCart(ctx, fc.Args["input"].(model.DeleteCartInput))
 		},
 		nil,
-		ec.marshalNApiResponseCartDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCartDelete,
+		ec.marshalNApiResponseCartDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCartDelete,
 		true,
 		true,
 	)
@@ -35574,7 +35608,7 @@ func (ec *executionContext) _Mutation_deleteAllCarts(ctx context.Context, field 
 			return ec.resolvers.Mutation().DeleteAllCarts(ctx, fc.Args["input"].(model.DeleteCartsInput))
 		},
 		nil,
-		ec.marshalNApiResponseCartAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCartAll,
+		ec.marshalNApiResponseCartAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCartAll,
 		true,
 		true,
 	)
@@ -35621,7 +35655,7 @@ func (ec *executionContext) _Mutation_createCategory(ctx context.Context, field 
 			return ec.resolvers.Mutation().CreateCategory(ctx, fc.Args["input"].(model.CreateCategoryInput))
 		},
 		nil,
-		ec.marshalNApiResponseCategory2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategory,
+		ec.marshalNApiResponseCategory2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategory,
 		true,
 		true,
 	)
@@ -35670,7 +35704,7 @@ func (ec *executionContext) _Mutation_updateCategory(ctx context.Context, field 
 			return ec.resolvers.Mutation().UpdateCategory(ctx, fc.Args["input"].(model.UpdateCategoryInput))
 		},
 		nil,
-		ec.marshalNApiResponseCategory2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategory,
+		ec.marshalNApiResponseCategory2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategory,
 		true,
 		true,
 	)
@@ -35719,7 +35753,7 @@ func (ec *executionContext) _Mutation_trashCategory(ctx context.Context, field g
 			return ec.resolvers.Mutation().TrashCategory(ctx, fc.Args["input"].(model.FindByIDCategoryInput))
 		},
 		nil,
-		ec.marshalNApiResponseCategoryDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryDeleteAt,
+		ec.marshalNApiResponseCategoryDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryDeleteAt,
 		true,
 		true,
 	)
@@ -35768,7 +35802,7 @@ func (ec *executionContext) _Mutation_restoreCategory(ctx context.Context, field
 			return ec.resolvers.Mutation().RestoreCategory(ctx, fc.Args["input"].(model.FindByIDCategoryInput))
 		},
 		nil,
-		ec.marshalNApiResponseCategoryDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryDeleteAt,
+		ec.marshalNApiResponseCategoryDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryDeleteAt,
 		true,
 		true,
 	)
@@ -35817,7 +35851,7 @@ func (ec *executionContext) _Mutation_deleteCategoryPermanent(ctx context.Contex
 			return ec.resolvers.Mutation().DeleteCategoryPermanent(ctx, fc.Args["input"].(model.FindByIDCategoryInput))
 		},
 		nil,
-		ec.marshalNApiResponseCategoryDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryDelete,
+		ec.marshalNApiResponseCategoryDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryDelete,
 		true,
 		true,
 	)
@@ -35863,7 +35897,7 @@ func (ec *executionContext) _Mutation_restoreAllCategories(ctx context.Context, 
 			return ec.resolvers.Mutation().RestoreAllCategories(ctx)
 		},
 		nil,
-		ec.marshalNApiResponseCategoryAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryAll,
+		ec.marshalNApiResponseCategoryAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryAll,
 		true,
 		true,
 	)
@@ -35898,7 +35932,7 @@ func (ec *executionContext) _Mutation_deleteAllCategoriesPermanent(ctx context.C
 			return ec.resolvers.Mutation().DeleteAllCategoriesPermanent(ctx)
 		},
 		nil,
-		ec.marshalNApiResponseCategoryAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryAll,
+		ec.marshalNApiResponseCategoryAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryAll,
 		true,
 		true,
 	)
@@ -35934,7 +35968,7 @@ func (ec *executionContext) _Mutation_createMerchant(ctx context.Context, field 
 			return ec.resolvers.Mutation().CreateMerchant(ctx, fc.Args["input"].(model.CreateMerchantInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchant2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchant,
+		ec.marshalNApiResponseMerchant2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchant,
 		true,
 		true,
 	)
@@ -35983,7 +36017,7 @@ func (ec *executionContext) _Mutation_updateMerchant(ctx context.Context, field 
 			return ec.resolvers.Mutation().UpdateMerchant(ctx, fc.Args["input"].(model.UpdateMerchantInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchant2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchant,
+		ec.marshalNApiResponseMerchant2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchant,
 		true,
 		true,
 	)
@@ -36032,7 +36066,7 @@ func (ec *executionContext) _Mutation_trashMerchant(ctx context.Context, field g
 			return ec.resolvers.Mutation().TrashMerchant(ctx, fc.Args["input"].(model.FindByIDMerchantInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDeleteAt,
+		ec.marshalNApiResponseMerchantDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDeleteAt,
 		true,
 		true,
 	)
@@ -36081,7 +36115,7 @@ func (ec *executionContext) _Mutation_restoreMerchant(ctx context.Context, field
 			return ec.resolvers.Mutation().RestoreMerchant(ctx, fc.Args["input"].(model.FindByIDMerchantInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDeleteAt,
+		ec.marshalNApiResponseMerchantDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDeleteAt,
 		true,
 		true,
 	)
@@ -36130,7 +36164,7 @@ func (ec *executionContext) _Mutation_deleteMerchantPermanent(ctx context.Contex
 			return ec.resolvers.Mutation().DeleteMerchantPermanent(ctx, fc.Args["input"].(model.FindByIDMerchantInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDelete,
+		ec.marshalNApiResponseMerchantDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDelete,
 		true,
 		true,
 	)
@@ -36176,7 +36210,7 @@ func (ec *executionContext) _Mutation_restoreAllMerchants(ctx context.Context, f
 			return ec.resolvers.Mutation().RestoreAllMerchants(ctx)
 		},
 		nil,
-		ec.marshalNApiResponseMerchantAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAll,
+		ec.marshalNApiResponseMerchantAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAll,
 		true,
 		true,
 	)
@@ -36211,7 +36245,7 @@ func (ec *executionContext) _Mutation_deleteAllMerchantsPermanent(ctx context.Co
 			return ec.resolvers.Mutation().DeleteAllMerchantsPermanent(ctx)
 		},
 		nil,
-		ec.marshalNApiResponseMerchantAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAll,
+		ec.marshalNApiResponseMerchantAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAll,
 		true,
 		true,
 	)
@@ -36247,7 +36281,7 @@ func (ec *executionContext) _Mutation_createMerchantAward(ctx context.Context, f
 			return ec.resolvers.Mutation().CreateMerchantAward(ctx, fc.Args["input"].(model.CreateMerchantAwardInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantAward2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAward,
+		ec.marshalNApiResponseMerchantAward2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAward,
 		true,
 		true,
 	)
@@ -36296,7 +36330,7 @@ func (ec *executionContext) _Mutation_updateMerchantAward(ctx context.Context, f
 			return ec.resolvers.Mutation().UpdateMerchantAward(ctx, fc.Args["input"].(model.UpdateMerchantAwardInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantAward2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAward,
+		ec.marshalNApiResponseMerchantAward2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAward,
 		true,
 		true,
 	)
@@ -36345,7 +36379,7 @@ func (ec *executionContext) _Mutation_trashMerchantAward(ctx context.Context, fi
 			return ec.resolvers.Mutation().TrashMerchantAward(ctx, fc.Args["input"].(model.FindByIDMerchantAwardInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantAwardDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAwardDeleteAt,
+		ec.marshalNApiResponseMerchantAwardDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAwardDeleteAt,
 		true,
 		true,
 	)
@@ -36394,7 +36428,7 @@ func (ec *executionContext) _Mutation_restoreMerchantAward(ctx context.Context, 
 			return ec.resolvers.Mutation().RestoreMerchantAward(ctx, fc.Args["input"].(model.FindByIDMerchantAwardInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantAwardDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAwardDeleteAt,
+		ec.marshalNApiResponseMerchantAwardDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAwardDeleteAt,
 		true,
 		true,
 	)
@@ -36443,7 +36477,7 @@ func (ec *executionContext) _Mutation_deleteMerchantAwardPermanent(ctx context.C
 			return ec.resolvers.Mutation().DeleteMerchantAwardPermanent(ctx, fc.Args["input"].(model.FindByIDMerchantAwardInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantAwardDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAwardDelete,
+		ec.marshalNApiResponseMerchantAwardDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAwardDelete,
 		true,
 		true,
 	)
@@ -36489,7 +36523,7 @@ func (ec *executionContext) _Mutation_restoreAllMerchantAwards(ctx context.Conte
 			return ec.resolvers.Mutation().RestoreAllMerchantAwards(ctx)
 		},
 		nil,
-		ec.marshalNApiResponseMerchantAwardAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAwardAll,
+		ec.marshalNApiResponseMerchantAwardAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAwardAll,
 		true,
 		true,
 	)
@@ -36524,7 +36558,7 @@ func (ec *executionContext) _Mutation_deleteAllMerchantAwardsPermanent(ctx conte
 			return ec.resolvers.Mutation().DeleteAllMerchantAwardsPermanent(ctx)
 		},
 		nil,
-		ec.marshalNApiResponseMerchantAwardAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAwardAll,
+		ec.marshalNApiResponseMerchantAwardAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAwardAll,
 		true,
 		true,
 	)
@@ -36560,7 +36594,7 @@ func (ec *executionContext) _Mutation_createMerchantBusiness(ctx context.Context
 			return ec.resolvers.Mutation().CreateMerchantBusiness(ctx, fc.Args["input"].(model.CreateMerchantBusinessInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantBusiness2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusiness,
+		ec.marshalNApiResponseMerchantBusiness2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusiness,
 		true,
 		true,
 	)
@@ -36609,7 +36643,7 @@ func (ec *executionContext) _Mutation_updateMerchantBusiness(ctx context.Context
 			return ec.resolvers.Mutation().UpdateMerchantBusiness(ctx, fc.Args["input"].(model.UpdateMerchantBusinessInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantBusiness2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusiness,
+		ec.marshalNApiResponseMerchantBusiness2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusiness,
 		true,
 		true,
 	)
@@ -36658,7 +36692,7 @@ func (ec *executionContext) _Mutation_trashMerchantBusiness(ctx context.Context,
 			return ec.resolvers.Mutation().TrashMerchantBusiness(ctx, fc.Args["input"].(model.FindByIDMerchantBusinessInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantBusinessDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusinessDeleteAt,
+		ec.marshalNApiResponseMerchantBusinessDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusinessDeleteAt,
 		true,
 		true,
 	)
@@ -36707,7 +36741,7 @@ func (ec *executionContext) _Mutation_restoreMerchantBusiness(ctx context.Contex
 			return ec.resolvers.Mutation().RestoreMerchantBusiness(ctx, fc.Args["input"].(model.FindByIDMerchantBusinessInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantBusinessDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusinessDeleteAt,
+		ec.marshalNApiResponseMerchantBusinessDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusinessDeleteAt,
 		true,
 		true,
 	)
@@ -36756,7 +36790,7 @@ func (ec *executionContext) _Mutation_deleteMerchantBusinessPermanent(ctx contex
 			return ec.resolvers.Mutation().DeleteMerchantBusinessPermanent(ctx, fc.Args["input"].(model.FindByIDMerchantBusinessInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantBusinessDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusinessDelete,
+		ec.marshalNApiResponseMerchantBusinessDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusinessDelete,
 		true,
 		true,
 	)
@@ -36802,7 +36836,7 @@ func (ec *executionContext) _Mutation_restoreAllMerchantBusinesses(ctx context.C
 			return ec.resolvers.Mutation().RestoreAllMerchantBusinesses(ctx)
 		},
 		nil,
-		ec.marshalNApiResponseMerchantBusinessAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusinessAll,
+		ec.marshalNApiResponseMerchantBusinessAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusinessAll,
 		true,
 		true,
 	)
@@ -36837,7 +36871,7 @@ func (ec *executionContext) _Mutation_deleteAllMerchantBusinessesPermanent(ctx c
 			return ec.resolvers.Mutation().DeleteAllMerchantBusinessesPermanent(ctx)
 		},
 		nil,
-		ec.marshalNApiResponseMerchantBusinessAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusinessAll,
+		ec.marshalNApiResponseMerchantBusinessAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusinessAll,
 		true,
 		true,
 	)
@@ -36873,7 +36907,7 @@ func (ec *executionContext) _Mutation_createMerchantDetail(ctx context.Context, 
 			return ec.resolvers.Mutation().CreateMerchantDetail(ctx, fc.Args["input"].(model.CreateMerchantDetailInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantDetail2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetail,
+		ec.marshalNApiResponseMerchantDetail2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetail,
 		true,
 		true,
 	)
@@ -36922,7 +36956,7 @@ func (ec *executionContext) _Mutation_updateMerchantDetail(ctx context.Context, 
 			return ec.resolvers.Mutation().UpdateMerchantDetail(ctx, fc.Args["input"].(model.UpdateMerchantDetailInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantDetail2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetail,
+		ec.marshalNApiResponseMerchantDetail2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetail,
 		true,
 		true,
 	)
@@ -36971,7 +37005,7 @@ func (ec *executionContext) _Mutation_trashMerchantDetail(ctx context.Context, f
 			return ec.resolvers.Mutation().TrashMerchantDetail(ctx, fc.Args["input"].(model.FindByIDMerchantDetailInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantDetailDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetailDeleteAt,
+		ec.marshalNApiResponseMerchantDetailDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetailDeleteAt,
 		true,
 		true,
 	)
@@ -37020,7 +37054,7 @@ func (ec *executionContext) _Mutation_restoreMerchantDetail(ctx context.Context,
 			return ec.resolvers.Mutation().RestoreMerchantDetail(ctx, fc.Args["input"].(model.FindByIDMerchantDetailInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantDetailDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetailDeleteAt,
+		ec.marshalNApiResponseMerchantDetailDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetailDeleteAt,
 		true,
 		true,
 	)
@@ -37069,7 +37103,7 @@ func (ec *executionContext) _Mutation_deleteMerchantDetailPermanent(ctx context.
 			return ec.resolvers.Mutation().DeleteMerchantDetailPermanent(ctx, fc.Args["input"].(model.FindByIDMerchantDetailInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantDetailDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetailDelete,
+		ec.marshalNApiResponseMerchantDetailDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetailDelete,
 		true,
 		true,
 	)
@@ -37115,7 +37149,7 @@ func (ec *executionContext) _Mutation_restoreAllMerchantDetails(ctx context.Cont
 			return ec.resolvers.Mutation().RestoreAllMerchantDetails(ctx)
 		},
 		nil,
-		ec.marshalNApiResponseMerchantDetailAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetailAll,
+		ec.marshalNApiResponseMerchantDetailAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetailAll,
 		true,
 		true,
 	)
@@ -37150,7 +37184,7 @@ func (ec *executionContext) _Mutation_deleteAllMerchantDetailsPermanent(ctx cont
 			return ec.resolvers.Mutation().DeleteAllMerchantDetailsPermanent(ctx)
 		},
 		nil,
-		ec.marshalNApiResponseMerchantDetailAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetailAll,
+		ec.marshalNApiResponseMerchantDetailAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetailAll,
 		true,
 		true,
 	)
@@ -37186,7 +37220,7 @@ func (ec *executionContext) _Mutation_createMerchantPolicy(ctx context.Context, 
 			return ec.resolvers.Mutation().CreateMerchantPolicy(ctx, fc.Args["input"].(model.CreateMerchantPoliciesInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantPolicy2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicy,
+		ec.marshalNApiResponseMerchantPolicy2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicy,
 		true,
 		true,
 	)
@@ -37235,7 +37269,7 @@ func (ec *executionContext) _Mutation_updateMerchantPolicy(ctx context.Context, 
 			return ec.resolvers.Mutation().UpdateMerchantPolicy(ctx, fc.Args["input"].(model.UpdateMerchantPoliciesInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantPolicy2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicy,
+		ec.marshalNApiResponseMerchantPolicy2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicy,
 		true,
 		true,
 	)
@@ -37284,7 +37318,7 @@ func (ec *executionContext) _Mutation_trashMerchantPolicy(ctx context.Context, f
 			return ec.resolvers.Mutation().TrashMerchantPolicy(ctx, fc.Args["input"].(model.FindByIDMerchantPoliciesInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantPolicyDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicyDeleteAt,
+		ec.marshalNApiResponseMerchantPolicyDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicyDeleteAt,
 		true,
 		true,
 	)
@@ -37333,7 +37367,7 @@ func (ec *executionContext) _Mutation_restoreMerchantPolicy(ctx context.Context,
 			return ec.resolvers.Mutation().RestoreMerchantPolicy(ctx, fc.Args["input"].(model.FindByIDMerchantPoliciesInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantPolicyDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicyDeleteAt,
+		ec.marshalNApiResponseMerchantPolicyDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicyDeleteAt,
 		true,
 		true,
 	)
@@ -37382,7 +37416,7 @@ func (ec *executionContext) _Mutation_deleteMerchantPolicyPermanent(ctx context.
 			return ec.resolvers.Mutation().DeleteMerchantPolicyPermanent(ctx, fc.Args["input"].(model.FindByIDMerchantPoliciesInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantPolicyDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicyDelete,
+		ec.marshalNApiResponseMerchantPolicyDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicyDelete,
 		true,
 		true,
 	)
@@ -37428,7 +37462,7 @@ func (ec *executionContext) _Mutation_restoreAllMerchantPolicies(ctx context.Con
 			return ec.resolvers.Mutation().RestoreAllMerchantPolicies(ctx)
 		},
 		nil,
-		ec.marshalNApiResponseMerchantPolicyAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicyAll,
+		ec.marshalNApiResponseMerchantPolicyAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicyAll,
 		true,
 		true,
 	)
@@ -37463,7 +37497,7 @@ func (ec *executionContext) _Mutation_deleteAllMerchantPoliciesPermanent(ctx con
 			return ec.resolvers.Mutation().DeleteAllMerchantPoliciesPermanent(ctx)
 		},
 		nil,
-		ec.marshalNApiResponseMerchantPolicyAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicyAll,
+		ec.marshalNApiResponseMerchantPolicyAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicyAll,
 		true,
 		true,
 	)
@@ -37499,7 +37533,7 @@ func (ec *executionContext) _Mutation_createMerchantSocialLink(ctx context.Conte
 			return ec.resolvers.Mutation().CreateMerchantSocialLink(ctx, fc.Args["input"].(*model.CreateMerchantSocialInput))
 		},
 		nil,
-		ec.marshalOApiResponseMerchantSocialMediaLink2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantSocialMediaLink,
+		ec.marshalOApiResponseMerchantSocialMediaLink2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantSocialMediaLink,
 		true,
 		false,
 	)
@@ -37548,7 +37582,7 @@ func (ec *executionContext) _Mutation_updateMerchantSocialLink(ctx context.Conte
 			return ec.resolvers.Mutation().UpdateMerchantSocialLink(ctx, fc.Args["input"].(*model.UpdateMerchantSocialInput))
 		},
 		nil,
-		ec.marshalOApiResponseMerchantSocialMediaLink2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantSocialMediaLink,
+		ec.marshalOApiResponseMerchantSocialMediaLink2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantSocialMediaLink,
 		true,
 		false,
 	)
@@ -37597,7 +37631,7 @@ func (ec *executionContext) _Mutation_createOrder(ctx context.Context, field gra
 			return ec.resolvers.Mutation().CreateOrder(ctx, fc.Args["input"].(model.CreateOrderInput))
 		},
 		nil,
-		ec.marshalNApiResponseOrder2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrder,
+		ec.marshalNApiResponseOrder2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrder,
 		true,
 		true,
 	)
@@ -37646,7 +37680,7 @@ func (ec *executionContext) _Mutation_updateOrder(ctx context.Context, field gra
 			return ec.resolvers.Mutation().UpdateOrder(ctx, fc.Args["input"].(model.UpdateOrderInput))
 		},
 		nil,
-		ec.marshalNApiResponseOrder2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrder,
+		ec.marshalNApiResponseOrder2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrder,
 		true,
 		true,
 	)
@@ -37695,7 +37729,7 @@ func (ec *executionContext) _Mutation_trashOrder(ctx context.Context, field grap
 			return ec.resolvers.Mutation().TrashOrder(ctx, fc.Args["input"].(model.FindByIDOrderInput))
 		},
 		nil,
-		ec.marshalNApiResponseOrderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderDeleteAt,
+		ec.marshalNApiResponseOrderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderDeleteAt,
 		true,
 		true,
 	)
@@ -37744,7 +37778,7 @@ func (ec *executionContext) _Mutation_restoreOrder(ctx context.Context, field gr
 			return ec.resolvers.Mutation().RestoreOrder(ctx, fc.Args["input"].(model.FindByIDOrderInput))
 		},
 		nil,
-		ec.marshalNApiResponseOrderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderDeleteAt,
+		ec.marshalNApiResponseOrderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderDeleteAt,
 		true,
 		true,
 	)
@@ -37793,7 +37827,7 @@ func (ec *executionContext) _Mutation_deleteOrderPermanent(ctx context.Context, 
 			return ec.resolvers.Mutation().DeleteOrderPermanent(ctx, fc.Args["input"].(model.FindByIDOrderInput))
 		},
 		nil,
-		ec.marshalNApiResponseOrderDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderDelete,
+		ec.marshalNApiResponseOrderDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderDelete,
 		true,
 		true,
 	)
@@ -37839,7 +37873,7 @@ func (ec *executionContext) _Mutation_restoreAllOrders(ctx context.Context, fiel
 			return ec.resolvers.Mutation().RestoreAllOrders(ctx)
 		},
 		nil,
-		ec.marshalNApiResponseOrderAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderAll,
+		ec.marshalNApiResponseOrderAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderAll,
 		true,
 		true,
 	)
@@ -37874,7 +37908,7 @@ func (ec *executionContext) _Mutation_deleteAllOrdersPermanent(ctx context.Conte
 			return ec.resolvers.Mutation().DeleteAllOrdersPermanent(ctx)
 		},
 		nil,
-		ec.marshalNApiResponseOrderAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderAll,
+		ec.marshalNApiResponseOrderAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderAll,
 		true,
 		true,
 	)
@@ -37910,7 +37944,7 @@ func (ec *executionContext) _Mutation_createProduct(ctx context.Context, field g
 			return ec.resolvers.Mutation().CreateProduct(ctx, fc.Args["input"].(model.CreateProductInput))
 		},
 		nil,
-		ec.marshalOApiResponseProduct2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProduct,
+		ec.marshalOApiResponseProduct2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProduct,
 		true,
 		false,
 	)
@@ -37959,7 +37993,7 @@ func (ec *executionContext) _Mutation_updateProduct(ctx context.Context, field g
 			return ec.resolvers.Mutation().UpdateProduct(ctx, fc.Args["input"].(model.UpdateProductInput))
 		},
 		nil,
-		ec.marshalOApiResponseProduct2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProduct,
+		ec.marshalOApiResponseProduct2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProduct,
 		true,
 		false,
 	)
@@ -38008,7 +38042,7 @@ func (ec *executionContext) _Mutation_trashedProduct(ctx context.Context, field 
 			return ec.resolvers.Mutation().TrashedProduct(ctx, fc.Args["input"].(model.FindByIDProductInput))
 		},
 		nil,
-		ec.marshalOApiResponseProductDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductDeleteAt,
+		ec.marshalOApiResponseProductDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductDeleteAt,
 		true,
 		false,
 	)
@@ -38057,7 +38091,7 @@ func (ec *executionContext) _Mutation_restoreProduct(ctx context.Context, field 
 			return ec.resolvers.Mutation().RestoreProduct(ctx, fc.Args["input"].(model.FindByIDProductInput))
 		},
 		nil,
-		ec.marshalOApiResponseProductDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductDeleteAt,
+		ec.marshalOApiResponseProductDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductDeleteAt,
 		true,
 		false,
 	)
@@ -38106,7 +38140,7 @@ func (ec *executionContext) _Mutation_deleteProductPermanent(ctx context.Context
 			return ec.resolvers.Mutation().DeleteProductPermanent(ctx, fc.Args["input"].(model.FindByIDProductInput))
 		},
 		nil,
-		ec.marshalOApiResponseProductDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductDelete,
+		ec.marshalOApiResponseProductDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductDelete,
 		true,
 		false,
 	)
@@ -38152,7 +38186,7 @@ func (ec *executionContext) _Mutation_restoreAllProducts(ctx context.Context, fi
 			return ec.resolvers.Mutation().RestoreAllProducts(ctx)
 		},
 		nil,
-		ec.marshalOApiResponseProductAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductAll,
+		ec.marshalOApiResponseProductAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductAll,
 		true,
 		false,
 	)
@@ -38187,7 +38221,7 @@ func (ec *executionContext) _Mutation_deleteAllProductsPermanent(ctx context.Con
 			return ec.resolvers.Mutation().DeleteAllProductsPermanent(ctx)
 		},
 		nil,
-		ec.marshalOApiResponseProductAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductAll,
+		ec.marshalOApiResponseProductAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductAll,
 		true,
 		false,
 	)
@@ -38223,7 +38257,7 @@ func (ec *executionContext) _Mutation_createReview(ctx context.Context, field gr
 			return ec.resolvers.Mutation().CreateReview(ctx, fc.Args["input"].(model.CreateReviewRequest))
 		},
 		nil,
-		ec.marshalOApiResponseReview2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReview,
+		ec.marshalOApiResponseReview2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReview,
 		true,
 		false,
 	)
@@ -38272,7 +38306,7 @@ func (ec *executionContext) _Mutation_updateReview(ctx context.Context, field gr
 			return ec.resolvers.Mutation().UpdateReview(ctx, fc.Args["input"].(model.UpdateReviewRequest))
 		},
 		nil,
-		ec.marshalOApiResponseReview2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReview,
+		ec.marshalOApiResponseReview2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReview,
 		true,
 		false,
 	)
@@ -38321,7 +38355,7 @@ func (ec *executionContext) _Mutation_trashedReview(ctx context.Context, field g
 			return ec.resolvers.Mutation().TrashedReview(ctx, fc.Args["input"].(model.FindByIDReviewRequest))
 		},
 		nil,
-		ec.marshalOApiResponseReviewDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDeleteAt,
+		ec.marshalOApiResponseReviewDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDeleteAt,
 		true,
 		false,
 	)
@@ -38370,7 +38404,7 @@ func (ec *executionContext) _Mutation_restoreReview(ctx context.Context, field g
 			return ec.resolvers.Mutation().RestoreReview(ctx, fc.Args["input"].(model.FindByIDReviewRequest))
 		},
 		nil,
-		ec.marshalOApiResponseReviewDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDeleteAt,
+		ec.marshalOApiResponseReviewDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDeleteAt,
 		true,
 		false,
 	)
@@ -38419,7 +38453,7 @@ func (ec *executionContext) _Mutation_deleteReviewPermanent(ctx context.Context,
 			return ec.resolvers.Mutation().DeleteReviewPermanent(ctx, fc.Args["input"].(model.FindByIDReviewRequest))
 		},
 		nil,
-		ec.marshalOApiResponseReviewDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDelete,
+		ec.marshalOApiResponseReviewDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDelete,
 		true,
 		false,
 	)
@@ -38465,7 +38499,7 @@ func (ec *executionContext) _Mutation_restoreAllReviews(ctx context.Context, fie
 			return ec.resolvers.Mutation().RestoreAllReviews(ctx)
 		},
 		nil,
-		ec.marshalOApiResponseReviewAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewAll,
+		ec.marshalOApiResponseReviewAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewAll,
 		true,
 		false,
 	)
@@ -38500,7 +38534,7 @@ func (ec *executionContext) _Mutation_deleteAllReviewsPermanent(ctx context.Cont
 			return ec.resolvers.Mutation().DeleteAllReviewsPermanent(ctx)
 		},
 		nil,
-		ec.marshalOApiResponseReviewAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewAll,
+		ec.marshalOApiResponseReviewAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewAll,
 		true,
 		false,
 	)
@@ -38536,7 +38570,7 @@ func (ec *executionContext) _Mutation_createReviewDetail(ctx context.Context, fi
 			return ec.resolvers.Mutation().CreateReviewDetail(ctx, fc.Args["input"].(model.CreateReviewDetailInput))
 		},
 		nil,
-		ec.marshalOApiResponseReviewDetail2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDetail,
+		ec.marshalOApiResponseReviewDetail2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDetail,
 		true,
 		false,
 	)
@@ -38585,7 +38619,7 @@ func (ec *executionContext) _Mutation_updateReviewDetail(ctx context.Context, fi
 			return ec.resolvers.Mutation().UpdateReviewDetail(ctx, fc.Args["input"].(model.UpdateReviewDetailInput))
 		},
 		nil,
-		ec.marshalOApiResponseReviewDetail2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDetail,
+		ec.marshalOApiResponseReviewDetail2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDetail,
 		true,
 		false,
 	)
@@ -38634,7 +38668,7 @@ func (ec *executionContext) _Mutation_trashedReviewDetail(ctx context.Context, f
 			return ec.resolvers.Mutation().TrashedReviewDetail(ctx, fc.Args["input"].(model.FindByIDReviewDetailInput))
 		},
 		nil,
-		ec.marshalOApiResponseReviewDetailDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDetailDeleteAt,
+		ec.marshalOApiResponseReviewDetailDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDetailDeleteAt,
 		true,
 		false,
 	)
@@ -38683,7 +38717,7 @@ func (ec *executionContext) _Mutation_restoreReviewDetail(ctx context.Context, f
 			return ec.resolvers.Mutation().RestoreReviewDetail(ctx, fc.Args["input"].(model.FindByIDReviewDetailInput))
 		},
 		nil,
-		ec.marshalOApiResponseReviewDetailDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDetailDeleteAt,
+		ec.marshalOApiResponseReviewDetailDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDetailDeleteAt,
 		true,
 		false,
 	)
@@ -38732,7 +38766,7 @@ func (ec *executionContext) _Mutation_deleteReviewDetailPermanent(ctx context.Co
 			return ec.resolvers.Mutation().DeleteReviewDetailPermanent(ctx, fc.Args["input"].(model.FindByIDReviewDetailInput))
 		},
 		nil,
-		ec.marshalOApiResponseReviewDetailDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDetailDelete,
+		ec.marshalOApiResponseReviewDetailDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDetailDelete,
 		true,
 		false,
 	)
@@ -38778,7 +38812,7 @@ func (ec *executionContext) _Mutation_restoreAllReviewDetails(ctx context.Contex
 			return ec.resolvers.Mutation().RestoreAllReviewDetails(ctx)
 		},
 		nil,
-		ec.marshalOApiResponseReviewDetailAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDetailAll,
+		ec.marshalOApiResponseReviewDetailAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDetailAll,
 		true,
 		false,
 	)
@@ -38813,7 +38847,7 @@ func (ec *executionContext) _Mutation_deleteAllReviewDetailsPermanent(ctx contex
 			return ec.resolvers.Mutation().DeleteAllReviewDetailsPermanent(ctx)
 		},
 		nil,
-		ec.marshalOApiResponseReviewDetailAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDetailAll,
+		ec.marshalOApiResponseReviewDetailAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDetailAll,
 		true,
 		false,
 	)
@@ -38848,8 +38882,26 @@ func (ec *executionContext) _Mutation_createRole(ctx context.Context, field grap
 			fc := graphql.GetFieldContext(ctx)
 			return ec.resolvers.Mutation().CreateRole(ctx, fc.Args["input"].(model.CreateRoleInput))
 		},
-		nil,
-		ec.marshalOApiResponseRole2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRole,
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				roles, err := ec.unmarshalNString2ᚕstringᚄ(ctx, []any{"Admin", "ROLE_ADMIN"})
+				if err != nil {
+					var zeroVal *model.APIResponseRole
+					return zeroVal, err
+				}
+				if ec.directives.HasRole == nil {
+					var zeroVal *model.APIResponseRole
+					return zeroVal, errors.New("directive hasRole is not implemented")
+				}
+				return ec.directives.HasRole(ctx, nil, directive0, roles)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalOApiResponseRole2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRole,
 		true,
 		false,
 	)
@@ -38897,8 +38949,26 @@ func (ec *executionContext) _Mutation_updateRole(ctx context.Context, field grap
 			fc := graphql.GetFieldContext(ctx)
 			return ec.resolvers.Mutation().UpdateRole(ctx, fc.Args["input"].(model.UpdateRoleInput))
 		},
-		nil,
-		ec.marshalOApiResponseRole2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRole,
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				roles, err := ec.unmarshalNString2ᚕstringᚄ(ctx, []any{"Admin", "ROLE_ADMIN"})
+				if err != nil {
+					var zeroVal *model.APIResponseRole
+					return zeroVal, err
+				}
+				if ec.directives.HasRole == nil {
+					var zeroVal *model.APIResponseRole
+					return zeroVal, errors.New("directive hasRole is not implemented")
+				}
+				return ec.directives.HasRole(ctx, nil, directive0, roles)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalOApiResponseRole2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRole,
 		true,
 		false,
 	)
@@ -38946,8 +39016,26 @@ func (ec *executionContext) _Mutation_trashedRole(ctx context.Context, field gra
 			fc := graphql.GetFieldContext(ctx)
 			return ec.resolvers.Mutation().TrashedRole(ctx, fc.Args["input"].(model.FindByIDRoleInput))
 		},
-		nil,
-		ec.marshalOApiResponseRoleDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleDeleteAt,
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				roles, err := ec.unmarshalNString2ᚕstringᚄ(ctx, []any{"Admin", "ROLE_ADMIN"})
+				if err != nil {
+					var zeroVal *model.APIResponseRoleDeleteAt
+					return zeroVal, err
+				}
+				if ec.directives.HasRole == nil {
+					var zeroVal *model.APIResponseRoleDeleteAt
+					return zeroVal, errors.New("directive hasRole is not implemented")
+				}
+				return ec.directives.HasRole(ctx, nil, directive0, roles)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalOApiResponseRoleDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleDeleteAt,
 		true,
 		false,
 	)
@@ -38995,8 +39083,26 @@ func (ec *executionContext) _Mutation_restoreRole(ctx context.Context, field gra
 			fc := graphql.GetFieldContext(ctx)
 			return ec.resolvers.Mutation().RestoreRole(ctx, fc.Args["input"].(model.FindByIDRoleInput))
 		},
-		nil,
-		ec.marshalOApiResponseRoleDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleDeleteAt,
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				roles, err := ec.unmarshalNString2ᚕstringᚄ(ctx, []any{"Admin", "ROLE_ADMIN"})
+				if err != nil {
+					var zeroVal *model.APIResponseRoleDeleteAt
+					return zeroVal, err
+				}
+				if ec.directives.HasRole == nil {
+					var zeroVal *model.APIResponseRoleDeleteAt
+					return zeroVal, errors.New("directive hasRole is not implemented")
+				}
+				return ec.directives.HasRole(ctx, nil, directive0, roles)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalOApiResponseRoleDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleDeleteAt,
 		true,
 		false,
 	)
@@ -39044,8 +39150,26 @@ func (ec *executionContext) _Mutation_deleteRolePermanent(ctx context.Context, f
 			fc := graphql.GetFieldContext(ctx)
 			return ec.resolvers.Mutation().DeleteRolePermanent(ctx, fc.Args["input"].(model.FindByIDRoleInput))
 		},
-		nil,
-		ec.marshalOApiResponseRoleDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleDelete,
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				roles, err := ec.unmarshalNString2ᚕstringᚄ(ctx, []any{"Admin", "ROLE_ADMIN"})
+				if err != nil {
+					var zeroVal *model.APIResponseRoleDelete
+					return zeroVal, err
+				}
+				if ec.directives.HasRole == nil {
+					var zeroVal *model.APIResponseRoleDelete
+					return zeroVal, errors.New("directive hasRole is not implemented")
+				}
+				return ec.directives.HasRole(ctx, nil, directive0, roles)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalOApiResponseRoleDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleDelete,
 		true,
 		false,
 	)
@@ -39090,8 +39214,26 @@ func (ec *executionContext) _Mutation_restoreAllRole(ctx context.Context, field 
 		func(ctx context.Context) (any, error) {
 			return ec.resolvers.Mutation().RestoreAllRole(ctx)
 		},
-		nil,
-		ec.marshalOApiResponseRoleAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleAll,
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				roles, err := ec.unmarshalNString2ᚕstringᚄ(ctx, []any{"Admin", "ROLE_ADMIN"})
+				if err != nil {
+					var zeroVal *model.APIResponseRoleAll
+					return zeroVal, err
+				}
+				if ec.directives.HasRole == nil {
+					var zeroVal *model.APIResponseRoleAll
+					return zeroVal, errors.New("directive hasRole is not implemented")
+				}
+				return ec.directives.HasRole(ctx, nil, directive0, roles)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalOApiResponseRoleAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleAll,
 		true,
 		false,
 	)
@@ -39125,8 +39267,26 @@ func (ec *executionContext) _Mutation_deleteAllRolePermanent(ctx context.Context
 		func(ctx context.Context) (any, error) {
 			return ec.resolvers.Mutation().DeleteAllRolePermanent(ctx)
 		},
-		nil,
-		ec.marshalOApiResponseRoleAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleAll,
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				roles, err := ec.unmarshalNString2ᚕstringᚄ(ctx, []any{"Admin", "ROLE_ADMIN"})
+				if err != nil {
+					var zeroVal *model.APIResponseRoleAll
+					return zeroVal, err
+				}
+				if ec.directives.HasRole == nil {
+					var zeroVal *model.APIResponseRoleAll
+					return zeroVal, errors.New("directive hasRole is not implemented")
+				}
+				return ec.directives.HasRole(ctx, nil, directive0, roles)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalOApiResponseRoleAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleAll,
 		true,
 		false,
 	)
@@ -39162,7 +39322,7 @@ func (ec *executionContext) _Mutation_trashedShipping(ctx context.Context, field
 			return ec.resolvers.Mutation().TrashedShipping(ctx, fc.Args["input"].(model.FindByIDShippingRequest))
 		},
 		nil,
-		ec.marshalOApiResponseShippingDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseShippingDeleteAt,
+		ec.marshalOApiResponseShippingDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseShippingDeleteAt,
 		true,
 		false,
 	)
@@ -39211,7 +39371,7 @@ func (ec *executionContext) _Mutation_restoreShipping(ctx context.Context, field
 			return ec.resolvers.Mutation().RestoreShipping(ctx, fc.Args["input"].(model.FindByIDShippingRequest))
 		},
 		nil,
-		ec.marshalOApiResponseShippingDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseShippingDeleteAt,
+		ec.marshalOApiResponseShippingDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseShippingDeleteAt,
 		true,
 		false,
 	)
@@ -39260,7 +39420,7 @@ func (ec *executionContext) _Mutation_deleteShippingPermanent(ctx context.Contex
 			return ec.resolvers.Mutation().DeleteShippingPermanent(ctx, fc.Args["input"].(model.FindByIDShippingRequest))
 		},
 		nil,
-		ec.marshalOApiResponseShippingDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseShippingDelete,
+		ec.marshalOApiResponseShippingDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseShippingDelete,
 		true,
 		false,
 	)
@@ -39306,7 +39466,7 @@ func (ec *executionContext) _Mutation_restoreAllShipping(ctx context.Context, fi
 			return ec.resolvers.Mutation().RestoreAllShipping(ctx)
 		},
 		nil,
-		ec.marshalOApiResponseShippingAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseShippingAll,
+		ec.marshalOApiResponseShippingAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseShippingAll,
 		true,
 		false,
 	)
@@ -39341,7 +39501,7 @@ func (ec *executionContext) _Mutation_deleteAllShippingPermanent(ctx context.Con
 			return ec.resolvers.Mutation().DeleteAllShippingPermanent(ctx)
 		},
 		nil,
-		ec.marshalOApiResponseShippingAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseShippingAll,
+		ec.marshalOApiResponseShippingAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseShippingAll,
 		true,
 		false,
 	)
@@ -39377,7 +39537,7 @@ func (ec *executionContext) _Mutation_createSlider(ctx context.Context, field gr
 			return ec.resolvers.Mutation().CreateSlider(ctx, fc.Args["input"].(model.CreateSliderRequest))
 		},
 		nil,
-		ec.marshalOApiResponseSlider2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseSlider,
+		ec.marshalOApiResponseSlider2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseSlider,
 		true,
 		false,
 	)
@@ -39426,7 +39586,7 @@ func (ec *executionContext) _Mutation_updateSlider(ctx context.Context, field gr
 			return ec.resolvers.Mutation().UpdateSlider(ctx, fc.Args["input"].(model.UpdateSliderRequest))
 		},
 		nil,
-		ec.marshalOApiResponseSlider2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseSlider,
+		ec.marshalOApiResponseSlider2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseSlider,
 		true,
 		false,
 	)
@@ -39475,7 +39635,7 @@ func (ec *executionContext) _Mutation_trashedSlider(ctx context.Context, field g
 			return ec.resolvers.Mutation().TrashedSlider(ctx, fc.Args["input"].(model.FindByIDSliderRequest))
 		},
 		nil,
-		ec.marshalOApiResponseSliderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseSliderDeleteAt,
+		ec.marshalOApiResponseSliderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseSliderDeleteAt,
 		true,
 		false,
 	)
@@ -39524,7 +39684,7 @@ func (ec *executionContext) _Mutation_restoreSlider(ctx context.Context, field g
 			return ec.resolvers.Mutation().RestoreSlider(ctx, fc.Args["input"].(model.FindByIDSliderRequest))
 		},
 		nil,
-		ec.marshalOApiResponseSliderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseSliderDeleteAt,
+		ec.marshalOApiResponseSliderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseSliderDeleteAt,
 		true,
 		false,
 	)
@@ -39573,7 +39733,7 @@ func (ec *executionContext) _Mutation_deleteSliderPermanent(ctx context.Context,
 			return ec.resolvers.Mutation().DeleteSliderPermanent(ctx, fc.Args["input"].(model.FindByIDSliderRequest))
 		},
 		nil,
-		ec.marshalOApiResponseSliderDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseSliderDelete,
+		ec.marshalOApiResponseSliderDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseSliderDelete,
 		true,
 		false,
 	)
@@ -39619,7 +39779,7 @@ func (ec *executionContext) _Mutation_restoreAllSliders(ctx context.Context, fie
 			return ec.resolvers.Mutation().RestoreAllSliders(ctx)
 		},
 		nil,
-		ec.marshalOApiResponseSliderAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseSliderAll,
+		ec.marshalOApiResponseSliderAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseSliderAll,
 		true,
 		false,
 	)
@@ -39654,7 +39814,7 @@ func (ec *executionContext) _Mutation_deleteAllSlidersPermanent(ctx context.Cont
 			return ec.resolvers.Mutation().DeleteAllSlidersPermanent(ctx)
 		},
 		nil,
-		ec.marshalOApiResponseSliderAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseSliderAll,
+		ec.marshalOApiResponseSliderAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseSliderAll,
 		true,
 		false,
 	)
@@ -39690,7 +39850,7 @@ func (ec *executionContext) _Mutation_createTransaction(ctx context.Context, fie
 			return ec.resolvers.Mutation().CreateTransaction(ctx, fc.Args["input"].(model.CreateTransactionRequest))
 		},
 		nil,
-		ec.marshalOApiResponseTransaction2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransaction,
+		ec.marshalOApiResponseTransaction2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransaction,
 		true,
 		false,
 	)
@@ -39739,7 +39899,7 @@ func (ec *executionContext) _Mutation_updateTransaction(ctx context.Context, fie
 			return ec.resolvers.Mutation().UpdateTransaction(ctx, fc.Args["input"].(model.UpdateTransactionRequest))
 		},
 		nil,
-		ec.marshalOApiResponseTransaction2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransaction,
+		ec.marshalOApiResponseTransaction2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransaction,
 		true,
 		false,
 	)
@@ -39788,7 +39948,7 @@ func (ec *executionContext) _Mutation_trashedTransaction(ctx context.Context, fi
 			return ec.resolvers.Mutation().TrashedTransaction(ctx, fc.Args["input"].(model.FindByIDTransactionRequest))
 		},
 		nil,
-		ec.marshalOApiResponseTransactionDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionDeleteAt,
+		ec.marshalOApiResponseTransactionDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionDeleteAt,
 		true,
 		false,
 	)
@@ -39837,7 +39997,7 @@ func (ec *executionContext) _Mutation_restoreTransaction(ctx context.Context, fi
 			return ec.resolvers.Mutation().RestoreTransaction(ctx, fc.Args["input"].(model.FindByIDTransactionRequest))
 		},
 		nil,
-		ec.marshalOApiResponseTransactionDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionDeleteAt,
+		ec.marshalOApiResponseTransactionDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionDeleteAt,
 		true,
 		false,
 	)
@@ -39886,7 +40046,7 @@ func (ec *executionContext) _Mutation_deleteTransactionPermanent(ctx context.Con
 			return ec.resolvers.Mutation().DeleteTransactionPermanent(ctx, fc.Args["input"].(model.FindByIDTransactionRequest))
 		},
 		nil,
-		ec.marshalOApiResponseTransactionDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionDelete,
+		ec.marshalOApiResponseTransactionDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionDelete,
 		true,
 		false,
 	)
@@ -39932,7 +40092,7 @@ func (ec *executionContext) _Mutation_restoreAllTransaction(ctx context.Context,
 			return ec.resolvers.Mutation().RestoreAllTransaction(ctx)
 		},
 		nil,
-		ec.marshalOApiResponseTransactionAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionAll,
+		ec.marshalOApiResponseTransactionAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionAll,
 		true,
 		false,
 	)
@@ -39967,7 +40127,7 @@ func (ec *executionContext) _Mutation_deleteAllTransactionPermanent(ctx context.
 			return ec.resolvers.Mutation().DeleteAllTransactionPermanent(ctx)
 		},
 		nil,
-		ec.marshalOApiResponseTransactionAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionAll,
+		ec.marshalOApiResponseTransactionAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionAll,
 		true,
 		false,
 	)
@@ -40003,7 +40163,7 @@ func (ec *executionContext) _Mutation_createUser(ctx context.Context, field grap
 			return ec.resolvers.Mutation().CreateUser(ctx, fc.Args["input"].(model.CreateUserInput))
 		},
 		nil,
-		ec.marshalNApiResponseUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponse,
+		ec.marshalNApiResponseUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponse,
 		true,
 		true,
 	)
@@ -40052,7 +40212,7 @@ func (ec *executionContext) _Mutation_updateUser(ctx context.Context, field grap
 			return ec.resolvers.Mutation().UpdateUser(ctx, fc.Args["input"].(model.UpdateUserInput))
 		},
 		nil,
-		ec.marshalNApiResponseUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponse,
+		ec.marshalNApiResponseUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponse,
 		true,
 		true,
 	)
@@ -40101,7 +40261,7 @@ func (ec *executionContext) _Mutation_trashedUser(ctx context.Context, field gra
 			return ec.resolvers.Mutation().TrashedUser(ctx, fc.Args["input"].(model.FindByIDUserInput))
 		},
 		nil,
-		ec.marshalNApiResponseUserResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponseDeleteAt,
+		ec.marshalNApiResponseUserResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponseDeleteAt,
 		true,
 		true,
 	)
@@ -40150,7 +40310,7 @@ func (ec *executionContext) _Mutation_restoreUser(ctx context.Context, field gra
 			return ec.resolvers.Mutation().RestoreUser(ctx, fc.Args["input"].(model.FindByIDUserInput))
 		},
 		nil,
-		ec.marshalNApiResponseUserResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponseDeleteAt,
+		ec.marshalNApiResponseUserResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponseDeleteAt,
 		true,
 		true,
 	)
@@ -40199,7 +40359,7 @@ func (ec *executionContext) _Mutation_deleteUserPermanent(ctx context.Context, f
 			return ec.resolvers.Mutation().DeleteUserPermanent(ctx, fc.Args["input"].(model.FindByIDUserInput))
 		},
 		nil,
-		ec.marshalNApiResponseUserDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserDelete,
+		ec.marshalNApiResponseUserDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserDelete,
 		true,
 		true,
 	)
@@ -40245,7 +40405,7 @@ func (ec *executionContext) _Mutation_restoreAllUser(ctx context.Context, field 
 			return ec.resolvers.Mutation().RestoreAllUser(ctx)
 		},
 		nil,
-		ec.marshalNApiResponseUserAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserAll,
+		ec.marshalNApiResponseUserAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserAll,
 		true,
 		true,
 	)
@@ -40280,7 +40440,7 @@ func (ec *executionContext) _Mutation_deleteAllUserPermanent(ctx context.Context
 			return ec.resolvers.Mutation().DeleteAllUserPermanent(ctx)
 		},
 		nil,
-		ec.marshalNApiResponseUserAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserAll,
+		ec.marshalNApiResponseUserAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserAll,
 		true,
 		true,
 	)
@@ -42694,7 +42854,7 @@ func (ec *executionContext) _Query_getMe(ctx context.Context, field graphql.Coll
 			return ec.resolvers.Query().GetMe(ctx, fc.Args["input"].(model.GetMeInput))
 		},
 		nil,
-		ec.marshalNApiResponseGetMe2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseGetMe,
+		ec.marshalNApiResponseGetMe2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseGetMe,
 		true,
 		true,
 	)
@@ -42743,7 +42903,7 @@ func (ec *executionContext) _Query_findAllBanners(ctx context.Context, field gra
 			return ec.resolvers.Query().FindAllBanners(ctx, fc.Args["input"].(model.FindAllBannerInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationBanner2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationBanner,
+		ec.marshalNApiResponsePaginationBanner2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationBanner,
 		true,
 		true,
 	)
@@ -42794,7 +42954,7 @@ func (ec *executionContext) _Query_findBannerById(ctx context.Context, field gra
 			return ec.resolvers.Query().FindBannerByID(ctx, fc.Args["input"].(model.FindByIDBannerInput))
 		},
 		nil,
-		ec.marshalNApiResponseBanner2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBanner,
+		ec.marshalNApiResponseBanner2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBanner,
 		true,
 		true,
 	)
@@ -42843,7 +43003,7 @@ func (ec *executionContext) _Query_findActiveBanners(ctx context.Context, field 
 			return ec.resolvers.Query().FindActiveBanners(ctx, fc.Args["input"].(model.FindAllBannerInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationBannerDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationBannerDeleteAt,
+		ec.marshalNApiResponsePaginationBannerDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationBannerDeleteAt,
 		true,
 		true,
 	)
@@ -42894,7 +43054,7 @@ func (ec *executionContext) _Query_findTrashedBanners(ctx context.Context, field
 			return ec.resolvers.Query().FindTrashedBanners(ctx, fc.Args["input"].(model.FindAllBannerInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationBannerDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationBannerDeleteAt,
+		ec.marshalNApiResponsePaginationBannerDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationBannerDeleteAt,
 		true,
 		true,
 	)
@@ -42945,7 +43105,7 @@ func (ec *executionContext) _Query_findAllCarts(ctx context.Context, field graph
 			return ec.resolvers.Query().FindAllCarts(ctx, fc.Args["input"].(model.FindAllCartInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationCart2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCart,
+		ec.marshalNApiResponsePaginationCart2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCart,
 		true,
 		true,
 	)
@@ -42996,7 +43156,7 @@ func (ec *executionContext) _Query_findAllCategories(ctx context.Context, field 
 			return ec.resolvers.Query().FindAllCategories(ctx, fc.Args["input"].(model.FindAllCategoryInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationCategory2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCategory,
+		ec.marshalNApiResponsePaginationCategory2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCategory,
 		true,
 		true,
 	)
@@ -43047,7 +43207,7 @@ func (ec *executionContext) _Query_findCategoryById(ctx context.Context, field g
 			return ec.resolvers.Query().FindCategoryByID(ctx, fc.Args["input"].(model.FindByIDCategoryInput))
 		},
 		nil,
-		ec.marshalNApiResponseCategory2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategory,
+		ec.marshalNApiResponseCategory2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategory,
 		true,
 		true,
 	)
@@ -43096,7 +43256,7 @@ func (ec *executionContext) _Query_findActiveCategories(ctx context.Context, fie
 			return ec.resolvers.Query().FindActiveCategories(ctx, fc.Args["input"].(model.FindAllCategoryInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationCategoryDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCategoryDeleteAt,
+		ec.marshalNApiResponsePaginationCategoryDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCategoryDeleteAt,
 		true,
 		true,
 	)
@@ -43147,7 +43307,7 @@ func (ec *executionContext) _Query_findTrashedCategories(ctx context.Context, fi
 			return ec.resolvers.Query().FindTrashedCategories(ctx, fc.Args["input"].(model.FindAllCategoryInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationCategoryDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCategoryDeleteAt,
+		ec.marshalNApiResponsePaginationCategoryDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCategoryDeleteAt,
 		true,
 		true,
 	)
@@ -43198,7 +43358,7 @@ func (ec *executionContext) _Query_findMonthPrice(ctx context.Context, field gra
 			return ec.resolvers.Query().FindMonthPrice(ctx, fc.Args["input"].(model.FindYearInput))
 		},
 		nil,
-		ec.marshalNApiResponseCategoryMonthPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthPrice,
+		ec.marshalNApiResponseCategoryMonthPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthPrice,
 		true,
 		true,
 	)
@@ -43247,7 +43407,7 @@ func (ec *executionContext) _Query_findYearPrice(ctx context.Context, field grap
 			return ec.resolvers.Query().FindYearPrice(ctx, fc.Args["input"].(model.FindYearInput))
 		},
 		nil,
-		ec.marshalNApiResponseCategoryYearPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearPrice,
+		ec.marshalNApiResponseCategoryYearPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearPrice,
 		true,
 		true,
 	)
@@ -43296,7 +43456,7 @@ func (ec *executionContext) _Query_findMonthPriceById(ctx context.Context, field
 			return ec.resolvers.Query().FindMonthPriceByID(ctx, fc.Args["input"].(model.FindYearCategoryByIDInput))
 		},
 		nil,
-		ec.marshalNApiResponseCategoryMonthPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthPrice,
+		ec.marshalNApiResponseCategoryMonthPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthPrice,
 		true,
 		true,
 	)
@@ -43345,7 +43505,7 @@ func (ec *executionContext) _Query_findYearPriceById(ctx context.Context, field 
 			return ec.resolvers.Query().FindYearPriceByID(ctx, fc.Args["input"].(model.FindYearCategoryByIDInput))
 		},
 		nil,
-		ec.marshalNApiResponseCategoryYearPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearPrice,
+		ec.marshalNApiResponseCategoryYearPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearPrice,
 		true,
 		true,
 	)
@@ -43394,7 +43554,7 @@ func (ec *executionContext) _Query_findMonthPriceByMerchant(ctx context.Context,
 			return ec.resolvers.Query().FindMonthPriceByMerchant(ctx, fc.Args["input"].(model.FindYearCategoryByMerchantInput))
 		},
 		nil,
-		ec.marshalOApiResponseCategoryMonthPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthPrice,
+		ec.marshalOApiResponseCategoryMonthPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthPrice,
 		true,
 		false,
 	)
@@ -43443,7 +43603,7 @@ func (ec *executionContext) _Query_findYearPriceByMerchant(ctx context.Context, 
 			return ec.resolvers.Query().FindYearPriceByMerchant(ctx, fc.Args["input"].(model.FindYearCategoryByMerchantInput))
 		},
 		nil,
-		ec.marshalOApiResponseCategoryYearPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearPrice,
+		ec.marshalOApiResponseCategoryYearPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearPrice,
 		true,
 		false,
 	)
@@ -43492,7 +43652,7 @@ func (ec *executionContext) _Query_findMonthlyTotalPrices(ctx context.Context, f
 			return ec.resolvers.Query().FindMonthlyTotalPrices(ctx, fc.Args["input"].(model.FindYearMonthTotalPricesInput))
 		},
 		nil,
-		ec.marshalNApiResponseCategoryMonthlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthlyTotalPrice,
+		ec.marshalNApiResponseCategoryMonthlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthlyTotalPrice,
 		true,
 		true,
 	)
@@ -43541,7 +43701,7 @@ func (ec *executionContext) _Query_findYearlyTotalPrices(ctx context.Context, fi
 			return ec.resolvers.Query().FindYearlyTotalPrices(ctx, fc.Args["input"].(model.FindYearTotalPricesInput))
 		},
 		nil,
-		ec.marshalNApiResponseCategoryYearlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearlyTotalPrice,
+		ec.marshalNApiResponseCategoryYearlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearlyTotalPrice,
 		true,
 		true,
 	)
@@ -43590,7 +43750,7 @@ func (ec *executionContext) _Query_findMonthlyTotalPricesById(ctx context.Contex
 			return ec.resolvers.Query().FindMonthlyTotalPricesByID(ctx, fc.Args["input"].(model.FindYearMonthTotalPriceByIDInput))
 		},
 		nil,
-		ec.marshalNApiResponseCategoryMonthlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthlyTotalPrice,
+		ec.marshalNApiResponseCategoryMonthlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthlyTotalPrice,
 		true,
 		true,
 	)
@@ -43639,7 +43799,7 @@ func (ec *executionContext) _Query_findYearlyTotalPricesById(ctx context.Context
 			return ec.resolvers.Query().FindYearlyTotalPricesByID(ctx, fc.Args["input"].(model.FindYearCategoryByIDInput))
 		},
 		nil,
-		ec.marshalNApiResponseCategoryYearlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearlyTotalPrice,
+		ec.marshalNApiResponseCategoryYearlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearlyTotalPrice,
 		true,
 		true,
 	)
@@ -43688,7 +43848,7 @@ func (ec *executionContext) _Query_findMonthlyTotalPricesByMerchant(ctx context.
 			return ec.resolvers.Query().FindMonthlyTotalPricesByMerchant(ctx, fc.Args["input"].(model.FindYearMonthTotalPriceByMerchantInput))
 		},
 		nil,
-		ec.marshalNApiResponseCategoryMonthlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthlyTotalPrice,
+		ec.marshalNApiResponseCategoryMonthlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthlyTotalPrice,
 		true,
 		true,
 	)
@@ -43737,7 +43897,7 @@ func (ec *executionContext) _Query_findYearlyTotalPricesByMerchant(ctx context.C
 			return ec.resolvers.Query().FindYearlyTotalPricesByMerchant(ctx, fc.Args["input"].(model.FindYearTotalPriceByMerchantInput))
 		},
 		nil,
-		ec.marshalNApiResponseCategoryYearlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearlyTotalPrice,
+		ec.marshalNApiResponseCategoryYearlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearlyTotalPrice,
 		true,
 		true,
 	)
@@ -43786,7 +43946,7 @@ func (ec *executionContext) _Query_findAllMerchants(ctx context.Context, field g
 			return ec.resolvers.Query().FindAllMerchants(ctx, fc.Args["input"].(model.FindAllMerchantInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationMerchant2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchant,
+		ec.marshalNApiResponsePaginationMerchant2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchant,
 		true,
 		true,
 	)
@@ -43837,7 +43997,7 @@ func (ec *executionContext) _Query_findMerchantById(ctx context.Context, field g
 			return ec.resolvers.Query().FindMerchantByID(ctx, fc.Args["input"].(model.FindByIDMerchantInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchant2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchant,
+		ec.marshalNApiResponseMerchant2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchant,
 		true,
 		true,
 	)
@@ -43886,7 +44046,7 @@ func (ec *executionContext) _Query_findActiveMerchants(ctx context.Context, fiel
 			return ec.resolvers.Query().FindActiveMerchants(ctx, fc.Args["input"].(model.FindAllMerchantInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationMerchantDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDeleteAt,
+		ec.marshalNApiResponsePaginationMerchantDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDeleteAt,
 		true,
 		true,
 	)
@@ -43937,7 +44097,7 @@ func (ec *executionContext) _Query_findTrashedMerchants(ctx context.Context, fie
 			return ec.resolvers.Query().FindTrashedMerchants(ctx, fc.Args["input"].(model.FindAllMerchantInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationMerchantDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDeleteAt,
+		ec.marshalNApiResponsePaginationMerchantDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDeleteAt,
 		true,
 		true,
 	)
@@ -43988,7 +44148,7 @@ func (ec *executionContext) _Query_findAllMerchantAwards(ctx context.Context, fi
 			return ec.resolvers.Query().FindAllMerchantAwards(ctx, fc.Args["input"].(model.FindAllMerchantAwardInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationMerchantAward2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantAward,
+		ec.marshalNApiResponsePaginationMerchantAward2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantAward,
 		true,
 		true,
 	)
@@ -44039,7 +44199,7 @@ func (ec *executionContext) _Query_findMerchantAwardById(ctx context.Context, fi
 			return ec.resolvers.Query().FindMerchantAwardByID(ctx, fc.Args["input"].(model.FindByIDMerchantAwardInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantAward2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAward,
+		ec.marshalNApiResponseMerchantAward2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAward,
 		true,
 		true,
 	)
@@ -44088,7 +44248,7 @@ func (ec *executionContext) _Query_findActiveMerchantAwards(ctx context.Context,
 			return ec.resolvers.Query().FindActiveMerchantAwards(ctx, fc.Args["input"].(model.FindAllMerchantAwardInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationMerchantAwardDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantAwardDeleteAt,
+		ec.marshalNApiResponsePaginationMerchantAwardDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantAwardDeleteAt,
 		true,
 		true,
 	)
@@ -44139,7 +44299,7 @@ func (ec *executionContext) _Query_findTrashedMerchantAwards(ctx context.Context
 			return ec.resolvers.Query().FindTrashedMerchantAwards(ctx, fc.Args["input"].(model.FindAllMerchantAwardInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationMerchantAwardDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantAwardDeleteAt,
+		ec.marshalNApiResponsePaginationMerchantAwardDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantAwardDeleteAt,
 		true,
 		true,
 	)
@@ -44190,7 +44350,7 @@ func (ec *executionContext) _Query_findAllMerchantBusinesses(ctx context.Context
 			return ec.resolvers.Query().FindAllMerchantBusinesses(ctx, fc.Args["input"].(model.FindAllMerchantBusinessInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationMerchantBusiness2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantBusiness,
+		ec.marshalNApiResponsePaginationMerchantBusiness2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantBusiness,
 		true,
 		true,
 	)
@@ -44241,7 +44401,7 @@ func (ec *executionContext) _Query_findMerchantBusinessById(ctx context.Context,
 			return ec.resolvers.Query().FindMerchantBusinessByID(ctx, fc.Args["input"].(model.FindByIDMerchantBusinessInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantBusiness2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusiness,
+		ec.marshalNApiResponseMerchantBusiness2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusiness,
 		true,
 		true,
 	)
@@ -44290,7 +44450,7 @@ func (ec *executionContext) _Query_findActiveMerchantBusinesses(ctx context.Cont
 			return ec.resolvers.Query().FindActiveMerchantBusinesses(ctx, fc.Args["input"].(model.FindAllMerchantBusinessInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationMerchantBusinessDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantBusinessDeleteAt,
+		ec.marshalNApiResponsePaginationMerchantBusinessDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantBusinessDeleteAt,
 		true,
 		true,
 	)
@@ -44341,7 +44501,7 @@ func (ec *executionContext) _Query_findTrashedMerchantBusinesses(ctx context.Con
 			return ec.resolvers.Query().FindTrashedMerchantBusinesses(ctx, fc.Args["input"].(model.FindAllMerchantBusinessInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationMerchantBusinessDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantBusinessDeleteAt,
+		ec.marshalNApiResponsePaginationMerchantBusinessDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantBusinessDeleteAt,
 		true,
 		true,
 	)
@@ -44392,7 +44552,7 @@ func (ec *executionContext) _Query_findAllMerchantDetails(ctx context.Context, f
 			return ec.resolvers.Query().FindAllMerchantDetails(ctx, fc.Args["input"].(model.FindAllMerchantDetailInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationMerchantDetail2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDetail,
+		ec.marshalNApiResponsePaginationMerchantDetail2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDetail,
 		true,
 		true,
 	)
@@ -44443,7 +44603,7 @@ func (ec *executionContext) _Query_findMerchantDetailById(ctx context.Context, f
 			return ec.resolvers.Query().FindMerchantDetailByID(ctx, fc.Args["input"].(model.FindByIDMerchantDetailInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantDetailRelation2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetailRelation,
+		ec.marshalNApiResponseMerchantDetailRelation2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetailRelation,
 		true,
 		true,
 	)
@@ -44492,7 +44652,7 @@ func (ec *executionContext) _Query_findActiveMerchantDetails(ctx context.Context
 			return ec.resolvers.Query().FindActiveMerchantDetails(ctx, fc.Args["input"].(model.FindAllMerchantDetailInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationMerchantDetailDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDetailDeleteAt,
+		ec.marshalNApiResponsePaginationMerchantDetailDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDetailDeleteAt,
 		true,
 		true,
 	)
@@ -44543,7 +44703,7 @@ func (ec *executionContext) _Query_findTrashedMerchantDetails(ctx context.Contex
 			return ec.resolvers.Query().FindTrashedMerchantDetails(ctx, fc.Args["input"].(model.FindAllMerchantDetailInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationMerchantDetailDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDetailDeleteAt,
+		ec.marshalNApiResponsePaginationMerchantDetailDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDetailDeleteAt,
 		true,
 		true,
 	)
@@ -44594,7 +44754,7 @@ func (ec *executionContext) _Query_findAllMerchantPolicies(ctx context.Context, 
 			return ec.resolvers.Query().FindAllMerchantPolicies(ctx, fc.Args["input"].(model.FindAllMerchantPoliciesInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationMerchantPolicy2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantPolicy,
+		ec.marshalNApiResponsePaginationMerchantPolicy2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantPolicy,
 		true,
 		true,
 	)
@@ -44645,7 +44805,7 @@ func (ec *executionContext) _Query_findMerchantPolicyById(ctx context.Context, f
 			return ec.resolvers.Query().FindMerchantPolicyByID(ctx, fc.Args["input"].(model.FindByIDMerchantPoliciesInput))
 		},
 		nil,
-		ec.marshalNApiResponseMerchantPolicy2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicy,
+		ec.marshalNApiResponseMerchantPolicy2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicy,
 		true,
 		true,
 	)
@@ -44694,7 +44854,7 @@ func (ec *executionContext) _Query_findActiveMerchantPolicies(ctx context.Contex
 			return ec.resolvers.Query().FindActiveMerchantPolicies(ctx, fc.Args["input"].(model.FindAllMerchantPoliciesInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationMerchantPolicyDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantPolicyDeleteAt,
+		ec.marshalNApiResponsePaginationMerchantPolicyDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantPolicyDeleteAt,
 		true,
 		true,
 	)
@@ -44745,7 +44905,7 @@ func (ec *executionContext) _Query_findTrashedMerchantPolicies(ctx context.Conte
 			return ec.resolvers.Query().FindTrashedMerchantPolicies(ctx, fc.Args["input"].(model.FindAllMerchantPoliciesInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationMerchantPolicyDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantPolicyDeleteAt,
+		ec.marshalNApiResponsePaginationMerchantPolicyDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantPolicyDeleteAt,
 		true,
 		true,
 	)
@@ -44796,7 +44956,7 @@ func (ec *executionContext) _Query_findAllOrders(ctx context.Context, field grap
 			return ec.resolvers.Query().FindAllOrders(ctx, fc.Args["input"].(model.FindAllOrderInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationOrder2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrder,
+		ec.marshalNApiResponsePaginationOrder2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrder,
 		true,
 		true,
 	)
@@ -44847,7 +45007,7 @@ func (ec *executionContext) _Query_findOrderById(ctx context.Context, field grap
 			return ec.resolvers.Query().FindOrderByID(ctx, fc.Args["input"].(model.FindByIDOrderInput))
 		},
 		nil,
-		ec.marshalNApiResponseOrder2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrder,
+		ec.marshalNApiResponseOrder2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrder,
 		true,
 		true,
 	)
@@ -44896,7 +45056,7 @@ func (ec *executionContext) _Query_findActiveOrders(ctx context.Context, field g
 			return ec.resolvers.Query().FindActiveOrders(ctx, fc.Args["input"].(model.FindAllOrderInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationOrderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderDeleteAt,
+		ec.marshalNApiResponsePaginationOrderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderDeleteAt,
 		true,
 		true,
 	)
@@ -44947,7 +45107,7 @@ func (ec *executionContext) _Query_findTrashedOrders(ctx context.Context, field 
 			return ec.resolvers.Query().FindTrashedOrders(ctx, fc.Args["input"].(model.FindAllOrderInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationOrderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderDeleteAt,
+		ec.marshalNApiResponsePaginationOrderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderDeleteAt,
 		true,
 		true,
 	)
@@ -44998,7 +45158,7 @@ func (ec *executionContext) _Query_findMonthlyRevenue(ctx context.Context, field
 			return ec.resolvers.Query().FindMonthlyRevenue(ctx, fc.Args["input"].(model.FindMonthYearOrderInput))
 		},
 		nil,
-		ec.marshalNApiResponseOrderMonthly2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthly,
+		ec.marshalNApiResponseOrderMonthly2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthly,
 		true,
 		true,
 	)
@@ -45047,7 +45207,7 @@ func (ec *executionContext) _Query_findYearlyRevenue(ctx context.Context, field 
 			return ec.resolvers.Query().FindYearlyRevenue(ctx, fc.Args["input"].(model.FindYearOrderInput))
 		},
 		nil,
-		ec.marshalNApiResponseOrderYearly2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearly,
+		ec.marshalNApiResponseOrderYearly2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearly,
 		true,
 		true,
 	)
@@ -45096,7 +45256,7 @@ func (ec *executionContext) _Query_findMonthlyRevenueByMerchant(ctx context.Cont
 			return ec.resolvers.Query().FindMonthlyRevenueByMerchant(ctx, fc.Args["input"].(model.FindYearOrderByMerchantInput))
 		},
 		nil,
-		ec.marshalNApiResponseOrderMonthly2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthly,
+		ec.marshalNApiResponseOrderMonthly2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthly,
 		true,
 		true,
 	)
@@ -45145,7 +45305,7 @@ func (ec *executionContext) _Query_findYearlyRevenueByMerchant(ctx context.Conte
 			return ec.resolvers.Query().FindYearlyRevenueByMerchant(ctx, fc.Args["input"].(model.FindYearOrderByMerchantInput))
 		},
 		nil,
-		ec.marshalNApiResponseOrderYearly2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearly,
+		ec.marshalNApiResponseOrderYearly2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearly,
 		true,
 		true,
 	)
@@ -45194,7 +45354,7 @@ func (ec *executionContext) _Query_findMonthlyTotalRevenue(ctx context.Context, 
 			return ec.resolvers.Query().FindMonthlyTotalRevenue(ctx, fc.Args["input"].(model.FindYearMonthTotalRevenue))
 		},
 		nil,
-		ec.marshalNApiResponseOrderMonthlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthlyTotalRevenue,
+		ec.marshalNApiResponseOrderMonthlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthlyTotalRevenue,
 		true,
 		true,
 	)
@@ -45243,7 +45403,7 @@ func (ec *executionContext) _Query_findYearlyTotalRevenue(ctx context.Context, f
 			return ec.resolvers.Query().FindYearlyTotalRevenue(ctx, fc.Args["input"].(model.FindYearTotalRevenue))
 		},
 		nil,
-		ec.marshalNApiResponseOrderYearlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearlyTotalRevenue,
+		ec.marshalNApiResponseOrderYearlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearlyTotalRevenue,
 		true,
 		true,
 	)
@@ -45292,7 +45452,7 @@ func (ec *executionContext) _Query_findMonthlyTotalRevenueByMerchant(ctx context
 			return ec.resolvers.Query().FindMonthlyTotalRevenueByMerchant(ctx, fc.Args["input"].(model.FindYearMonthTotalRevenueByMerchant))
 		},
 		nil,
-		ec.marshalNApiResponseOrderMonthlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthlyTotalRevenue,
+		ec.marshalNApiResponseOrderMonthlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthlyTotalRevenue,
 		true,
 		true,
 	)
@@ -45341,7 +45501,7 @@ func (ec *executionContext) _Query_findYearlyTotalRevenueByMerchant(ctx context.
 			return ec.resolvers.Query().FindYearlyTotalRevenueByMerchant(ctx, fc.Args["input"].(model.FindYearTotalRevenueByMerchant))
 		},
 		nil,
-		ec.marshalNApiResponseOrderYearlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearlyTotalRevenue,
+		ec.marshalNApiResponseOrderYearlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearlyTotalRevenue,
 		true,
 		true,
 	)
@@ -45390,7 +45550,7 @@ func (ec *executionContext) _Query_findAllOrderItems(ctx context.Context, field 
 			return ec.resolvers.Query().FindAllOrderItems(ctx, fc.Args["input"].(model.FindAllOrderItemInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationOrderItem2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderItem,
+		ec.marshalNApiResponsePaginationOrderItem2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderItem,
 		true,
 		true,
 	)
@@ -45441,7 +45601,7 @@ func (ec *executionContext) _Query_findActiveOrderItems(ctx context.Context, fie
 			return ec.resolvers.Query().FindActiveOrderItems(ctx, fc.Args["input"].(model.FindAllOrderItemInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationOrderItemDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderItemDeleteAt,
+		ec.marshalNApiResponsePaginationOrderItemDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderItemDeleteAt,
 		true,
 		true,
 	)
@@ -45492,7 +45652,7 @@ func (ec *executionContext) _Query_findTrashedOrderItems(ctx context.Context, fi
 			return ec.resolvers.Query().FindTrashedOrderItems(ctx, fc.Args["input"].(model.FindAllOrderItemInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationOrderItemDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderItemDeleteAt,
+		ec.marshalNApiResponsePaginationOrderItemDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderItemDeleteAt,
 		true,
 		true,
 	)
@@ -45543,7 +45703,7 @@ func (ec *executionContext) _Query_findOrderItemsByOrder(ctx context.Context, fi
 			return ec.resolvers.Query().FindOrderItemsByOrder(ctx, fc.Args["input"].(model.FindByIDOrderItemInput))
 		},
 		nil,
-		ec.marshalNApiResponsesOrderItem2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsesOrderItem,
+		ec.marshalNApiResponsesOrderItem2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsesOrderItem,
 		true,
 		true,
 	)
@@ -45592,7 +45752,7 @@ func (ec *executionContext) _Query_findAllProducts(ctx context.Context, field gr
 			return ec.resolvers.Query().FindAllProducts(ctx, fc.Args["input"].(*model.FindAllProductInput))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationProduct2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProduct,
+		ec.marshalOApiResponsePaginationProduct2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProduct,
 		true,
 		false,
 	)
@@ -45643,7 +45803,7 @@ func (ec *executionContext) _Query_findProductsByMerchant(ctx context.Context, f
 			return ec.resolvers.Query().FindProductsByMerchant(ctx, fc.Args["input"].(*model.FindAllProductMerchantInput))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationProduct2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProduct,
+		ec.marshalOApiResponsePaginationProduct2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProduct,
 		true,
 		false,
 	)
@@ -45694,7 +45854,7 @@ func (ec *executionContext) _Query_findProductsByCategory(ctx context.Context, f
 			return ec.resolvers.Query().FindProductsByCategory(ctx, fc.Args["input"].(*model.FindAllProductCategoryInput))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationProduct2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProduct,
+		ec.marshalOApiResponsePaginationProduct2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProduct,
 		true,
 		false,
 	)
@@ -45745,7 +45905,7 @@ func (ec *executionContext) _Query_findProductById(ctx context.Context, field gr
 			return ec.resolvers.Query().FindProductByID(ctx, fc.Args["input"].(*model.FindByIDProductInput))
 		},
 		nil,
-		ec.marshalOApiResponseProduct2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProduct,
+		ec.marshalOApiResponseProduct2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProduct,
 		true,
 		false,
 	)
@@ -45794,7 +45954,7 @@ func (ec *executionContext) _Query_findActiveProducts(ctx context.Context, field
 			return ec.resolvers.Query().FindActiveProducts(ctx, fc.Args["input"].(*model.FindAllProductInput))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationProductDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProductDeleteAt,
+		ec.marshalOApiResponsePaginationProductDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProductDeleteAt,
 		true,
 		false,
 	)
@@ -45845,7 +46005,7 @@ func (ec *executionContext) _Query_findTrashedProducts(ctx context.Context, fiel
 			return ec.resolvers.Query().FindTrashedProducts(ctx, fc.Args["input"].(*model.FindAllProductInput))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationProductDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProductDeleteAt,
+		ec.marshalOApiResponsePaginationProductDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProductDeleteAt,
 		true,
 		false,
 	)
@@ -45896,7 +46056,7 @@ func (ec *executionContext) _Query_findAllReviews(ctx context.Context, field gra
 			return ec.resolvers.Query().FindAllReviews(ctx, fc.Args["input"].(*model.FindAllReviewRequest))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationReview2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationReview,
+		ec.marshalOApiResponsePaginationReview2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationReview,
 		true,
 		false,
 	)
@@ -45947,7 +46107,7 @@ func (ec *executionContext) _Query_findReviewsByProduct(ctx context.Context, fie
 			return ec.resolvers.Query().FindReviewsByProduct(ctx, fc.Args["input"].(*model.FindAllReviewProductRequest))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationReviewRelationDetail2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationReviewRelationDetail,
+		ec.marshalOApiResponsePaginationReviewRelationDetail2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationReviewRelationDetail,
 		true,
 		false,
 	)
@@ -45998,7 +46158,7 @@ func (ec *executionContext) _Query_findReviewsByMerchant(ctx context.Context, fi
 			return ec.resolvers.Query().FindReviewsByMerchant(ctx, fc.Args["input"].(*model.FindAllReviewMerchantRequest))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationReviewRelationDetail2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationReviewRelationDetail,
+		ec.marshalOApiResponsePaginationReviewRelationDetail2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationReviewRelationDetail,
 		true,
 		false,
 	)
@@ -46049,7 +46209,7 @@ func (ec *executionContext) _Query_findTrashedReviews(ctx context.Context, field
 			return ec.resolvers.Query().FindTrashedReviews(ctx, fc.Args["input"].(*model.FindAllReviewRequest))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationReviewDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationReviewDeleteAt,
+		ec.marshalOApiResponsePaginationReviewDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationReviewDeleteAt,
 		true,
 		false,
 	)
@@ -46100,7 +46260,7 @@ func (ec *executionContext) _Query_findActiveReviews(ctx context.Context, field 
 			return ec.resolvers.Query().FindActiveReviews(ctx, fc.Args["input"].(*model.FindAllReviewRequest))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationReviewDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationReviewDeleteAt,
+		ec.marshalOApiResponsePaginationReviewDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationReviewDeleteAt,
 		true,
 		false,
 	)
@@ -46151,7 +46311,7 @@ func (ec *executionContext) _Query_findAllReviewDetails(ctx context.Context, fie
 			return ec.resolvers.Query().FindAllReviewDetails(ctx, fc.Args["input"].(*model.FindAllReviewDetailInput))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationReviewDetails2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationReviewDetails,
+		ec.marshalOApiResponsePaginationReviewDetails2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationReviewDetails,
 		true,
 		false,
 	)
@@ -46202,7 +46362,7 @@ func (ec *executionContext) _Query_findReviewDetailById(ctx context.Context, fie
 			return ec.resolvers.Query().FindReviewDetailByID(ctx, fc.Args["input"].(*model.FindByIDReviewDetailInput))
 		},
 		nil,
-		ec.marshalOApiResponseReviewDetail2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDetail,
+		ec.marshalOApiResponseReviewDetail2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDetail,
 		true,
 		false,
 	)
@@ -46251,7 +46411,7 @@ func (ec *executionContext) _Query_findActiveReviewDetails(ctx context.Context, 
 			return ec.resolvers.Query().FindActiveReviewDetails(ctx, fc.Args["input"].(*model.FindAllReviewDetailInput))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationReviewDetailsDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationReviewDetailsDeleteAt,
+		ec.marshalOApiResponsePaginationReviewDetailsDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationReviewDetailsDeleteAt,
 		true,
 		false,
 	)
@@ -46302,7 +46462,7 @@ func (ec *executionContext) _Query_findTrashedReviewDetails(ctx context.Context,
 			return ec.resolvers.Query().FindTrashedReviewDetails(ctx, fc.Args["input"].(*model.FindAllReviewDetailInput))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationReviewDetailsDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationReviewDetailsDeleteAt,
+		ec.marshalOApiResponsePaginationReviewDetailsDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationReviewDetailsDeleteAt,
 		true,
 		false,
 	)
@@ -46352,8 +46512,26 @@ func (ec *executionContext) _Query_findAllRole(ctx context.Context, field graphq
 			fc := graphql.GetFieldContext(ctx)
 			return ec.resolvers.Query().FindAllRole(ctx, fc.Args["input"].(*model.FindAllRoleInput))
 		},
-		nil,
-		ec.marshalOApiResponsePaginationRole2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationRole,
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				roles, err := ec.unmarshalNString2ᚕstringᚄ(ctx, []any{"Admin", "ROLE_ADMIN"})
+				if err != nil {
+					var zeroVal *model.APIResponsePaginationRole
+					return zeroVal, err
+				}
+				if ec.directives.HasRole == nil {
+					var zeroVal *model.APIResponsePaginationRole
+					return zeroVal, errors.New("directive hasRole is not implemented")
+				}
+				return ec.directives.HasRole(ctx, nil, directive0, roles)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalOApiResponsePaginationRole2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationRole,
 		true,
 		false,
 	)
@@ -46403,8 +46581,26 @@ func (ec *executionContext) _Query_findByIdRole(ctx context.Context, field graph
 			fc := graphql.GetFieldContext(ctx)
 			return ec.resolvers.Query().FindByIDRole(ctx, fc.Args["input"].(model.FindByIDRoleInput))
 		},
-		nil,
-		ec.marshalOApiResponseRole2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRole,
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				roles, err := ec.unmarshalNString2ᚕstringᚄ(ctx, []any{"Admin", "ROLE_ADMIN"})
+				if err != nil {
+					var zeroVal *model.APIResponseRole
+					return zeroVal, err
+				}
+				if ec.directives.HasRole == nil {
+					var zeroVal *model.APIResponseRole
+					return zeroVal, errors.New("directive hasRole is not implemented")
+				}
+				return ec.directives.HasRole(ctx, nil, directive0, roles)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalOApiResponseRole2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRole,
 		true,
 		false,
 	)
@@ -46452,8 +46648,26 @@ func (ec *executionContext) _Query_findByActiveRole(ctx context.Context, field g
 			fc := graphql.GetFieldContext(ctx)
 			return ec.resolvers.Query().FindByActiveRole(ctx, fc.Args["input"].(*model.FindAllRoleInput))
 		},
-		nil,
-		ec.marshalOApiResponsePaginationRoleDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationRoleDeleteAt,
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				roles, err := ec.unmarshalNString2ᚕstringᚄ(ctx, []any{"Admin", "ROLE_ADMIN"})
+				if err != nil {
+					var zeroVal *model.APIResponsePaginationRoleDeleteAt
+					return zeroVal, err
+				}
+				if ec.directives.HasRole == nil {
+					var zeroVal *model.APIResponsePaginationRoleDeleteAt
+					return zeroVal, errors.New("directive hasRole is not implemented")
+				}
+				return ec.directives.HasRole(ctx, nil, directive0, roles)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalOApiResponsePaginationRoleDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationRoleDeleteAt,
 		true,
 		false,
 	)
@@ -46503,8 +46717,26 @@ func (ec *executionContext) _Query_findByTrashedRole(ctx context.Context, field 
 			fc := graphql.GetFieldContext(ctx)
 			return ec.resolvers.Query().FindByTrashedRole(ctx, fc.Args["input"].(*model.FindAllRoleInput))
 		},
-		nil,
-		ec.marshalOApiResponsePaginationRoleDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationRoleDeleteAt,
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				roles, err := ec.unmarshalNString2ᚕstringᚄ(ctx, []any{"Admin", "ROLE_ADMIN"})
+				if err != nil {
+					var zeroVal *model.APIResponsePaginationRoleDeleteAt
+					return zeroVal, err
+				}
+				if ec.directives.HasRole == nil {
+					var zeroVal *model.APIResponsePaginationRoleDeleteAt
+					return zeroVal, errors.New("directive hasRole is not implemented")
+				}
+				return ec.directives.HasRole(ctx, nil, directive0, roles)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalOApiResponsePaginationRoleDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationRoleDeleteAt,
 		true,
 		false,
 	)
@@ -46554,8 +46786,26 @@ func (ec *executionContext) _Query_findByUserIdRole(ctx context.Context, field g
 			fc := graphql.GetFieldContext(ctx)
 			return ec.resolvers.Query().FindByUserIDRole(ctx, fc.Args["input"].(model.FindByIDUserRoleInput))
 		},
-		nil,
-		ec.marshalOApiResponsesRole2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsesRole,
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				roles, err := ec.unmarshalNString2ᚕstringᚄ(ctx, []any{"Admin", "ROLE_ADMIN"})
+				if err != nil {
+					var zeroVal *model.APIResponsesRole
+					return zeroVal, err
+				}
+				if ec.directives.HasRole == nil {
+					var zeroVal *model.APIResponsesRole
+					return zeroVal, errors.New("directive hasRole is not implemented")
+				}
+				return ec.directives.HasRole(ctx, nil, directive0, roles)
+			}
+
+			next = directive1
+			return next
+		},
+		ec.marshalOApiResponsesRole2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsesRole,
 		true,
 		false,
 	)
@@ -46604,7 +46854,7 @@ func (ec *executionContext) _Query_findAllShipping(ctx context.Context, field gr
 			return ec.resolvers.Query().FindAllShipping(ctx, fc.Args["input"].(*model.FindAllShippingRequest))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationShipping2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationShipping,
+		ec.marshalOApiResponsePaginationShipping2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationShipping,
 		true,
 		false,
 	)
@@ -46655,7 +46905,7 @@ func (ec *executionContext) _Query_findShippingById(ctx context.Context, field g
 			return ec.resolvers.Query().FindShippingByID(ctx, fc.Args["input"].(*model.FindByIDShippingRequest))
 		},
 		nil,
-		ec.marshalOApiResponseShipping2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseShipping,
+		ec.marshalOApiResponseShipping2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseShipping,
 		true,
 		false,
 	)
@@ -46704,7 +46954,7 @@ func (ec *executionContext) _Query_findShippingByOrder(ctx context.Context, fiel
 			return ec.resolvers.Query().FindShippingByOrder(ctx, fc.Args["input"].(*model.FindByIDShippingRequest))
 		},
 		nil,
-		ec.marshalOApiResponseShipping2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseShipping,
+		ec.marshalOApiResponseShipping2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseShipping,
 		true,
 		false,
 	)
@@ -46753,7 +47003,7 @@ func (ec *executionContext) _Query_findActiveShipping(ctx context.Context, field
 			return ec.resolvers.Query().FindActiveShipping(ctx, fc.Args["input"].(*model.FindAllShippingRequest))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationShippingDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationShippingDeleteAt,
+		ec.marshalOApiResponsePaginationShippingDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationShippingDeleteAt,
 		true,
 		false,
 	)
@@ -46804,7 +47054,7 @@ func (ec *executionContext) _Query_findTrashedShipping(ctx context.Context, fiel
 			return ec.resolvers.Query().FindTrashedShipping(ctx, fc.Args["input"].(*model.FindAllShippingRequest))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationShippingDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationShippingDeleteAt,
+		ec.marshalOApiResponsePaginationShippingDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationShippingDeleteAt,
 		true,
 		false,
 	)
@@ -46855,7 +47105,7 @@ func (ec *executionContext) _Query_findAllSliders(ctx context.Context, field gra
 			return ec.resolvers.Query().FindAllSliders(ctx, fc.Args["input"].(*model.FindAllSliderRequest))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationSlider2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationSlider,
+		ec.marshalOApiResponsePaginationSlider2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationSlider,
 		true,
 		false,
 	)
@@ -46906,7 +47156,7 @@ func (ec *executionContext) _Query_findActiveSliders(ctx context.Context, field 
 			return ec.resolvers.Query().FindActiveSliders(ctx, fc.Args["input"].(*model.FindAllSliderRequest))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationSliderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationSliderDeleteAt,
+		ec.marshalOApiResponsePaginationSliderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationSliderDeleteAt,
 		true,
 		false,
 	)
@@ -46957,7 +47207,7 @@ func (ec *executionContext) _Query_findTrashedSliders(ctx context.Context, field
 			return ec.resolvers.Query().FindTrashedSliders(ctx, fc.Args["input"].(*model.FindAllSliderRequest))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationSliderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationSliderDeleteAt,
+		ec.marshalOApiResponsePaginationSliderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationSliderDeleteAt,
 		true,
 		false,
 	)
@@ -47008,7 +47258,7 @@ func (ec *executionContext) _Query_findAllTransaction(ctx context.Context, field
 			return ec.resolvers.Query().FindAllTransaction(ctx, fc.Args["input"].(*model.FindAllTransactionRequest))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationTransaction2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationTransaction,
+		ec.marshalOApiResponsePaginationTransaction2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationTransaction,
 		true,
 		false,
 	)
@@ -47059,7 +47309,7 @@ func (ec *executionContext) _Query_findTransactionByMerchant(ctx context.Context
 			return ec.resolvers.Query().FindTransactionByMerchant(ctx, fc.Args["input"].(*model.FindAllTransactionMerchantRequest))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationTransaction2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationTransaction,
+		ec.marshalOApiResponsePaginationTransaction2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationTransaction,
 		true,
 		false,
 	)
@@ -47110,7 +47360,7 @@ func (ec *executionContext) _Query_findTransactionById(ctx context.Context, fiel
 			return ec.resolvers.Query().FindTransactionByID(ctx, fc.Args["input"].(model.FindByIDTransactionRequest))
 		},
 		nil,
-		ec.marshalOApiResponseTransaction2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransaction,
+		ec.marshalOApiResponseTransaction2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransaction,
 		true,
 		false,
 	)
@@ -47159,7 +47409,7 @@ func (ec *executionContext) _Query_findMonthStatusSuccess(ctx context.Context, f
 			return ec.resolvers.Query().FindMonthStatusSuccess(ctx, fc.Args["input"].(model.FindMonthlyTransactionStatus))
 		},
 		nil,
-		ec.marshalOApiResponseTransactionMonthAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthAmountSuccess,
+		ec.marshalOApiResponseTransactionMonthAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthAmountSuccess,
 		true,
 		false,
 	)
@@ -47208,7 +47458,7 @@ func (ec *executionContext) _Query_findYearStatusSuccess(ctx context.Context, fi
 			return ec.resolvers.Query().FindYearStatusSuccess(ctx, fc.Args["input"].(model.FindYearlyTransactionStatus))
 		},
 		nil,
-		ec.marshalOApiResponseTransactionYearAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearAmountSuccess,
+		ec.marshalOApiResponseTransactionYearAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearAmountSuccess,
 		true,
 		false,
 	)
@@ -47257,7 +47507,7 @@ func (ec *executionContext) _Query_findMonthStatusFailed(ctx context.Context, fi
 			return ec.resolvers.Query().FindMonthStatusFailed(ctx, fc.Args["input"].(model.FindMonthlyTransactionStatus))
 		},
 		nil,
-		ec.marshalOApiResponseTransactionMonthAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthAmountFailed,
+		ec.marshalOApiResponseTransactionMonthAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthAmountFailed,
 		true,
 		false,
 	)
@@ -47306,7 +47556,7 @@ func (ec *executionContext) _Query_findYearStatusFailed(ctx context.Context, fie
 			return ec.resolvers.Query().FindYearStatusFailed(ctx, fc.Args["input"].(model.FindYearlyTransactionStatus))
 		},
 		nil,
-		ec.marshalOApiResponseTransactionYearAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearAmountFailed,
+		ec.marshalOApiResponseTransactionYearAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearAmountFailed,
 		true,
 		false,
 	)
@@ -47355,7 +47605,7 @@ func (ec *executionContext) _Query_findMonthStatusSuccessByMerchant(ctx context.
 			return ec.resolvers.Query().FindMonthStatusSuccessByMerchant(ctx, fc.Args["input"].(model.FindMonthlyTransactionStatusByMerchant))
 		},
 		nil,
-		ec.marshalOApiResponseTransactionMonthAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthAmountSuccess,
+		ec.marshalOApiResponseTransactionMonthAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthAmountSuccess,
 		true,
 		false,
 	)
@@ -47404,7 +47654,7 @@ func (ec *executionContext) _Query_findYearStatusSuccessByMerchant(ctx context.C
 			return ec.resolvers.Query().FindYearStatusSuccessByMerchant(ctx, fc.Args["input"].(model.FindYearlyTransactionStatusByMerchant))
 		},
 		nil,
-		ec.marshalOApiResponseTransactionYearAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearAmountSuccess,
+		ec.marshalOApiResponseTransactionYearAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearAmountSuccess,
 		true,
 		false,
 	)
@@ -47453,7 +47703,7 @@ func (ec *executionContext) _Query_findMonthStatusFailedByMerchant(ctx context.C
 			return ec.resolvers.Query().FindMonthStatusFailedByMerchant(ctx, fc.Args["input"].(model.FindMonthlyTransactionStatusByMerchant))
 		},
 		nil,
-		ec.marshalOApiResponseTransactionMonthAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthAmountFailed,
+		ec.marshalOApiResponseTransactionMonthAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthAmountFailed,
 		true,
 		false,
 	)
@@ -47502,7 +47752,7 @@ func (ec *executionContext) _Query_findYearStatusFailedByMerchant(ctx context.Co
 			return ec.resolvers.Query().FindYearStatusFailedByMerchant(ctx, fc.Args["input"].(model.FindYearlyTransactionStatusByMerchant))
 		},
 		nil,
-		ec.marshalOApiResponseTransactionYearAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearAmountFailed,
+		ec.marshalOApiResponseTransactionYearAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearAmountFailed,
 		true,
 		false,
 	)
@@ -47551,7 +47801,7 @@ func (ec *executionContext) _Query_findMonthMethodSuccess(ctx context.Context, f
 			return ec.resolvers.Query().FindMonthMethodSuccess(ctx, fc.Args["input"].(model.MonthTransactionMethod))
 		},
 		nil,
-		ec.marshalOApiResponseTransactionMonthPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthPaymentMethod,
+		ec.marshalOApiResponseTransactionMonthPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthPaymentMethod,
 		true,
 		false,
 	)
@@ -47600,7 +47850,7 @@ func (ec *executionContext) _Query_findYearMethodSuccess(ctx context.Context, fi
 			return ec.resolvers.Query().FindYearMethodSuccess(ctx, fc.Args["input"].(model.YearTransactionMethod))
 		},
 		nil,
-		ec.marshalOApiResponseTransactionYearPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearPaymentMethod,
+		ec.marshalOApiResponseTransactionYearPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearPaymentMethod,
 		true,
 		false,
 	)
@@ -47649,7 +47899,7 @@ func (ec *executionContext) _Query_findMonthMethodByMerchantSuccess(ctx context.
 			return ec.resolvers.Query().FindMonthMethodByMerchantSuccess(ctx, fc.Args["input"].(model.MonthTransactionMethodByMerchant))
 		},
 		nil,
-		ec.marshalOApiResponseTransactionMonthPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthPaymentMethod,
+		ec.marshalOApiResponseTransactionMonthPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthPaymentMethod,
 		true,
 		false,
 	)
@@ -47698,7 +47948,7 @@ func (ec *executionContext) _Query_findYearMethodByMerchantSuccess(ctx context.C
 			return ec.resolvers.Query().FindYearMethodByMerchantSuccess(ctx, fc.Args["input"].(model.YearTransactionMethodByMerchant))
 		},
 		nil,
-		ec.marshalOApiResponseTransactionYearPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearPaymentMethod,
+		ec.marshalOApiResponseTransactionYearPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearPaymentMethod,
 		true,
 		false,
 	)
@@ -47747,7 +47997,7 @@ func (ec *executionContext) _Query_findMonthMethodFailed(ctx context.Context, fi
 			return ec.resolvers.Query().FindMonthMethodFailed(ctx, fc.Args["input"].(model.MonthTransactionMethod))
 		},
 		nil,
-		ec.marshalOApiResponseTransactionMonthPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthPaymentMethod,
+		ec.marshalOApiResponseTransactionMonthPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthPaymentMethod,
 		true,
 		false,
 	)
@@ -47796,7 +48046,7 @@ func (ec *executionContext) _Query_findYearMethodFailed(ctx context.Context, fie
 			return ec.resolvers.Query().FindYearMethodFailed(ctx, fc.Args["input"].(model.YearTransactionMethod))
 		},
 		nil,
-		ec.marshalOApiResponseTransactionYearPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearPaymentMethod,
+		ec.marshalOApiResponseTransactionYearPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearPaymentMethod,
 		true,
 		false,
 	)
@@ -47845,7 +48095,7 @@ func (ec *executionContext) _Query_findMonthMethodByMerchantFailed(ctx context.C
 			return ec.resolvers.Query().FindMonthMethodByMerchantFailed(ctx, fc.Args["input"].(model.MonthTransactionMethodByMerchant))
 		},
 		nil,
-		ec.marshalOApiResponseTransactionMonthPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthPaymentMethod,
+		ec.marshalOApiResponseTransactionMonthPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthPaymentMethod,
 		true,
 		false,
 	)
@@ -47894,7 +48144,7 @@ func (ec *executionContext) _Query_findYearMethodByMerchantFailed(ctx context.Co
 			return ec.resolvers.Query().FindYearMethodByMerchantFailed(ctx, fc.Args["input"].(model.YearTransactionMethodByMerchant))
 		},
 		nil,
-		ec.marshalOApiResponseTransactionYearPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearPaymentMethod,
+		ec.marshalOApiResponseTransactionYearPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearPaymentMethod,
 		true,
 		false,
 	)
@@ -47943,7 +48193,7 @@ func (ec *executionContext) _Query_findByActive(ctx context.Context, field graph
 			return ec.resolvers.Query().FindByActive(ctx, fc.Args["input"].(*model.FindAllTransactionRequest))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationTransaction2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationTransaction,
+		ec.marshalOApiResponsePaginationTransaction2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationTransaction,
 		true,
 		false,
 	)
@@ -47994,7 +48244,7 @@ func (ec *executionContext) _Query_findByTrashed(ctx context.Context, field grap
 			return ec.resolvers.Query().FindByTrashed(ctx, fc.Args["input"].(*model.FindAllTransactionRequest))
 		},
 		nil,
-		ec.marshalOApiResponsePaginationTransactionDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationTransactionDeleteAt,
+		ec.marshalOApiResponsePaginationTransactionDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationTransactionDeleteAt,
 		true,
 		false,
 	)
@@ -48045,7 +48295,7 @@ func (ec *executionContext) _Query_findAllUsers(ctx context.Context, field graph
 			return ec.resolvers.Query().FindAllUsers(ctx, fc.Args["input"].(*model.FindAllUserInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationUser2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationUser,
+		ec.marshalNApiResponsePaginationUser2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationUser,
 		true,
 		true,
 	)
@@ -48096,7 +48346,7 @@ func (ec *executionContext) _Query_findByIdUser(ctx context.Context, field graph
 			return ec.resolvers.Query().FindByIDUser(ctx, fc.Args["input"].(model.FindByIDUserInput))
 		},
 		nil,
-		ec.marshalNApiResponseUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponse,
+		ec.marshalNApiResponseUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponse,
 		true,
 		true,
 	)
@@ -48145,7 +48395,7 @@ func (ec *executionContext) _Query_findByActiveUsers(ctx context.Context, field 
 			return ec.resolvers.Query().FindByActiveUsers(ctx, fc.Args["input"].(*model.FindAllUserInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationUserDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationUserDeleteAt,
+		ec.marshalNApiResponsePaginationUserDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationUserDeleteAt,
 		true,
 		true,
 	)
@@ -48196,7 +48446,7 @@ func (ec *executionContext) _Query_findByTrashedUsers(ctx context.Context, field
 			return ec.resolvers.Query().FindByTrashedUsers(ctx, fc.Args["input"].(*model.FindAllUserInput))
 		},
 		nil,
-		ec.marshalNApiResponsePaginationUserDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationUserDeleteAt,
+		ec.marshalNApiResponsePaginationUserDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationUserDeleteAt,
 		true,
 		true,
 	)
@@ -48963,7 +49213,7 @@ func (ec *executionContext) _ReviewRelationDetailResponse_review_detail(ctx cont
 			return obj.ReviewDetail, nil
 		},
 		nil,
-		ec.marshalOReviewDetailResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewDetailResponse,
+		ec.marshalOReviewDetailResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewDetailResponse,
 		true,
 		false,
 	)
@@ -54318,14 +54568,14 @@ func (ec *executionContext) unmarshalInputCreateOrderInput(ctx context.Context, 
 			it.TotalPrice = data
 		case "items":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("items"))
-			data, err := ec.unmarshalNCreateOrderItemInput2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateOrderItemInputᚄ(ctx, v)
+			data, err := ec.unmarshalNCreateOrderItemInput2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateOrderItemInputᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
 			it.Items = data
 		case "shipping":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("shipping"))
-			data, err := ec.unmarshalNCreateShippingAddressInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateShippingAddressInput(ctx, v)
+			data, err := ec.unmarshalNCreateShippingAddressInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateShippingAddressInput(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -58212,14 +58462,14 @@ func (ec *executionContext) unmarshalInputUpdateOrderInput(ctx context.Context, 
 			it.TotalPrice = data
 		case "items":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("items"))
-			data, err := ec.unmarshalNUpdateOrderItemInput2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateOrderItemInputᚄ(ctx, v)
+			data, err := ec.unmarshalNUpdateOrderItemInput2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateOrderItemInputᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
 			it.Items = data
 		case "shipping":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("shipping"))
-			data, err := ec.unmarshalNUpdateShippingAddressInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateShippingAddressInput(ctx, v)
+			data, err := ec.unmarshalNUpdateShippingAddressInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateShippingAddressInput(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -72895,11 +73145,11 @@ func (ec *executionContext) ___Type(ctx context.Context, sel ast.SelectionSet, o
 
 // region    ***************************** type.gotpl *****************************
 
-func (ec *executionContext) marshalNApiResponseBanner2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBanner(ctx context.Context, sel ast.SelectionSet, v model.APIResponseBanner) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseBanner2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBanner(ctx context.Context, sel ast.SelectionSet, v model.APIResponseBanner) graphql.Marshaler {
 	return ec._ApiResponseBanner(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseBanner2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBanner(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseBanner) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseBanner2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBanner(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseBanner) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -72909,11 +73159,11 @@ func (ec *executionContext) marshalNApiResponseBanner2ᚖgithubᚗcomᚋMamangRu
 	return ec._ApiResponseBanner(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseBannerAll2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBannerAll(ctx context.Context, sel ast.SelectionSet, v model.APIResponseBannerAll) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseBannerAll2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBannerAll(ctx context.Context, sel ast.SelectionSet, v model.APIResponseBannerAll) graphql.Marshaler {
 	return ec._ApiResponseBannerAll(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseBannerAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBannerAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseBannerAll) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseBannerAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBannerAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseBannerAll) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -72923,11 +73173,11 @@ func (ec *executionContext) marshalNApiResponseBannerAll2ᚖgithubᚗcomᚋMaman
 	return ec._ApiResponseBannerAll(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseBannerDelete2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBannerDelete(ctx context.Context, sel ast.SelectionSet, v model.APIResponseBannerDelete) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseBannerDelete2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBannerDelete(ctx context.Context, sel ast.SelectionSet, v model.APIResponseBannerDelete) graphql.Marshaler {
 	return ec._ApiResponseBannerDelete(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseBannerDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBannerDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseBannerDelete) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseBannerDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBannerDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseBannerDelete) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -72937,11 +73187,11 @@ func (ec *executionContext) marshalNApiResponseBannerDelete2ᚖgithubᚗcomᚋMa
 	return ec._ApiResponseBannerDelete(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseBannerDeleteAt2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBannerDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponseBannerDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseBannerDeleteAt2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBannerDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponseBannerDeleteAt) graphql.Marshaler {
 	return ec._ApiResponseBannerDeleteAt(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseBannerDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBannerDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseBannerDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseBannerDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseBannerDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseBannerDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -72951,11 +73201,11 @@ func (ec *executionContext) marshalNApiResponseBannerDeleteAt2ᚖgithubᚗcomᚋ
 	return ec._ApiResponseBannerDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseCart2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCart(ctx context.Context, sel ast.SelectionSet, v model.APIResponseCart) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseCart2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCart(ctx context.Context, sel ast.SelectionSet, v model.APIResponseCart) graphql.Marshaler {
 	return ec._ApiResponseCart(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseCart2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCart(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCart) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseCart2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCart(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCart) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -72965,11 +73215,11 @@ func (ec *executionContext) marshalNApiResponseCart2ᚖgithubᚗcomᚋMamangRust
 	return ec._ApiResponseCart(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseCartAll2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCartAll(ctx context.Context, sel ast.SelectionSet, v model.APIResponseCartAll) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseCartAll2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCartAll(ctx context.Context, sel ast.SelectionSet, v model.APIResponseCartAll) graphql.Marshaler {
 	return ec._ApiResponseCartAll(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseCartAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCartAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCartAll) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseCartAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCartAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCartAll) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -72979,11 +73229,11 @@ func (ec *executionContext) marshalNApiResponseCartAll2ᚖgithubᚗcomᚋMamangR
 	return ec._ApiResponseCartAll(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseCartDelete2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCartDelete(ctx context.Context, sel ast.SelectionSet, v model.APIResponseCartDelete) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseCartDelete2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCartDelete(ctx context.Context, sel ast.SelectionSet, v model.APIResponseCartDelete) graphql.Marshaler {
 	return ec._ApiResponseCartDelete(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseCartDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCartDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCartDelete) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseCartDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCartDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCartDelete) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -72993,11 +73243,11 @@ func (ec *executionContext) marshalNApiResponseCartDelete2ᚖgithubᚗcomᚋMama
 	return ec._ApiResponseCartDelete(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseCategory2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategory(ctx context.Context, sel ast.SelectionSet, v model.APIResponseCategory) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseCategory2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategory(ctx context.Context, sel ast.SelectionSet, v model.APIResponseCategory) graphql.Marshaler {
 	return ec._ApiResponseCategory(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseCategory2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategory(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategory) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseCategory2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategory(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategory) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73007,11 +73257,11 @@ func (ec *executionContext) marshalNApiResponseCategory2ᚖgithubᚗcomᚋMamang
 	return ec._ApiResponseCategory(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseCategoryAll2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryAll(ctx context.Context, sel ast.SelectionSet, v model.APIResponseCategoryAll) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseCategoryAll2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryAll(ctx context.Context, sel ast.SelectionSet, v model.APIResponseCategoryAll) graphql.Marshaler {
 	return ec._ApiResponseCategoryAll(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseCategoryAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryAll) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseCategoryAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryAll) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73021,11 +73271,11 @@ func (ec *executionContext) marshalNApiResponseCategoryAll2ᚖgithubᚗcomᚋMam
 	return ec._ApiResponseCategoryAll(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseCategoryDelete2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryDelete(ctx context.Context, sel ast.SelectionSet, v model.APIResponseCategoryDelete) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseCategoryDelete2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryDelete(ctx context.Context, sel ast.SelectionSet, v model.APIResponseCategoryDelete) graphql.Marshaler {
 	return ec._ApiResponseCategoryDelete(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseCategoryDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryDelete) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseCategoryDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryDelete) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73035,11 +73285,11 @@ func (ec *executionContext) marshalNApiResponseCategoryDelete2ᚖgithubᚗcomᚋ
 	return ec._ApiResponseCategoryDelete(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseCategoryDeleteAt2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponseCategoryDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseCategoryDeleteAt2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponseCategoryDeleteAt) graphql.Marshaler {
 	return ec._ApiResponseCategoryDeleteAt(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseCategoryDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseCategoryDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73049,11 +73299,11 @@ func (ec *executionContext) marshalNApiResponseCategoryDeleteAt2ᚖgithubᚗcom�
 	return ec._ApiResponseCategoryDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseCategoryMonthPrice2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthPrice(ctx context.Context, sel ast.SelectionSet, v model.APIResponseCategoryMonthPrice) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseCategoryMonthPrice2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthPrice(ctx context.Context, sel ast.SelectionSet, v model.APIResponseCategoryMonthPrice) graphql.Marshaler {
 	return ec._ApiResponseCategoryMonthPrice(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseCategoryMonthPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthPrice(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryMonthPrice) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseCategoryMonthPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthPrice(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryMonthPrice) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73063,11 +73313,11 @@ func (ec *executionContext) marshalNApiResponseCategoryMonthPrice2ᚖgithubᚗco
 	return ec._ApiResponseCategoryMonthPrice(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseCategoryMonthlyTotalPrice2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthlyTotalPrice(ctx context.Context, sel ast.SelectionSet, v model.APIResponseCategoryMonthlyTotalPrice) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseCategoryMonthlyTotalPrice2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthlyTotalPrice(ctx context.Context, sel ast.SelectionSet, v model.APIResponseCategoryMonthlyTotalPrice) graphql.Marshaler {
 	return ec._ApiResponseCategoryMonthlyTotalPrice(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseCategoryMonthlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthlyTotalPrice(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryMonthlyTotalPrice) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseCategoryMonthlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthlyTotalPrice(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryMonthlyTotalPrice) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73077,11 +73327,11 @@ func (ec *executionContext) marshalNApiResponseCategoryMonthlyTotalPrice2ᚖgith
 	return ec._ApiResponseCategoryMonthlyTotalPrice(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseCategoryYearPrice2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearPrice(ctx context.Context, sel ast.SelectionSet, v model.APIResponseCategoryYearPrice) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseCategoryYearPrice2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearPrice(ctx context.Context, sel ast.SelectionSet, v model.APIResponseCategoryYearPrice) graphql.Marshaler {
 	return ec._ApiResponseCategoryYearPrice(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseCategoryYearPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearPrice(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryYearPrice) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseCategoryYearPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearPrice(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryYearPrice) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73091,11 +73341,11 @@ func (ec *executionContext) marshalNApiResponseCategoryYearPrice2ᚖgithubᚗcom
 	return ec._ApiResponseCategoryYearPrice(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseCategoryYearlyTotalPrice2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearlyTotalPrice(ctx context.Context, sel ast.SelectionSet, v model.APIResponseCategoryYearlyTotalPrice) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseCategoryYearlyTotalPrice2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearlyTotalPrice(ctx context.Context, sel ast.SelectionSet, v model.APIResponseCategoryYearlyTotalPrice) graphql.Marshaler {
 	return ec._ApiResponseCategoryYearlyTotalPrice(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseCategoryYearlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearlyTotalPrice(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryYearlyTotalPrice) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseCategoryYearlyTotalPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearlyTotalPrice(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryYearlyTotalPrice) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73105,11 +73355,11 @@ func (ec *executionContext) marshalNApiResponseCategoryYearlyTotalPrice2ᚖgithu
 	return ec._ApiResponseCategoryYearlyTotalPrice(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseForgotPassword2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseForgotPassword(ctx context.Context, sel ast.SelectionSet, v model.APIResponseForgotPassword) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseForgotPassword2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseForgotPassword(ctx context.Context, sel ast.SelectionSet, v model.APIResponseForgotPassword) graphql.Marshaler {
 	return ec._ApiResponseForgotPassword(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseForgotPassword2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseForgotPassword(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseForgotPassword) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseForgotPassword2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseForgotPassword(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseForgotPassword) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73119,11 +73369,11 @@ func (ec *executionContext) marshalNApiResponseForgotPassword2ᚖgithubᚗcomᚋ
 	return ec._ApiResponseForgotPassword(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseGetMe2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseGetMe(ctx context.Context, sel ast.SelectionSet, v model.APIResponseGetMe) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseGetMe2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseGetMe(ctx context.Context, sel ast.SelectionSet, v model.APIResponseGetMe) graphql.Marshaler {
 	return ec._ApiResponseGetMe(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseGetMe2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseGetMe(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseGetMe) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseGetMe2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseGetMe(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseGetMe) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73133,11 +73383,11 @@ func (ec *executionContext) marshalNApiResponseGetMe2ᚖgithubᚗcomᚋMamangRus
 	return ec._ApiResponseGetMe(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseLogin2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseLogin(ctx context.Context, sel ast.SelectionSet, v model.APIResponseLogin) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseLogin2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseLogin(ctx context.Context, sel ast.SelectionSet, v model.APIResponseLogin) graphql.Marshaler {
 	return ec._ApiResponseLogin(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseLogin2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseLogin(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseLogin) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseLogin2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseLogin(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseLogin) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73147,11 +73397,11 @@ func (ec *executionContext) marshalNApiResponseLogin2ᚖgithubᚗcomᚋMamangRus
 	return ec._ApiResponseLogin(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchant(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchant) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchant(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchant) graphql.Marshaler {
 	return ec._ApiResponseMerchant(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchant2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchant(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchant) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchant2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchant(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchant) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73161,11 +73411,11 @@ func (ec *executionContext) marshalNApiResponseMerchant2ᚖgithubᚗcomᚋMamang
 	return ec._ApiResponseMerchant(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantAll2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAll(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantAll) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantAll2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAll(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantAll) graphql.Marshaler {
 	return ec._ApiResponseMerchantAll(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantAll) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantAll) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73175,11 +73425,11 @@ func (ec *executionContext) marshalNApiResponseMerchantAll2ᚖgithubᚗcomᚋMam
 	return ec._ApiResponseMerchantAll(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantAward2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAward(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantAward) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantAward2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAward(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantAward) graphql.Marshaler {
 	return ec._ApiResponseMerchantAward(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantAward2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAward(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantAward) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantAward2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAward(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantAward) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73189,11 +73439,11 @@ func (ec *executionContext) marshalNApiResponseMerchantAward2ᚖgithubᚗcomᚋM
 	return ec._ApiResponseMerchantAward(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantAwardAll2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAwardAll(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantAwardAll) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantAwardAll2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAwardAll(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantAwardAll) graphql.Marshaler {
 	return ec._ApiResponseMerchantAwardAll(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantAwardAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAwardAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantAwardAll) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantAwardAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAwardAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantAwardAll) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73203,11 +73453,11 @@ func (ec *executionContext) marshalNApiResponseMerchantAwardAll2ᚖgithubᚗcom�
 	return ec._ApiResponseMerchantAwardAll(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantAwardDelete2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAwardDelete(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantAwardDelete) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantAwardDelete2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAwardDelete(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantAwardDelete) graphql.Marshaler {
 	return ec._ApiResponseMerchantAwardDelete(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantAwardDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAwardDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantAwardDelete) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantAwardDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAwardDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantAwardDelete) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73217,11 +73467,11 @@ func (ec *executionContext) marshalNApiResponseMerchantAwardDelete2ᚖgithubᚗc
 	return ec._ApiResponseMerchantAwardDelete(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantAwardDeleteAt2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAwardDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantAwardDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantAwardDeleteAt2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAwardDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantAwardDeleteAt) graphql.Marshaler {
 	return ec._ApiResponseMerchantAwardDeleteAt(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantAwardDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAwardDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantAwardDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantAwardDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantAwardDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantAwardDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73231,11 +73481,11 @@ func (ec *executionContext) marshalNApiResponseMerchantAwardDeleteAt2ᚖgithub�
 	return ec._ApiResponseMerchantAwardDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantBusiness2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusiness(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantBusiness) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantBusiness2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusiness(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantBusiness) graphql.Marshaler {
 	return ec._ApiResponseMerchantBusiness(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantBusiness2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusiness(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantBusiness) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantBusiness2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusiness(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantBusiness) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73245,11 +73495,11 @@ func (ec *executionContext) marshalNApiResponseMerchantBusiness2ᚖgithubᚗcom�
 	return ec._ApiResponseMerchantBusiness(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantBusinessAll2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusinessAll(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantBusinessAll) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantBusinessAll2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusinessAll(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantBusinessAll) graphql.Marshaler {
 	return ec._ApiResponseMerchantBusinessAll(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantBusinessAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusinessAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantBusinessAll) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantBusinessAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusinessAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantBusinessAll) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73259,11 +73509,11 @@ func (ec *executionContext) marshalNApiResponseMerchantBusinessAll2ᚖgithubᚗc
 	return ec._ApiResponseMerchantBusinessAll(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantBusinessDelete2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusinessDelete(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantBusinessDelete) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantBusinessDelete2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusinessDelete(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantBusinessDelete) graphql.Marshaler {
 	return ec._ApiResponseMerchantBusinessDelete(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantBusinessDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusinessDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantBusinessDelete) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantBusinessDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusinessDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantBusinessDelete) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73273,11 +73523,11 @@ func (ec *executionContext) marshalNApiResponseMerchantBusinessDelete2ᚖgithub�
 	return ec._ApiResponseMerchantBusinessDelete(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantBusinessDeleteAt2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusinessDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantBusinessDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantBusinessDeleteAt2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusinessDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantBusinessDeleteAt) graphql.Marshaler {
 	return ec._ApiResponseMerchantBusinessDeleteAt(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantBusinessDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusinessDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantBusinessDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantBusinessDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantBusinessDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantBusinessDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73287,11 +73537,11 @@ func (ec *executionContext) marshalNApiResponseMerchantBusinessDeleteAt2ᚖgithu
 	return ec._ApiResponseMerchantBusinessDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantDelete2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDelete(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantDelete) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantDelete2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDelete(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantDelete) graphql.Marshaler {
 	return ec._ApiResponseMerchantDelete(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantDelete) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantDelete) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73301,11 +73551,11 @@ func (ec *executionContext) marshalNApiResponseMerchantDelete2ᚖgithubᚗcomᚋ
 	return ec._ApiResponseMerchantDelete(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantDeleteAt2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantDeleteAt2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantDeleteAt) graphql.Marshaler {
 	return ec._ApiResponseMerchantDeleteAt(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73315,11 +73565,11 @@ func (ec *executionContext) marshalNApiResponseMerchantDeleteAt2ᚖgithubᚗcom�
 	return ec._ApiResponseMerchantDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantDetail2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetail(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantDetail) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantDetail2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetail(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantDetail) graphql.Marshaler {
 	return ec._ApiResponseMerchantDetail(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantDetail2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetail(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantDetail) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantDetail2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetail(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantDetail) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73329,11 +73579,11 @@ func (ec *executionContext) marshalNApiResponseMerchantDetail2ᚖgithubᚗcomᚋ
 	return ec._ApiResponseMerchantDetail(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantDetailAll2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetailAll(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantDetailAll) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantDetailAll2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetailAll(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantDetailAll) graphql.Marshaler {
 	return ec._ApiResponseMerchantDetailAll(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantDetailAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetailAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantDetailAll) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantDetailAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetailAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantDetailAll) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73343,11 +73593,11 @@ func (ec *executionContext) marshalNApiResponseMerchantDetailAll2ᚖgithubᚗcom
 	return ec._ApiResponseMerchantDetailAll(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantDetailDelete2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetailDelete(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantDetailDelete) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantDetailDelete2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetailDelete(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantDetailDelete) graphql.Marshaler {
 	return ec._ApiResponseMerchantDetailDelete(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantDetailDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetailDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantDetailDelete) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantDetailDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetailDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantDetailDelete) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73357,11 +73607,11 @@ func (ec *executionContext) marshalNApiResponseMerchantDetailDelete2ᚖgithubᚗ
 	return ec._ApiResponseMerchantDetailDelete(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantDetailDeleteAt2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetailDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantDetailDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantDetailDeleteAt2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetailDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantDetailDeleteAt) graphql.Marshaler {
 	return ec._ApiResponseMerchantDetailDeleteAt(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantDetailDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetailDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantDetailDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantDetailDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetailDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantDetailDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73371,11 +73621,11 @@ func (ec *executionContext) marshalNApiResponseMerchantDetailDeleteAt2ᚖgithub�
 	return ec._ApiResponseMerchantDetailDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantDetailRelation2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetailRelation(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantDetailRelation) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantDetailRelation2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetailRelation(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantDetailRelation) graphql.Marshaler {
 	return ec._ApiResponseMerchantDetailRelation(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantDetailRelation2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetailRelation(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantDetailRelation) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantDetailRelation2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantDetailRelation(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantDetailRelation) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73385,11 +73635,11 @@ func (ec *executionContext) marshalNApiResponseMerchantDetailRelation2ᚖgithub�
 	return ec._ApiResponseMerchantDetailRelation(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantPolicy2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicy(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantPolicy) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantPolicy2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicy(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantPolicy) graphql.Marshaler {
 	return ec._ApiResponseMerchantPolicy(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantPolicy2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicy(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantPolicy) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantPolicy2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicy(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantPolicy) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73399,11 +73649,11 @@ func (ec *executionContext) marshalNApiResponseMerchantPolicy2ᚖgithubᚗcomᚋ
 	return ec._ApiResponseMerchantPolicy(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantPolicyAll2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicyAll(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantPolicyAll) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantPolicyAll2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicyAll(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantPolicyAll) graphql.Marshaler {
 	return ec._ApiResponseMerchantPolicyAll(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantPolicyAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicyAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantPolicyAll) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantPolicyAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicyAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantPolicyAll) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73413,11 +73663,11 @@ func (ec *executionContext) marshalNApiResponseMerchantPolicyAll2ᚖgithubᚗcom
 	return ec._ApiResponseMerchantPolicyAll(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantPolicyDelete2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicyDelete(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantPolicyDelete) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantPolicyDelete2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicyDelete(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantPolicyDelete) graphql.Marshaler {
 	return ec._ApiResponseMerchantPolicyDelete(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantPolicyDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicyDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantPolicyDelete) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantPolicyDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicyDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantPolicyDelete) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73427,11 +73677,11 @@ func (ec *executionContext) marshalNApiResponseMerchantPolicyDelete2ᚖgithubᚗ
 	return ec._ApiResponseMerchantPolicyDelete(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantPolicyDeleteAt2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicyDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantPolicyDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantPolicyDeleteAt2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicyDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponseMerchantPolicyDeleteAt) graphql.Marshaler {
 	return ec._ApiResponseMerchantPolicyDeleteAt(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseMerchantPolicyDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicyDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantPolicyDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseMerchantPolicyDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantPolicyDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantPolicyDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73441,11 +73691,11 @@ func (ec *executionContext) marshalNApiResponseMerchantPolicyDeleteAt2ᚖgithub�
 	return ec._ApiResponseMerchantPolicyDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseOrder2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrder(ctx context.Context, sel ast.SelectionSet, v model.APIResponseOrder) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseOrder2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrder(ctx context.Context, sel ast.SelectionSet, v model.APIResponseOrder) graphql.Marshaler {
 	return ec._ApiResponseOrder(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseOrder2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrder(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrder) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseOrder2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrder(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrder) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73455,11 +73705,11 @@ func (ec *executionContext) marshalNApiResponseOrder2ᚖgithubᚗcomᚋMamangRus
 	return ec._ApiResponseOrder(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseOrderAll2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderAll(ctx context.Context, sel ast.SelectionSet, v model.APIResponseOrderAll) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseOrderAll2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderAll(ctx context.Context, sel ast.SelectionSet, v model.APIResponseOrderAll) graphql.Marshaler {
 	return ec._ApiResponseOrderAll(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseOrderAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrderAll) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseOrderAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrderAll) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73469,11 +73719,11 @@ func (ec *executionContext) marshalNApiResponseOrderAll2ᚖgithubᚗcomᚋMamang
 	return ec._ApiResponseOrderAll(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseOrderDelete2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderDelete(ctx context.Context, sel ast.SelectionSet, v model.APIResponseOrderDelete) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseOrderDelete2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderDelete(ctx context.Context, sel ast.SelectionSet, v model.APIResponseOrderDelete) graphql.Marshaler {
 	return ec._ApiResponseOrderDelete(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseOrderDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrderDelete) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseOrderDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrderDelete) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73483,11 +73733,11 @@ func (ec *executionContext) marshalNApiResponseOrderDelete2ᚖgithubᚗcomᚋMam
 	return ec._ApiResponseOrderDelete(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseOrderDeleteAt2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponseOrderDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseOrderDeleteAt2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponseOrderDeleteAt) graphql.Marshaler {
 	return ec._ApiResponseOrderDeleteAt(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseOrderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrderDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseOrderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrderDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73497,11 +73747,11 @@ func (ec *executionContext) marshalNApiResponseOrderDeleteAt2ᚖgithubᚗcomᚋM
 	return ec._ApiResponseOrderDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseOrderMonthly2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthly(ctx context.Context, sel ast.SelectionSet, v model.APIResponseOrderMonthly) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseOrderMonthly2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthly(ctx context.Context, sel ast.SelectionSet, v model.APIResponseOrderMonthly) graphql.Marshaler {
 	return ec._ApiResponseOrderMonthly(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseOrderMonthly2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthly(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrderMonthly) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseOrderMonthly2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthly(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrderMonthly) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73511,11 +73761,11 @@ func (ec *executionContext) marshalNApiResponseOrderMonthly2ᚖgithubᚗcomᚋMa
 	return ec._ApiResponseOrderMonthly(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseOrderMonthlyTotalRevenue2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthlyTotalRevenue(ctx context.Context, sel ast.SelectionSet, v model.APIResponseOrderMonthlyTotalRevenue) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseOrderMonthlyTotalRevenue2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthlyTotalRevenue(ctx context.Context, sel ast.SelectionSet, v model.APIResponseOrderMonthlyTotalRevenue) graphql.Marshaler {
 	return ec._ApiResponseOrderMonthlyTotalRevenue(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseOrderMonthlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthlyTotalRevenue(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrderMonthlyTotalRevenue) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseOrderMonthlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderMonthlyTotalRevenue(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrderMonthlyTotalRevenue) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73525,11 +73775,11 @@ func (ec *executionContext) marshalNApiResponseOrderMonthlyTotalRevenue2ᚖgithu
 	return ec._ApiResponseOrderMonthlyTotalRevenue(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseOrderYearly2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearly(ctx context.Context, sel ast.SelectionSet, v model.APIResponseOrderYearly) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseOrderYearly2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearly(ctx context.Context, sel ast.SelectionSet, v model.APIResponseOrderYearly) graphql.Marshaler {
 	return ec._ApiResponseOrderYearly(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseOrderYearly2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearly(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrderYearly) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseOrderYearly2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearly(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrderYearly) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73539,11 +73789,11 @@ func (ec *executionContext) marshalNApiResponseOrderYearly2ᚖgithubᚗcomᚋMam
 	return ec._ApiResponseOrderYearly(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseOrderYearlyTotalRevenue2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearlyTotalRevenue(ctx context.Context, sel ast.SelectionSet, v model.APIResponseOrderYearlyTotalRevenue) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseOrderYearlyTotalRevenue2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearlyTotalRevenue(ctx context.Context, sel ast.SelectionSet, v model.APIResponseOrderYearlyTotalRevenue) graphql.Marshaler {
 	return ec._ApiResponseOrderYearlyTotalRevenue(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseOrderYearlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearlyTotalRevenue(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrderYearlyTotalRevenue) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseOrderYearlyTotalRevenue2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseOrderYearlyTotalRevenue(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseOrderYearlyTotalRevenue) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73553,11 +73803,11 @@ func (ec *executionContext) marshalNApiResponseOrderYearlyTotalRevenue2ᚖgithub
 	return ec._ApiResponseOrderYearlyTotalRevenue(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationBanner2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationBanner(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationBanner) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationBanner2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationBanner(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationBanner) graphql.Marshaler {
 	return ec._ApiResponsePaginationBanner(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationBanner2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationBanner(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationBanner) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationBanner2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationBanner(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationBanner) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73567,11 +73817,11 @@ func (ec *executionContext) marshalNApiResponsePaginationBanner2ᚖgithubᚗcom�
 	return ec._ApiResponsePaginationBanner(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationBannerDeleteAt2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationBannerDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationBannerDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationBannerDeleteAt2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationBannerDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationBannerDeleteAt) graphql.Marshaler {
 	return ec._ApiResponsePaginationBannerDeleteAt(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationBannerDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationBannerDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationBannerDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationBannerDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationBannerDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationBannerDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73581,11 +73831,11 @@ func (ec *executionContext) marshalNApiResponsePaginationBannerDeleteAt2ᚖgithu
 	return ec._ApiResponsePaginationBannerDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationCart2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCart(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationCart) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationCart2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCart(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationCart) graphql.Marshaler {
 	return ec._ApiResponsePaginationCart(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationCart2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCart(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationCart) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationCart2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCart(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationCart) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73595,11 +73845,11 @@ func (ec *executionContext) marshalNApiResponsePaginationCart2ᚖgithubᚗcomᚋ
 	return ec._ApiResponsePaginationCart(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationCategory2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCategory(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationCategory) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationCategory2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCategory(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationCategory) graphql.Marshaler {
 	return ec._ApiResponsePaginationCategory(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationCategory2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCategory(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationCategory) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationCategory2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCategory(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationCategory) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73609,11 +73859,11 @@ func (ec *executionContext) marshalNApiResponsePaginationCategory2ᚖgithubᚗco
 	return ec._ApiResponsePaginationCategory(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationCategoryDeleteAt2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCategoryDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationCategoryDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationCategoryDeleteAt2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCategoryDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationCategoryDeleteAt) graphql.Marshaler {
 	return ec._ApiResponsePaginationCategoryDeleteAt(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationCategoryDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCategoryDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationCategoryDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationCategoryDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationCategoryDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationCategoryDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73623,11 +73873,11 @@ func (ec *executionContext) marshalNApiResponsePaginationCategoryDeleteAt2ᚖgit
 	return ec._ApiResponsePaginationCategoryDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchant(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationMerchant) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchant(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationMerchant) graphql.Marshaler {
 	return ec._ApiResponsePaginationMerchant(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationMerchant2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchant(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationMerchant) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationMerchant2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchant(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationMerchant) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73637,11 +73887,11 @@ func (ec *executionContext) marshalNApiResponsePaginationMerchant2ᚖgithubᚗco
 	return ec._ApiResponsePaginationMerchant(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationMerchantAward2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantAward(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationMerchantAward) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationMerchantAward2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantAward(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationMerchantAward) graphql.Marshaler {
 	return ec._ApiResponsePaginationMerchantAward(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationMerchantAward2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantAward(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationMerchantAward) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationMerchantAward2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantAward(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationMerchantAward) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73651,11 +73901,11 @@ func (ec *executionContext) marshalNApiResponsePaginationMerchantAward2ᚖgithub
 	return ec._ApiResponsePaginationMerchantAward(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationMerchantAwardDeleteAt2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantAwardDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationMerchantAwardDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationMerchantAwardDeleteAt2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantAwardDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationMerchantAwardDeleteAt) graphql.Marshaler {
 	return ec._ApiResponsePaginationMerchantAwardDeleteAt(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationMerchantAwardDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantAwardDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationMerchantAwardDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationMerchantAwardDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantAwardDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationMerchantAwardDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73665,11 +73915,11 @@ func (ec *executionContext) marshalNApiResponsePaginationMerchantAwardDeleteAt2�
 	return ec._ApiResponsePaginationMerchantAwardDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationMerchantBusiness2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantBusiness(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationMerchantBusiness) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationMerchantBusiness2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantBusiness(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationMerchantBusiness) graphql.Marshaler {
 	return ec._ApiResponsePaginationMerchantBusiness(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationMerchantBusiness2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantBusiness(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationMerchantBusiness) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationMerchantBusiness2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantBusiness(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationMerchantBusiness) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73679,11 +73929,11 @@ func (ec *executionContext) marshalNApiResponsePaginationMerchantBusiness2ᚖgit
 	return ec._ApiResponsePaginationMerchantBusiness(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationMerchantBusinessDeleteAt2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantBusinessDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationMerchantBusinessDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationMerchantBusinessDeleteAt2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantBusinessDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationMerchantBusinessDeleteAt) graphql.Marshaler {
 	return ec._ApiResponsePaginationMerchantBusinessDeleteAt(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationMerchantBusinessDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantBusinessDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationMerchantBusinessDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationMerchantBusinessDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantBusinessDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationMerchantBusinessDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73693,11 +73943,11 @@ func (ec *executionContext) marshalNApiResponsePaginationMerchantBusinessDeleteA
 	return ec._ApiResponsePaginationMerchantBusinessDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationMerchantDeleteAt2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationMerchantDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationMerchantDeleteAt2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationMerchantDeleteAt) graphql.Marshaler {
 	return ec._ApiResponsePaginationMerchantDeleteAt(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationMerchantDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationMerchantDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationMerchantDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationMerchantDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73707,11 +73957,11 @@ func (ec *executionContext) marshalNApiResponsePaginationMerchantDeleteAt2ᚖgit
 	return ec._ApiResponsePaginationMerchantDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationMerchantDetail2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDetail(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationMerchantDetail) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationMerchantDetail2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDetail(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationMerchantDetail) graphql.Marshaler {
 	return ec._ApiResponsePaginationMerchantDetail(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationMerchantDetail2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDetail(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationMerchantDetail) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationMerchantDetail2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDetail(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationMerchantDetail) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73721,11 +73971,11 @@ func (ec *executionContext) marshalNApiResponsePaginationMerchantDetail2ᚖgithu
 	return ec._ApiResponsePaginationMerchantDetail(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationMerchantDetailDeleteAt2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDetailDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationMerchantDetailDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationMerchantDetailDeleteAt2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDetailDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationMerchantDetailDeleteAt) graphql.Marshaler {
 	return ec._ApiResponsePaginationMerchantDetailDeleteAt(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationMerchantDetailDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDetailDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationMerchantDetailDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationMerchantDetailDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantDetailDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationMerchantDetailDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73735,11 +73985,11 @@ func (ec *executionContext) marshalNApiResponsePaginationMerchantDetailDeleteAt2
 	return ec._ApiResponsePaginationMerchantDetailDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationMerchantPolicy2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantPolicy(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationMerchantPolicy) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationMerchantPolicy2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantPolicy(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationMerchantPolicy) graphql.Marshaler {
 	return ec._ApiResponsePaginationMerchantPolicy(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationMerchantPolicy2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantPolicy(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationMerchantPolicy) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationMerchantPolicy2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantPolicy(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationMerchantPolicy) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73749,11 +73999,11 @@ func (ec *executionContext) marshalNApiResponsePaginationMerchantPolicy2ᚖgithu
 	return ec._ApiResponsePaginationMerchantPolicy(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationMerchantPolicyDeleteAt2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantPolicyDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationMerchantPolicyDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationMerchantPolicyDeleteAt2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantPolicyDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationMerchantPolicyDeleteAt) graphql.Marshaler {
 	return ec._ApiResponsePaginationMerchantPolicyDeleteAt(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationMerchantPolicyDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantPolicyDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationMerchantPolicyDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationMerchantPolicyDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationMerchantPolicyDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationMerchantPolicyDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73763,11 +74013,11 @@ func (ec *executionContext) marshalNApiResponsePaginationMerchantPolicyDeleteAt2
 	return ec._ApiResponsePaginationMerchantPolicyDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationOrder2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrder(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationOrder) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationOrder2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrder(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationOrder) graphql.Marshaler {
 	return ec._ApiResponsePaginationOrder(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationOrder2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrder(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationOrder) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationOrder2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrder(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationOrder) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73777,11 +74027,11 @@ func (ec *executionContext) marshalNApiResponsePaginationOrder2ᚖgithubᚗcom�
 	return ec._ApiResponsePaginationOrder(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationOrderDeleteAt2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationOrderDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationOrderDeleteAt2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationOrderDeleteAt) graphql.Marshaler {
 	return ec._ApiResponsePaginationOrderDeleteAt(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationOrderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationOrderDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationOrderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationOrderDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73791,11 +74041,11 @@ func (ec *executionContext) marshalNApiResponsePaginationOrderDeleteAt2ᚖgithub
 	return ec._ApiResponsePaginationOrderDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationOrderItem2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderItem(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationOrderItem) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationOrderItem2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderItem(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationOrderItem) graphql.Marshaler {
 	return ec._ApiResponsePaginationOrderItem(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationOrderItem2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderItem(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationOrderItem) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationOrderItem2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderItem(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationOrderItem) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73805,11 +74055,11 @@ func (ec *executionContext) marshalNApiResponsePaginationOrderItem2ᚖgithubᚗc
 	return ec._ApiResponsePaginationOrderItem(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationOrderItemDeleteAt2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderItemDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationOrderItemDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationOrderItemDeleteAt2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderItemDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationOrderItemDeleteAt) graphql.Marshaler {
 	return ec._ApiResponsePaginationOrderItemDeleteAt(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationOrderItemDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderItemDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationOrderItemDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationOrderItemDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationOrderItemDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationOrderItemDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73819,11 +74069,11 @@ func (ec *executionContext) marshalNApiResponsePaginationOrderItemDeleteAt2ᚖgi
 	return ec._ApiResponsePaginationOrderItemDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationUser2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationUser(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationUser) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationUser2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationUser(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationUser) graphql.Marshaler {
 	return ec._ApiResponsePaginationUser(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationUser2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationUser(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationUser) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationUser2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationUser(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationUser) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73833,11 +74083,11 @@ func (ec *executionContext) marshalNApiResponsePaginationUser2ᚖgithubᚗcomᚋ
 	return ec._ApiResponsePaginationUser(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationUserDeleteAt2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationUserDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationUserDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationUserDeleteAt2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationUserDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponsePaginationUserDeleteAt) graphql.Marshaler {
 	return ec._ApiResponsePaginationUserDeleteAt(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsePaginationUserDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationUserDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationUserDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsePaginationUserDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationUserDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationUserDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73847,11 +74097,11 @@ func (ec *executionContext) marshalNApiResponsePaginationUserDeleteAt2ᚖgithub�
 	return ec._ApiResponsePaginationUserDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseRefreshToken2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRefreshToken(ctx context.Context, sel ast.SelectionSet, v model.APIResponseRefreshToken) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseRefreshToken2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRefreshToken(ctx context.Context, sel ast.SelectionSet, v model.APIResponseRefreshToken) graphql.Marshaler {
 	return ec._ApiResponseRefreshToken(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseRefreshToken2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRefreshToken(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseRefreshToken) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseRefreshToken2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRefreshToken(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseRefreshToken) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73861,11 +74111,11 @@ func (ec *executionContext) marshalNApiResponseRefreshToken2ᚖgithubᚗcomᚋMa
 	return ec._ApiResponseRefreshToken(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseRegister2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRegister(ctx context.Context, sel ast.SelectionSet, v model.APIResponseRegister) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseRegister2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRegister(ctx context.Context, sel ast.SelectionSet, v model.APIResponseRegister) graphql.Marshaler {
 	return ec._ApiResponseRegister(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseRegister2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRegister(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseRegister) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseRegister2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRegister(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseRegister) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73875,11 +74125,11 @@ func (ec *executionContext) marshalNApiResponseRegister2ᚖgithubᚗcomᚋMamang
 	return ec._ApiResponseRegister(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseResetPassword2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseResetPassword(ctx context.Context, sel ast.SelectionSet, v model.APIResponseResetPassword) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseResetPassword2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseResetPassword(ctx context.Context, sel ast.SelectionSet, v model.APIResponseResetPassword) graphql.Marshaler {
 	return ec._ApiResponseResetPassword(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseResetPassword2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseResetPassword(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseResetPassword) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseResetPassword2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseResetPassword(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseResetPassword) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73889,11 +74139,11 @@ func (ec *executionContext) marshalNApiResponseResetPassword2ᚖgithubᚗcomᚋM
 	return ec._ApiResponseResetPassword(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseUserAll2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserAll(ctx context.Context, sel ast.SelectionSet, v model.APIResponseUserAll) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseUserAll2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserAll(ctx context.Context, sel ast.SelectionSet, v model.APIResponseUserAll) graphql.Marshaler {
 	return ec._ApiResponseUserAll(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseUserAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseUserAll) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseUserAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseUserAll) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73903,11 +74153,11 @@ func (ec *executionContext) marshalNApiResponseUserAll2ᚖgithubᚗcomᚋMamangR
 	return ec._ApiResponseUserAll(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseUserDelete2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserDelete(ctx context.Context, sel ast.SelectionSet, v model.APIResponseUserDelete) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseUserDelete2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserDelete(ctx context.Context, sel ast.SelectionSet, v model.APIResponseUserDelete) graphql.Marshaler {
 	return ec._ApiResponseUserDelete(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseUserDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseUserDelete) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseUserDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseUserDelete) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73917,11 +74167,11 @@ func (ec *executionContext) marshalNApiResponseUserDelete2ᚖgithubᚗcomᚋMama
 	return ec._ApiResponseUserDelete(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseUserResponse2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponse(ctx context.Context, sel ast.SelectionSet, v model.APIResponseUserResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseUserResponse2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponse(ctx context.Context, sel ast.SelectionSet, v model.APIResponseUserResponse) graphql.Marshaler {
 	return ec._ApiResponseUserResponse(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponse(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseUserResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponse(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseUserResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73931,11 +74181,11 @@ func (ec *executionContext) marshalNApiResponseUserResponse2ᚖgithubᚗcomᚋMa
 	return ec._ApiResponseUserResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseUserResponseDeleteAt2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponseUserResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseUserResponseDeleteAt2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v model.APIResponseUserResponseDeleteAt) graphql.Marshaler {
 	return ec._ApiResponseUserResponseDeleteAt(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseUserResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseUserResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseUserResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseUserResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseUserResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73945,11 +74195,11 @@ func (ec *executionContext) marshalNApiResponseUserResponseDeleteAt2ᚖgithubᚗ
 	return ec._ApiResponseUserResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponseVerifyCode2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseVerifyCode(ctx context.Context, sel ast.SelectionSet, v model.APIResponseVerifyCode) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseVerifyCode2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseVerifyCode(ctx context.Context, sel ast.SelectionSet, v model.APIResponseVerifyCode) graphql.Marshaler {
 	return ec._ApiResponseVerifyCode(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponseVerifyCode2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseVerifyCode(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseVerifyCode) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponseVerifyCode2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseVerifyCode(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseVerifyCode) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73959,11 +74209,11 @@ func (ec *executionContext) marshalNApiResponseVerifyCode2ᚖgithubᚗcomᚋMama
 	return ec._ApiResponseVerifyCode(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNApiResponsesOrderItem2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsesOrderItem(ctx context.Context, sel ast.SelectionSet, v model.APIResponsesOrderItem) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsesOrderItem2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsesOrderItem(ctx context.Context, sel ast.SelectionSet, v model.APIResponsesOrderItem) graphql.Marshaler {
 	return ec._ApiResponsesOrderItem(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNApiResponsesOrderItem2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsesOrderItem(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsesOrderItem) graphql.Marshaler {
+func (ec *executionContext) marshalNApiResponsesOrderItem2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsesOrderItem(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsesOrderItem) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -73973,7 +74223,7 @@ func (ec *executionContext) marshalNApiResponsesOrderItem2ᚖgithubᚗcomᚋMama
 	return ec._ApiResponsesOrderItem(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNBannerResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐBannerResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.BannerResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNBannerResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐBannerResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.BannerResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -73997,7 +74247,7 @@ func (ec *executionContext) marshalNBannerResponse2ᚕᚖgithubᚗcomᚋMamangRu
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNBannerResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐBannerResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNBannerResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐBannerResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -74017,7 +74267,7 @@ func (ec *executionContext) marshalNBannerResponse2ᚕᚖgithubᚗcomᚋMamangRu
 	return ret
 }
 
-func (ec *executionContext) marshalNBannerResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐBannerResponse(ctx context.Context, sel ast.SelectionSet, v *model.BannerResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNBannerResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐBannerResponse(ctx context.Context, sel ast.SelectionSet, v *model.BannerResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -74027,7 +74277,7 @@ func (ec *executionContext) marshalNBannerResponse2ᚖgithubᚗcomᚋMamangRust�
 	return ec._BannerResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNBannerResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐBannerResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.BannerResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNBannerResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐBannerResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.BannerResponseDeleteAt) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -74051,7 +74301,7 @@ func (ec *executionContext) marshalNBannerResponseDeleteAt2ᚕᚖgithubᚗcomᚋ
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNBannerResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐBannerResponseDeleteAt(ctx, sel, v[i])
+			ret[i] = ec.marshalNBannerResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐBannerResponseDeleteAt(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -74071,7 +74321,7 @@ func (ec *executionContext) marshalNBannerResponseDeleteAt2ᚕᚖgithubᚗcomᚋ
 	return ret
 }
 
-func (ec *executionContext) marshalNBannerResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐBannerResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.BannerResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNBannerResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐBannerResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.BannerResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -74097,7 +74347,7 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	return res
 }
 
-func (ec *executionContext) marshalNCartResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCartResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CartResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNCartResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCartResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CartResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -74121,7 +74371,7 @@ func (ec *executionContext) marshalNCartResponse2ᚕᚖgithubᚗcomᚋMamangRust
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNCartResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCartResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNCartResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCartResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -74141,7 +74391,7 @@ func (ec *executionContext) marshalNCartResponse2ᚕᚖgithubᚗcomᚋMamangRust
 	return ret
 }
 
-func (ec *executionContext) marshalNCartResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCartResponse(ctx context.Context, sel ast.SelectionSet, v *model.CartResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNCartResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCartResponse(ctx context.Context, sel ast.SelectionSet, v *model.CartResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -74151,7 +74401,7 @@ func (ec *executionContext) marshalNCartResponse2ᚖgithubᚗcomᚋMamangRustᚋ
 	return ec._CartResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNCategoryMonthPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCategoryMonthPriceResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CategoryMonthPriceResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNCategoryMonthPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCategoryMonthPriceResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CategoryMonthPriceResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -74175,7 +74425,7 @@ func (ec *executionContext) marshalNCategoryMonthPriceResponse2ᚕᚖgithubᚗco
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNCategoryMonthPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCategoryMonthPriceResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNCategoryMonthPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCategoryMonthPriceResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -74195,7 +74445,7 @@ func (ec *executionContext) marshalNCategoryMonthPriceResponse2ᚕᚖgithubᚗco
 	return ret
 }
 
-func (ec *executionContext) marshalNCategoryMonthPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCategoryMonthPriceResponse(ctx context.Context, sel ast.SelectionSet, v *model.CategoryMonthPriceResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNCategoryMonthPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCategoryMonthPriceResponse(ctx context.Context, sel ast.SelectionSet, v *model.CategoryMonthPriceResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -74205,7 +74455,7 @@ func (ec *executionContext) marshalNCategoryMonthPriceResponse2ᚖgithubᚗcom�
 	return ec._CategoryMonthPriceResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNCategoryMonthlyTotalPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCategoryMonthlyTotalPriceResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CategoryMonthlyTotalPriceResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNCategoryMonthlyTotalPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCategoryMonthlyTotalPriceResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CategoryMonthlyTotalPriceResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -74229,7 +74479,7 @@ func (ec *executionContext) marshalNCategoryMonthlyTotalPriceResponse2ᚕᚖgith
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNCategoryMonthlyTotalPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCategoryMonthlyTotalPriceResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNCategoryMonthlyTotalPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCategoryMonthlyTotalPriceResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -74249,7 +74499,7 @@ func (ec *executionContext) marshalNCategoryMonthlyTotalPriceResponse2ᚕᚖgith
 	return ret
 }
 
-func (ec *executionContext) marshalNCategoryMonthlyTotalPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCategoryMonthlyTotalPriceResponse(ctx context.Context, sel ast.SelectionSet, v *model.CategoryMonthlyTotalPriceResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNCategoryMonthlyTotalPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCategoryMonthlyTotalPriceResponse(ctx context.Context, sel ast.SelectionSet, v *model.CategoryMonthlyTotalPriceResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -74259,7 +74509,7 @@ func (ec *executionContext) marshalNCategoryMonthlyTotalPriceResponse2ᚖgithub�
 	return ec._CategoryMonthlyTotalPriceResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNCategoryResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CategoryResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNCategoryResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CategoryResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -74283,7 +74533,7 @@ func (ec *executionContext) marshalNCategoryResponse2ᚕᚖgithubᚗcomᚋMamang
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNCategoryResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCategoryResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNCategoryResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCategoryResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -74303,7 +74553,7 @@ func (ec *executionContext) marshalNCategoryResponse2ᚕᚖgithubᚗcomᚋMamang
 	return ret
 }
 
-func (ec *executionContext) marshalNCategoryResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCategoryResponse(ctx context.Context, sel ast.SelectionSet, v *model.CategoryResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNCategoryResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCategoryResponse(ctx context.Context, sel ast.SelectionSet, v *model.CategoryResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -74313,7 +74563,7 @@ func (ec *executionContext) marshalNCategoryResponse2ᚖgithubᚗcomᚋMamangRus
 	return ec._CategoryResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNCategoryResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CategoryResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNCategoryResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CategoryResponseDeleteAt) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -74337,7 +74587,7 @@ func (ec *executionContext) marshalNCategoryResponseDeleteAt2ᚕᚖgithubᚗcom�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNCategoryResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseDeleteAt(ctx, sel, v[i])
+			ret[i] = ec.marshalNCategoryResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseDeleteAt(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -74357,7 +74607,7 @@ func (ec *executionContext) marshalNCategoryResponseDeleteAt2ᚕᚖgithubᚗcom�
 	return ret
 }
 
-func (ec *executionContext) marshalNCategoryResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.CategoryResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNCategoryResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.CategoryResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -74367,7 +74617,7 @@ func (ec *executionContext) marshalNCategoryResponseDeleteAt2ᚖgithubᚗcomᚋM
 	return ec._CategoryResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNCategoryYearPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCategoryYearPriceResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CategoryYearPriceResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNCategoryYearPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCategoryYearPriceResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CategoryYearPriceResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -74391,7 +74641,7 @@ func (ec *executionContext) marshalNCategoryYearPriceResponse2ᚕᚖgithubᚗcom
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNCategoryYearPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCategoryYearPriceResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNCategoryYearPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCategoryYearPriceResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -74411,7 +74661,7 @@ func (ec *executionContext) marshalNCategoryYearPriceResponse2ᚕᚖgithubᚗcom
 	return ret
 }
 
-func (ec *executionContext) marshalNCategoryYearPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCategoryYearPriceResponse(ctx context.Context, sel ast.SelectionSet, v *model.CategoryYearPriceResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNCategoryYearPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCategoryYearPriceResponse(ctx context.Context, sel ast.SelectionSet, v *model.CategoryYearPriceResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -74421,7 +74671,7 @@ func (ec *executionContext) marshalNCategoryYearPriceResponse2ᚖgithubᚗcomᚋ
 	return ec._CategoryYearPriceResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNCategoryYearlyTotalPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCategoryYearlyTotalPriceResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CategoryYearlyTotalPriceResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNCategoryYearlyTotalPriceResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCategoryYearlyTotalPriceResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CategoryYearlyTotalPriceResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -74445,7 +74695,7 @@ func (ec *executionContext) marshalNCategoryYearlyTotalPriceResponse2ᚕᚖgithu
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNCategoryYearlyTotalPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCategoryYearlyTotalPriceResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNCategoryYearlyTotalPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCategoryYearlyTotalPriceResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -74465,7 +74715,7 @@ func (ec *executionContext) marshalNCategoryYearlyTotalPriceResponse2ᚕᚖgithu
 	return ret
 }
 
-func (ec *executionContext) marshalNCategoryYearlyTotalPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCategoryYearlyTotalPriceResponse(ctx context.Context, sel ast.SelectionSet, v *model.CategoryYearlyTotalPriceResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNCategoryYearlyTotalPriceResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCategoryYearlyTotalPriceResponse(ctx context.Context, sel ast.SelectionSet, v *model.CategoryYearlyTotalPriceResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -74475,59 +74725,59 @@ func (ec *executionContext) marshalNCategoryYearlyTotalPriceResponse2ᚖgithub�
 	return ec._CategoryYearlyTotalPriceResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNCreateBannerInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateBannerInput(ctx context.Context, v any) (model.CreateBannerInput, error) {
+func (ec *executionContext) unmarshalNCreateBannerInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateBannerInput(ctx context.Context, v any) (model.CreateBannerInput, error) {
 	res, err := ec.unmarshalInputCreateBannerInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateCartInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateCartInput(ctx context.Context, v any) (model.CreateCartInput, error) {
+func (ec *executionContext) unmarshalNCreateCartInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateCartInput(ctx context.Context, v any) (model.CreateCartInput, error) {
 	res, err := ec.unmarshalInputCreateCartInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateCategoryInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateCategoryInput(ctx context.Context, v any) (model.CreateCategoryInput, error) {
+func (ec *executionContext) unmarshalNCreateCategoryInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateCategoryInput(ctx context.Context, v any) (model.CreateCategoryInput, error) {
 	res, err := ec.unmarshalInputCreateCategoryInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateMerchantAwardInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantAwardInput(ctx context.Context, v any) (model.CreateMerchantAwardInput, error) {
+func (ec *executionContext) unmarshalNCreateMerchantAwardInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantAwardInput(ctx context.Context, v any) (model.CreateMerchantAwardInput, error) {
 	res, err := ec.unmarshalInputCreateMerchantAwardInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateMerchantBusinessInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantBusinessInput(ctx context.Context, v any) (model.CreateMerchantBusinessInput, error) {
+func (ec *executionContext) unmarshalNCreateMerchantBusinessInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantBusinessInput(ctx context.Context, v any) (model.CreateMerchantBusinessInput, error) {
 	res, err := ec.unmarshalInputCreateMerchantBusinessInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateMerchantDetailInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantDetailInput(ctx context.Context, v any) (model.CreateMerchantDetailInput, error) {
+func (ec *executionContext) unmarshalNCreateMerchantDetailInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantDetailInput(ctx context.Context, v any) (model.CreateMerchantDetailInput, error) {
 	res, err := ec.unmarshalInputCreateMerchantDetailInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantInput(ctx context.Context, v any) (model.CreateMerchantInput, error) {
+func (ec *executionContext) unmarshalNCreateMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantInput(ctx context.Context, v any) (model.CreateMerchantInput, error) {
 	res, err := ec.unmarshalInputCreateMerchantInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateMerchantPoliciesInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantPoliciesInput(ctx context.Context, v any) (model.CreateMerchantPoliciesInput, error) {
+func (ec *executionContext) unmarshalNCreateMerchantPoliciesInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantPoliciesInput(ctx context.Context, v any) (model.CreateMerchantPoliciesInput, error) {
 	res, err := ec.unmarshalInputCreateMerchantPoliciesInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateOrderInput(ctx context.Context, v any) (model.CreateOrderInput, error) {
+func (ec *executionContext) unmarshalNCreateOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateOrderInput(ctx context.Context, v any) (model.CreateOrderInput, error) {
 	res, err := ec.unmarshalInputCreateOrderInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateOrderItemInput2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateOrderItemInputᚄ(ctx context.Context, v any) ([]*model.CreateOrderItemInput, error) {
+func (ec *executionContext) unmarshalNCreateOrderItemInput2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateOrderItemInputᚄ(ctx context.Context, v any) ([]*model.CreateOrderItemInput, error) {
 	var vSlice []any
 	vSlice = graphql.CoerceList(v)
 	var err error
 	res := make([]*model.CreateOrderItemInput, len(vSlice))
 	for i := range vSlice {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNCreateOrderItemInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateOrderItemInput(ctx, vSlice[i])
+		res[i], err = ec.unmarshalNCreateOrderItemInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateOrderItemInput(ctx, vSlice[i])
 		if err != nil {
 			return nil, err
 		}
@@ -74535,292 +74785,292 @@ func (ec *executionContext) unmarshalNCreateOrderItemInput2ᚕᚖgithubᚗcomᚋ
 	return res, nil
 }
 
-func (ec *executionContext) unmarshalNCreateOrderItemInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateOrderItemInput(ctx context.Context, v any) (*model.CreateOrderItemInput, error) {
+func (ec *executionContext) unmarshalNCreateOrderItemInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateOrderItemInput(ctx context.Context, v any) (*model.CreateOrderItemInput, error) {
 	res, err := ec.unmarshalInputCreateOrderItemInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateProductInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateProductInput(ctx context.Context, v any) (model.CreateProductInput, error) {
+func (ec *executionContext) unmarshalNCreateProductInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateProductInput(ctx context.Context, v any) (model.CreateProductInput, error) {
 	res, err := ec.unmarshalInputCreateProductInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateReviewDetailInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateReviewDetailInput(ctx context.Context, v any) (model.CreateReviewDetailInput, error) {
+func (ec *executionContext) unmarshalNCreateReviewDetailInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateReviewDetailInput(ctx context.Context, v any) (model.CreateReviewDetailInput, error) {
 	res, err := ec.unmarshalInputCreateReviewDetailInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateReviewRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateReviewRequest(ctx context.Context, v any) (model.CreateReviewRequest, error) {
+func (ec *executionContext) unmarshalNCreateReviewRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateReviewRequest(ctx context.Context, v any) (model.CreateReviewRequest, error) {
 	res, err := ec.unmarshalInputCreateReviewRequest(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateRoleInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateRoleInput(ctx context.Context, v any) (model.CreateRoleInput, error) {
+func (ec *executionContext) unmarshalNCreateRoleInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateRoleInput(ctx context.Context, v any) (model.CreateRoleInput, error) {
 	res, err := ec.unmarshalInputCreateRoleInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateShippingAddressInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateShippingAddressInput(ctx context.Context, v any) (*model.CreateShippingAddressInput, error) {
+func (ec *executionContext) unmarshalNCreateShippingAddressInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateShippingAddressInput(ctx context.Context, v any) (*model.CreateShippingAddressInput, error) {
 	res, err := ec.unmarshalInputCreateShippingAddressInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateSliderRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateSliderRequest(ctx context.Context, v any) (model.CreateSliderRequest, error) {
+func (ec *executionContext) unmarshalNCreateSliderRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateSliderRequest(ctx context.Context, v any) (model.CreateSliderRequest, error) {
 	res, err := ec.unmarshalInputCreateSliderRequest(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateTransactionRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateTransactionRequest(ctx context.Context, v any) (model.CreateTransactionRequest, error) {
+func (ec *executionContext) unmarshalNCreateTransactionRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateTransactionRequest(ctx context.Context, v any) (model.CreateTransactionRequest, error) {
 	res, err := ec.unmarshalInputCreateTransactionRequest(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateUserInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateUserInput(ctx context.Context, v any) (model.CreateUserInput, error) {
+func (ec *executionContext) unmarshalNCreateUserInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateUserInput(ctx context.Context, v any) (model.CreateUserInput, error) {
 	res, err := ec.unmarshalInputCreateUserInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNDeleteCartInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐDeleteCartInput(ctx context.Context, v any) (model.DeleteCartInput, error) {
+func (ec *executionContext) unmarshalNDeleteCartInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐDeleteCartInput(ctx context.Context, v any) (model.DeleteCartInput, error) {
 	res, err := ec.unmarshalInputDeleteCartInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNDeleteCartsInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐDeleteCartsInput(ctx context.Context, v any) (model.DeleteCartsInput, error) {
+func (ec *executionContext) unmarshalNDeleteCartsInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐDeleteCartsInput(ctx context.Context, v any) (model.DeleteCartsInput, error) {
 	res, err := ec.unmarshalInputDeleteCartsInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindAllBannerInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllBannerInput(ctx context.Context, v any) (model.FindAllBannerInput, error) {
+func (ec *executionContext) unmarshalNFindAllBannerInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllBannerInput(ctx context.Context, v any) (model.FindAllBannerInput, error) {
 	res, err := ec.unmarshalInputFindAllBannerInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindAllCartInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllCartInput(ctx context.Context, v any) (model.FindAllCartInput, error) {
+func (ec *executionContext) unmarshalNFindAllCartInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllCartInput(ctx context.Context, v any) (model.FindAllCartInput, error) {
 	res, err := ec.unmarshalInputFindAllCartInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindAllCategoryInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllCategoryInput(ctx context.Context, v any) (model.FindAllCategoryInput, error) {
+func (ec *executionContext) unmarshalNFindAllCategoryInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllCategoryInput(ctx context.Context, v any) (model.FindAllCategoryInput, error) {
 	res, err := ec.unmarshalInputFindAllCategoryInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindAllMerchantAwardInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantAwardInput(ctx context.Context, v any) (model.FindAllMerchantAwardInput, error) {
+func (ec *executionContext) unmarshalNFindAllMerchantAwardInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantAwardInput(ctx context.Context, v any) (model.FindAllMerchantAwardInput, error) {
 	res, err := ec.unmarshalInputFindAllMerchantAwardInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindAllMerchantBusinessInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantBusinessInput(ctx context.Context, v any) (model.FindAllMerchantBusinessInput, error) {
+func (ec *executionContext) unmarshalNFindAllMerchantBusinessInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantBusinessInput(ctx context.Context, v any) (model.FindAllMerchantBusinessInput, error) {
 	res, err := ec.unmarshalInputFindAllMerchantBusinessInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindAllMerchantDetailInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantDetailInput(ctx context.Context, v any) (model.FindAllMerchantDetailInput, error) {
+func (ec *executionContext) unmarshalNFindAllMerchantDetailInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantDetailInput(ctx context.Context, v any) (model.FindAllMerchantDetailInput, error) {
 	res, err := ec.unmarshalInputFindAllMerchantDetailInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindAllMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantInput(ctx context.Context, v any) (model.FindAllMerchantInput, error) {
+func (ec *executionContext) unmarshalNFindAllMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantInput(ctx context.Context, v any) (model.FindAllMerchantInput, error) {
 	res, err := ec.unmarshalInputFindAllMerchantInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindAllMerchantPoliciesInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantPoliciesInput(ctx context.Context, v any) (model.FindAllMerchantPoliciesInput, error) {
+func (ec *executionContext) unmarshalNFindAllMerchantPoliciesInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllMerchantPoliciesInput(ctx context.Context, v any) (model.FindAllMerchantPoliciesInput, error) {
 	res, err := ec.unmarshalInputFindAllMerchantPoliciesInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindAllOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderInput(ctx context.Context, v any) (model.FindAllOrderInput, error) {
+func (ec *executionContext) unmarshalNFindAllOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderInput(ctx context.Context, v any) (model.FindAllOrderInput, error) {
 	res, err := ec.unmarshalInputFindAllOrderInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindAllOrderItemInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderItemInput(ctx context.Context, v any) (model.FindAllOrderItemInput, error) {
+func (ec *executionContext) unmarshalNFindAllOrderItemInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllOrderItemInput(ctx context.Context, v any) (model.FindAllOrderItemInput, error) {
 	res, err := ec.unmarshalInputFindAllOrderItemInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindByIdBannerInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDBannerInput(ctx context.Context, v any) (model.FindByIDBannerInput, error) {
+func (ec *executionContext) unmarshalNFindByIdBannerInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDBannerInput(ctx context.Context, v any) (model.FindByIDBannerInput, error) {
 	res, err := ec.unmarshalInputFindByIdBannerInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindByIdCategoryInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDCategoryInput(ctx context.Context, v any) (model.FindByIDCategoryInput, error) {
+func (ec *executionContext) unmarshalNFindByIdCategoryInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDCategoryInput(ctx context.Context, v any) (model.FindByIDCategoryInput, error) {
 	res, err := ec.unmarshalInputFindByIdCategoryInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindByIdMerchantAwardInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantAwardInput(ctx context.Context, v any) (model.FindByIDMerchantAwardInput, error) {
+func (ec *executionContext) unmarshalNFindByIdMerchantAwardInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantAwardInput(ctx context.Context, v any) (model.FindByIDMerchantAwardInput, error) {
 	res, err := ec.unmarshalInputFindByIdMerchantAwardInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindByIdMerchantBusinessInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantBusinessInput(ctx context.Context, v any) (model.FindByIDMerchantBusinessInput, error) {
+func (ec *executionContext) unmarshalNFindByIdMerchantBusinessInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantBusinessInput(ctx context.Context, v any) (model.FindByIDMerchantBusinessInput, error) {
 	res, err := ec.unmarshalInputFindByIdMerchantBusinessInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindByIdMerchantDetailInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantDetailInput(ctx context.Context, v any) (model.FindByIDMerchantDetailInput, error) {
+func (ec *executionContext) unmarshalNFindByIdMerchantDetailInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantDetailInput(ctx context.Context, v any) (model.FindByIDMerchantDetailInput, error) {
 	res, err := ec.unmarshalInputFindByIdMerchantDetailInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindByIdMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantInput(ctx context.Context, v any) (model.FindByIDMerchantInput, error) {
+func (ec *executionContext) unmarshalNFindByIdMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantInput(ctx context.Context, v any) (model.FindByIDMerchantInput, error) {
 	res, err := ec.unmarshalInputFindByIdMerchantInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindByIdMerchantPoliciesInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantPoliciesInput(ctx context.Context, v any) (model.FindByIDMerchantPoliciesInput, error) {
+func (ec *executionContext) unmarshalNFindByIdMerchantPoliciesInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDMerchantPoliciesInput(ctx context.Context, v any) (model.FindByIDMerchantPoliciesInput, error) {
 	res, err := ec.unmarshalInputFindByIdMerchantPoliciesInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindByIdOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDOrderInput(ctx context.Context, v any) (model.FindByIDOrderInput, error) {
+func (ec *executionContext) unmarshalNFindByIdOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDOrderInput(ctx context.Context, v any) (model.FindByIDOrderInput, error) {
 	res, err := ec.unmarshalInputFindByIdOrderInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindByIdOrderItemInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDOrderItemInput(ctx context.Context, v any) (model.FindByIDOrderItemInput, error) {
+func (ec *executionContext) unmarshalNFindByIdOrderItemInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDOrderItemInput(ctx context.Context, v any) (model.FindByIDOrderItemInput, error) {
 	res, err := ec.unmarshalInputFindByIdOrderItemInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindByIdProductInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDProductInput(ctx context.Context, v any) (model.FindByIDProductInput, error) {
+func (ec *executionContext) unmarshalNFindByIdProductInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDProductInput(ctx context.Context, v any) (model.FindByIDProductInput, error) {
 	res, err := ec.unmarshalInputFindByIdProductInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindByIdReviewDetailInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDReviewDetailInput(ctx context.Context, v any) (model.FindByIDReviewDetailInput, error) {
+func (ec *executionContext) unmarshalNFindByIdReviewDetailInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDReviewDetailInput(ctx context.Context, v any) (model.FindByIDReviewDetailInput, error) {
 	res, err := ec.unmarshalInputFindByIdReviewDetailInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindByIdReviewRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDReviewRequest(ctx context.Context, v any) (model.FindByIDReviewRequest, error) {
+func (ec *executionContext) unmarshalNFindByIdReviewRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDReviewRequest(ctx context.Context, v any) (model.FindByIDReviewRequest, error) {
 	res, err := ec.unmarshalInputFindByIdReviewRequest(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindByIdRoleInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDRoleInput(ctx context.Context, v any) (model.FindByIDRoleInput, error) {
+func (ec *executionContext) unmarshalNFindByIdRoleInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDRoleInput(ctx context.Context, v any) (model.FindByIDRoleInput, error) {
 	res, err := ec.unmarshalInputFindByIdRoleInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindByIdShippingRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDShippingRequest(ctx context.Context, v any) (model.FindByIDShippingRequest, error) {
+func (ec *executionContext) unmarshalNFindByIdShippingRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDShippingRequest(ctx context.Context, v any) (model.FindByIDShippingRequest, error) {
 	res, err := ec.unmarshalInputFindByIdShippingRequest(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindByIdSliderRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDSliderRequest(ctx context.Context, v any) (model.FindByIDSliderRequest, error) {
+func (ec *executionContext) unmarshalNFindByIdSliderRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDSliderRequest(ctx context.Context, v any) (model.FindByIDSliderRequest, error) {
 	res, err := ec.unmarshalInputFindByIdSliderRequest(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindByIdTransactionRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDTransactionRequest(ctx context.Context, v any) (model.FindByIDTransactionRequest, error) {
+func (ec *executionContext) unmarshalNFindByIdTransactionRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDTransactionRequest(ctx context.Context, v any) (model.FindByIDTransactionRequest, error) {
 	res, err := ec.unmarshalInputFindByIdTransactionRequest(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindByIdUserInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDUserInput(ctx context.Context, v any) (model.FindByIDUserInput, error) {
+func (ec *executionContext) unmarshalNFindByIdUserInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDUserInput(ctx context.Context, v any) (model.FindByIDUserInput, error) {
 	res, err := ec.unmarshalInputFindByIdUserInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindByIdUserRoleInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDUserRoleInput(ctx context.Context, v any) (model.FindByIDUserRoleInput, error) {
+func (ec *executionContext) unmarshalNFindByIdUserRoleInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDUserRoleInput(ctx context.Context, v any) (model.FindByIDUserRoleInput, error) {
 	res, err := ec.unmarshalInputFindByIdUserRoleInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindMonthYearOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindMonthYearOrderInput(ctx context.Context, v any) (model.FindMonthYearOrderInput, error) {
+func (ec *executionContext) unmarshalNFindMonthYearOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindMonthYearOrderInput(ctx context.Context, v any) (model.FindMonthYearOrderInput, error) {
 	res, err := ec.unmarshalInputFindMonthYearOrderInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindMonthlyTransactionStatus2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindMonthlyTransactionStatus(ctx context.Context, v any) (model.FindMonthlyTransactionStatus, error) {
+func (ec *executionContext) unmarshalNFindMonthlyTransactionStatus2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindMonthlyTransactionStatus(ctx context.Context, v any) (model.FindMonthlyTransactionStatus, error) {
 	res, err := ec.unmarshalInputFindMonthlyTransactionStatus(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindMonthlyTransactionStatusByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindMonthlyTransactionStatusByMerchant(ctx context.Context, v any) (model.FindMonthlyTransactionStatusByMerchant, error) {
+func (ec *executionContext) unmarshalNFindMonthlyTransactionStatusByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindMonthlyTransactionStatusByMerchant(ctx context.Context, v any) (model.FindMonthlyTransactionStatusByMerchant, error) {
 	res, err := ec.unmarshalInputFindMonthlyTransactionStatusByMerchant(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearCategoryByIdInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearCategoryByIDInput(ctx context.Context, v any) (model.FindYearCategoryByIDInput, error) {
+func (ec *executionContext) unmarshalNFindYearCategoryByIdInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearCategoryByIDInput(ctx context.Context, v any) (model.FindYearCategoryByIDInput, error) {
 	res, err := ec.unmarshalInputFindYearCategoryByIdInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearCategoryByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearCategoryByMerchantInput(ctx context.Context, v any) (model.FindYearCategoryByMerchantInput, error) {
+func (ec *executionContext) unmarshalNFindYearCategoryByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearCategoryByMerchantInput(ctx context.Context, v any) (model.FindYearCategoryByMerchantInput, error) {
 	res, err := ec.unmarshalInputFindYearCategoryByMerchantInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearInput(ctx context.Context, v any) (model.FindYearInput, error) {
+func (ec *executionContext) unmarshalNFindYearInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearInput(ctx context.Context, v any) (model.FindYearInput, error) {
 	res, err := ec.unmarshalInputFindYearInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearMonthTotalPriceByIdInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalPriceByIDInput(ctx context.Context, v any) (model.FindYearMonthTotalPriceByIDInput, error) {
+func (ec *executionContext) unmarshalNFindYearMonthTotalPriceByIdInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalPriceByIDInput(ctx context.Context, v any) (model.FindYearMonthTotalPriceByIDInput, error) {
 	res, err := ec.unmarshalInputFindYearMonthTotalPriceByIdInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearMonthTotalPriceByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalPriceByMerchantInput(ctx context.Context, v any) (model.FindYearMonthTotalPriceByMerchantInput, error) {
+func (ec *executionContext) unmarshalNFindYearMonthTotalPriceByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalPriceByMerchantInput(ctx context.Context, v any) (model.FindYearMonthTotalPriceByMerchantInput, error) {
 	res, err := ec.unmarshalInputFindYearMonthTotalPriceByMerchantInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearMonthTotalPricesInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalPricesInput(ctx context.Context, v any) (model.FindYearMonthTotalPricesInput, error) {
+func (ec *executionContext) unmarshalNFindYearMonthTotalPricesInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalPricesInput(ctx context.Context, v any) (model.FindYearMonthTotalPricesInput, error) {
 	res, err := ec.unmarshalInputFindYearMonthTotalPricesInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearMonthTotalRevenue2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalRevenue(ctx context.Context, v any) (model.FindYearMonthTotalRevenue, error) {
+func (ec *executionContext) unmarshalNFindYearMonthTotalRevenue2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalRevenue(ctx context.Context, v any) (model.FindYearMonthTotalRevenue, error) {
 	res, err := ec.unmarshalInputFindYearMonthTotalRevenue(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearMonthTotalRevenueByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalRevenueByMerchant(ctx context.Context, v any) (model.FindYearMonthTotalRevenueByMerchant, error) {
+func (ec *executionContext) unmarshalNFindYearMonthTotalRevenueByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearMonthTotalRevenueByMerchant(ctx context.Context, v any) (model.FindYearMonthTotalRevenueByMerchant, error) {
 	res, err := ec.unmarshalInputFindYearMonthTotalRevenueByMerchant(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearOrderByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearOrderByMerchantInput(ctx context.Context, v any) (model.FindYearOrderByMerchantInput, error) {
+func (ec *executionContext) unmarshalNFindYearOrderByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearOrderByMerchantInput(ctx context.Context, v any) (model.FindYearOrderByMerchantInput, error) {
 	res, err := ec.unmarshalInputFindYearOrderByMerchantInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearOrderInput(ctx context.Context, v any) (model.FindYearOrderInput, error) {
+func (ec *executionContext) unmarshalNFindYearOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearOrderInput(ctx context.Context, v any) (model.FindYearOrderInput, error) {
 	res, err := ec.unmarshalInputFindYearOrderInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearTotalPriceByMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalPriceByMerchantInput(ctx context.Context, v any) (model.FindYearTotalPriceByMerchantInput, error) {
+func (ec *executionContext) unmarshalNFindYearTotalPriceByMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalPriceByMerchantInput(ctx context.Context, v any) (model.FindYearTotalPriceByMerchantInput, error) {
 	res, err := ec.unmarshalInputFindYearTotalPriceByMerchantInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearTotalPricesInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalPricesInput(ctx context.Context, v any) (model.FindYearTotalPricesInput, error) {
+func (ec *executionContext) unmarshalNFindYearTotalPricesInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalPricesInput(ctx context.Context, v any) (model.FindYearTotalPricesInput, error) {
 	res, err := ec.unmarshalInputFindYearTotalPricesInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearTotalRevenue2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalRevenue(ctx context.Context, v any) (model.FindYearTotalRevenue, error) {
+func (ec *executionContext) unmarshalNFindYearTotalRevenue2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalRevenue(ctx context.Context, v any) (model.FindYearTotalRevenue, error) {
 	res, err := ec.unmarshalInputFindYearTotalRevenue(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearTotalRevenueByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalRevenueByMerchant(ctx context.Context, v any) (model.FindYearTotalRevenueByMerchant, error) {
+func (ec *executionContext) unmarshalNFindYearTotalRevenueByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearTotalRevenueByMerchant(ctx context.Context, v any) (model.FindYearTotalRevenueByMerchant, error) {
 	res, err := ec.unmarshalInputFindYearTotalRevenueByMerchant(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearlyTransactionStatus2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearlyTransactionStatus(ctx context.Context, v any) (model.FindYearlyTransactionStatus, error) {
+func (ec *executionContext) unmarshalNFindYearlyTransactionStatus2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearlyTransactionStatus(ctx context.Context, v any) (model.FindYearlyTransactionStatus, error) {
 	res, err := ec.unmarshalInputFindYearlyTransactionStatus(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNFindYearlyTransactionStatusByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindYearlyTransactionStatusByMerchant(ctx context.Context, v any) (model.FindYearlyTransactionStatusByMerchant, error) {
+func (ec *executionContext) unmarshalNFindYearlyTransactionStatusByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindYearlyTransactionStatusByMerchant(ctx context.Context, v any) (model.FindYearlyTransactionStatusByMerchant, error) {
 	res, err := ec.unmarshalInputFindYearlyTransactionStatusByMerchant(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
@@ -74841,12 +75091,12 @@ func (ec *executionContext) marshalNFloat2float64(ctx context.Context, sel ast.S
 	return graphql.WrapContextMarshaler(ctx, res)
 }
 
-func (ec *executionContext) unmarshalNForgotPasswordInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐForgotPasswordInput(ctx context.Context, v any) (model.ForgotPasswordInput, error) {
+func (ec *executionContext) unmarshalNForgotPasswordInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐForgotPasswordInput(ctx context.Context, v any) (model.ForgotPasswordInput, error) {
 	res, err := ec.unmarshalInputForgotPasswordInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNGetMeInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐGetMeInput(ctx context.Context, v any) (model.GetMeInput, error) {
+func (ec *executionContext) unmarshalNGetMeInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐGetMeInput(ctx context.Context, v any) (model.GetMeInput, error) {
 	res, err := ec.unmarshalInputGetMeInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
@@ -74897,12 +75147,12 @@ func (ec *executionContext) marshalNInt2ᚕint32ᚄ(ctx context.Context, sel ast
 	return ret
 }
 
-func (ec *executionContext) unmarshalNLoginInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐLoginInput(ctx context.Context, v any) (model.LoginInput, error) {
+func (ec *executionContext) unmarshalNLoginInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐLoginInput(ctx context.Context, v any) (model.LoginInput, error) {
 	res, err := ec.unmarshalInputLoginInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNMerchantAwardResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantAwardResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantAwardResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantAwardResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantAwardResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantAwardResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -74926,7 +75176,7 @@ func (ec *executionContext) marshalNMerchantAwardResponse2ᚕᚖgithubᚗcomᚋM
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNMerchantAwardResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantAwardResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNMerchantAwardResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantAwardResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -74946,7 +75196,7 @@ func (ec *executionContext) marshalNMerchantAwardResponse2ᚕᚖgithubᚗcomᚋM
 	return ret
 }
 
-func (ec *executionContext) marshalNMerchantAwardResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantAwardResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantAwardResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantAwardResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantAwardResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantAwardResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -74956,7 +75206,7 @@ func (ec *executionContext) marshalNMerchantAwardResponse2ᚖgithubᚗcomᚋMama
 	return ec._MerchantAwardResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNMerchantAwardResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantAwardResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantAwardResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantAwardResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantAwardResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantAwardResponseDeleteAt) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -74980,7 +75230,7 @@ func (ec *executionContext) marshalNMerchantAwardResponseDeleteAt2ᚕᚖgithub�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNMerchantAwardResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantAwardResponseDeleteAt(ctx, sel, v[i])
+			ret[i] = ec.marshalNMerchantAwardResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantAwardResponseDeleteAt(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -75000,7 +75250,7 @@ func (ec *executionContext) marshalNMerchantAwardResponseDeleteAt2ᚕᚖgithub�
 	return ret
 }
 
-func (ec *executionContext) marshalNMerchantAwardResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantAwardResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.MerchantAwardResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantAwardResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantAwardResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.MerchantAwardResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -75010,7 +75260,7 @@ func (ec *executionContext) marshalNMerchantAwardResponseDeleteAt2ᚖgithubᚗco
 	return ec._MerchantAwardResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNMerchantBusinessResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantBusinessResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantBusinessResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantBusinessResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantBusinessResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantBusinessResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -75034,7 +75284,7 @@ func (ec *executionContext) marshalNMerchantBusinessResponse2ᚕᚖgithubᚗcom�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNMerchantBusinessResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantBusinessResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNMerchantBusinessResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantBusinessResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -75054,7 +75304,7 @@ func (ec *executionContext) marshalNMerchantBusinessResponse2ᚕᚖgithubᚗcom�
 	return ret
 }
 
-func (ec *executionContext) marshalNMerchantBusinessResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantBusinessResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantBusinessResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantBusinessResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantBusinessResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantBusinessResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -75064,7 +75314,7 @@ func (ec *executionContext) marshalNMerchantBusinessResponse2ᚖgithubᚗcomᚋM
 	return ec._MerchantBusinessResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNMerchantBusinessResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantBusinessResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantBusinessResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantBusinessResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantBusinessResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantBusinessResponseDeleteAt) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -75088,7 +75338,7 @@ func (ec *executionContext) marshalNMerchantBusinessResponseDeleteAt2ᚕᚖgithu
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNMerchantBusinessResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantBusinessResponseDeleteAt(ctx, sel, v[i])
+			ret[i] = ec.marshalNMerchantBusinessResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantBusinessResponseDeleteAt(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -75108,7 +75358,7 @@ func (ec *executionContext) marshalNMerchantBusinessResponseDeleteAt2ᚕᚖgithu
 	return ret
 }
 
-func (ec *executionContext) marshalNMerchantBusinessResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantBusinessResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.MerchantBusinessResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantBusinessResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantBusinessResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.MerchantBusinessResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -75118,7 +75368,7 @@ func (ec *executionContext) marshalNMerchantBusinessResponseDeleteAt2ᚖgithub�
 	return ec._MerchantBusinessResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNMerchantDetailRelationResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailRelationResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantDetailRelationResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantDetailRelationResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailRelationResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantDetailRelationResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -75142,7 +75392,7 @@ func (ec *executionContext) marshalNMerchantDetailRelationResponse2ᚕᚖgithub�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNMerchantDetailRelationResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailRelationResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNMerchantDetailRelationResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailRelationResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -75162,7 +75412,7 @@ func (ec *executionContext) marshalNMerchantDetailRelationResponse2ᚕᚖgithub�
 	return ret
 }
 
-func (ec *executionContext) marshalNMerchantDetailRelationResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailRelationResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantDetailRelationResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantDetailRelationResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailRelationResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantDetailRelationResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -75172,7 +75422,7 @@ func (ec *executionContext) marshalNMerchantDetailRelationResponse2ᚖgithubᚗc
 	return ec._MerchantDetailRelationResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNMerchantDetailRelationResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailRelationResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantDetailRelationResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantDetailRelationResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailRelationResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantDetailRelationResponseDeleteAt) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -75196,7 +75446,7 @@ func (ec *executionContext) marshalNMerchantDetailRelationResponseDeleteAt2ᚕ�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNMerchantDetailRelationResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailRelationResponseDeleteAt(ctx, sel, v[i])
+			ret[i] = ec.marshalNMerchantDetailRelationResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailRelationResponseDeleteAt(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -75216,7 +75466,7 @@ func (ec *executionContext) marshalNMerchantDetailRelationResponseDeleteAt2ᚕ�
 	return ret
 }
 
-func (ec *executionContext) marshalNMerchantDetailRelationResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailRelationResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.MerchantDetailRelationResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantDetailRelationResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailRelationResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.MerchantDetailRelationResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -75226,7 +75476,7 @@ func (ec *executionContext) marshalNMerchantDetailRelationResponseDeleteAt2ᚖgi
 	return ec._MerchantDetailRelationResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNMerchantDetailResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantDetailResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantDetailResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantDetailResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -75250,7 +75500,7 @@ func (ec *executionContext) marshalNMerchantDetailResponse2ᚕᚖgithubᚗcomᚋ
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNMerchantDetailResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNMerchantDetailResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -75270,7 +75520,7 @@ func (ec *executionContext) marshalNMerchantDetailResponse2ᚕᚖgithubᚗcomᚋ
 	return ret
 }
 
-func (ec *executionContext) marshalNMerchantDetailResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantDetailResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantDetailResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantDetailResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -75280,7 +75530,7 @@ func (ec *executionContext) marshalNMerchantDetailResponse2ᚖgithubᚗcomᚋMam
 	return ec._MerchantDetailResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNMerchantPolicyResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantPolicyResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantPolicyResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantPolicyResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantPolicyResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantPolicyResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -75304,7 +75554,7 @@ func (ec *executionContext) marshalNMerchantPolicyResponse2ᚕᚖgithubᚗcomᚋ
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNMerchantPolicyResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantPolicyResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNMerchantPolicyResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantPolicyResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -75324,7 +75574,7 @@ func (ec *executionContext) marshalNMerchantPolicyResponse2ᚕᚖgithubᚗcomᚋ
 	return ret
 }
 
-func (ec *executionContext) marshalNMerchantPolicyResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantPolicyResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantPolicyResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantPolicyResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantPolicyResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantPolicyResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -75334,7 +75584,7 @@ func (ec *executionContext) marshalNMerchantPolicyResponse2ᚖgithubᚗcomᚋMam
 	return ec._MerchantPolicyResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNMerchantPolicyResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantPolicyResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantPolicyResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantPolicyResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantPolicyResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantPolicyResponseDeleteAt) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -75358,7 +75608,7 @@ func (ec *executionContext) marshalNMerchantPolicyResponseDeleteAt2ᚕᚖgithub�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNMerchantPolicyResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantPolicyResponseDeleteAt(ctx, sel, v[i])
+			ret[i] = ec.marshalNMerchantPolicyResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantPolicyResponseDeleteAt(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -75378,7 +75628,7 @@ func (ec *executionContext) marshalNMerchantPolicyResponseDeleteAt2ᚕᚖgithub�
 	return ret
 }
 
-func (ec *executionContext) marshalNMerchantPolicyResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantPolicyResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.MerchantPolicyResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantPolicyResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantPolicyResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.MerchantPolicyResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -75388,7 +75638,7 @@ func (ec *executionContext) marshalNMerchantPolicyResponseDeleteAt2ᚖgithubᚗc
 	return ec._MerchantPolicyResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNMerchantResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -75412,7 +75662,7 @@ func (ec *executionContext) marshalNMerchantResponse2ᚕᚖgithubᚗcomᚋMamang
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNMerchantResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNMerchantResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -75432,7 +75682,7 @@ func (ec *executionContext) marshalNMerchantResponse2ᚕᚖgithubᚗcomᚋMamang
 	return ret
 }
 
-func (ec *executionContext) marshalNMerchantResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -75442,7 +75692,7 @@ func (ec *executionContext) marshalNMerchantResponse2ᚖgithubᚗcomᚋMamangRus
 	return ec._MerchantResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNMerchantResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantResponseDeleteAt) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -75466,7 +75716,7 @@ func (ec *executionContext) marshalNMerchantResponseDeleteAt2ᚕᚖgithubᚗcom�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNMerchantResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseDeleteAt(ctx, sel, v[i])
+			ret[i] = ec.marshalNMerchantResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseDeleteAt(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -75486,7 +75736,7 @@ func (ec *executionContext) marshalNMerchantResponseDeleteAt2ᚕᚖgithubᚗcom�
 	return ret
 }
 
-func (ec *executionContext) marshalNMerchantResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.MerchantResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.MerchantResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -75496,7 +75746,7 @@ func (ec *executionContext) marshalNMerchantResponseDeleteAt2ᚖgithubᚗcomᚋM
 	return ec._MerchantResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNMerchantSocialMediaLinkResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantSocialMediaLinkResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantSocialMediaLinkResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantSocialMediaLinkResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantSocialMediaLinkResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MerchantSocialMediaLinkResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -75520,7 +75770,7 @@ func (ec *executionContext) marshalNMerchantSocialMediaLinkResponse2ᚕᚖgithub
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNMerchantSocialMediaLinkResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantSocialMediaLinkResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNMerchantSocialMediaLinkResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantSocialMediaLinkResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -75540,7 +75790,7 @@ func (ec *executionContext) marshalNMerchantSocialMediaLinkResponse2ᚕᚖgithub
 	return ret
 }
 
-func (ec *executionContext) marshalNMerchantSocialMediaLinkResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantSocialMediaLinkResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantSocialMediaLinkResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNMerchantSocialMediaLinkResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantSocialMediaLinkResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantSocialMediaLinkResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -75550,17 +75800,17 @@ func (ec *executionContext) marshalNMerchantSocialMediaLinkResponse2ᚖgithubᚗ
 	return ec._MerchantSocialMediaLinkResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNMonthTransactionMethod2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMonthTransactionMethod(ctx context.Context, v any) (model.MonthTransactionMethod, error) {
+func (ec *executionContext) unmarshalNMonthTransactionMethod2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMonthTransactionMethod(ctx context.Context, v any) (model.MonthTransactionMethod, error) {
 	res, err := ec.unmarshalInputMonthTransactionMethod(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNMonthTransactionMethodByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMonthTransactionMethodByMerchant(ctx context.Context, v any) (model.MonthTransactionMethodByMerchant, error) {
+func (ec *executionContext) unmarshalNMonthTransactionMethodByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMonthTransactionMethodByMerchant(ctx context.Context, v any) (model.MonthTransactionMethodByMerchant, error) {
 	res, err := ec.unmarshalInputMonthTransactionMethodByMerchant(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNOrderItemResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderItemResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNOrderItemResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderItemResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -75584,7 +75834,7 @@ func (ec *executionContext) marshalNOrderItemResponse2ᚕᚖgithubᚗcomᚋMaman
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNOrderItemResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNOrderItemResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -75604,7 +75854,7 @@ func (ec *executionContext) marshalNOrderItemResponse2ᚕᚖgithubᚗcomᚋMaman
 	return ret
 }
 
-func (ec *executionContext) marshalNOrderItemResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponse(ctx context.Context, sel ast.SelectionSet, v *model.OrderItemResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNOrderItemResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponse(ctx context.Context, sel ast.SelectionSet, v *model.OrderItemResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -75614,7 +75864,7 @@ func (ec *executionContext) marshalNOrderItemResponse2ᚖgithubᚗcomᚋMamangRu
 	return ec._OrderItemResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNOrderItemResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderItemResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNOrderItemResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderItemResponseDeleteAt) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -75638,7 +75888,7 @@ func (ec *executionContext) marshalNOrderItemResponseDeleteAt2ᚕᚖgithubᚗcom
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNOrderItemResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponseDeleteAt(ctx, sel, v[i])
+			ret[i] = ec.marshalNOrderItemResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponseDeleteAt(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -75658,7 +75908,7 @@ func (ec *executionContext) marshalNOrderItemResponseDeleteAt2ᚕᚖgithubᚗcom
 	return ret
 }
 
-func (ec *executionContext) marshalNOrderItemResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.OrderItemResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNOrderItemResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.OrderItemResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -75668,7 +75918,7 @@ func (ec *executionContext) marshalNOrderItemResponseDeleteAt2ᚖgithubᚗcomᚋ
 	return ec._OrderItemResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNOrderMonthlyResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderMonthlyResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNOrderMonthlyResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderMonthlyResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -75692,7 +75942,7 @@ func (ec *executionContext) marshalNOrderMonthlyResponse2ᚕᚖgithubᚗcomᚋMa
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNOrderMonthlyResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNOrderMonthlyResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -75712,7 +75962,7 @@ func (ec *executionContext) marshalNOrderMonthlyResponse2ᚕᚖgithubᚗcomᚋMa
 	return ret
 }
 
-func (ec *executionContext) marshalNOrderMonthlyResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyResponse(ctx context.Context, sel ast.SelectionSet, v *model.OrderMonthlyResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNOrderMonthlyResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyResponse(ctx context.Context, sel ast.SelectionSet, v *model.OrderMonthlyResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -75722,7 +75972,7 @@ func (ec *executionContext) marshalNOrderMonthlyResponse2ᚖgithubᚗcomᚋMaman
 	return ec._OrderMonthlyResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNOrderMonthlyTotalRevenueResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyTotalRevenueResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderMonthlyTotalRevenueResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNOrderMonthlyTotalRevenueResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyTotalRevenueResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderMonthlyTotalRevenueResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -75746,7 +75996,7 @@ func (ec *executionContext) marshalNOrderMonthlyTotalRevenueResponse2ᚕᚖgithu
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNOrderMonthlyTotalRevenueResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyTotalRevenueResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNOrderMonthlyTotalRevenueResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyTotalRevenueResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -75766,7 +76016,7 @@ func (ec *executionContext) marshalNOrderMonthlyTotalRevenueResponse2ᚕᚖgithu
 	return ret
 }
 
-func (ec *executionContext) marshalNOrderMonthlyTotalRevenueResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyTotalRevenueResponse(ctx context.Context, sel ast.SelectionSet, v *model.OrderMonthlyTotalRevenueResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNOrderMonthlyTotalRevenueResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderMonthlyTotalRevenueResponse(ctx context.Context, sel ast.SelectionSet, v *model.OrderMonthlyTotalRevenueResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -75776,7 +76026,7 @@ func (ec *executionContext) marshalNOrderMonthlyTotalRevenueResponse2ᚖgithub�
 	return ec._OrderMonthlyTotalRevenueResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNOrderResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNOrderResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -75800,7 +76050,7 @@ func (ec *executionContext) marshalNOrderResponse2ᚕᚖgithubᚗcomᚋMamangRus
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNOrderResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNOrderResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -75820,7 +76070,7 @@ func (ec *executionContext) marshalNOrderResponse2ᚕᚖgithubᚗcomᚋMamangRus
 	return ret
 }
 
-func (ec *executionContext) marshalNOrderResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderResponse(ctx context.Context, sel ast.SelectionSet, v *model.OrderResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNOrderResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderResponse(ctx context.Context, sel ast.SelectionSet, v *model.OrderResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -75830,7 +76080,7 @@ func (ec *executionContext) marshalNOrderResponse2ᚖgithubᚗcomᚋMamangRust�
 	return ec._OrderResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNOrderResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNOrderResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderResponseDeleteAt) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -75854,7 +76104,7 @@ func (ec *executionContext) marshalNOrderResponseDeleteAt2ᚕᚖgithubᚗcomᚋM
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNOrderResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderResponseDeleteAt(ctx, sel, v[i])
+			ret[i] = ec.marshalNOrderResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderResponseDeleteAt(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -75874,7 +76124,7 @@ func (ec *executionContext) marshalNOrderResponseDeleteAt2ᚕᚖgithubᚗcomᚋM
 	return ret
 }
 
-func (ec *executionContext) marshalNOrderResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.OrderResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNOrderResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.OrderResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -75884,7 +76134,7 @@ func (ec *executionContext) marshalNOrderResponseDeleteAt2ᚖgithubᚗcomᚋMama
 	return ec._OrderResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNOrderYearlyResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderYearlyResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNOrderYearlyResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderYearlyResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -75908,7 +76158,7 @@ func (ec *executionContext) marshalNOrderYearlyResponse2ᚕᚖgithubᚗcomᚋMam
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNOrderYearlyResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNOrderYearlyResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -75928,7 +76178,7 @@ func (ec *executionContext) marshalNOrderYearlyResponse2ᚕᚖgithubᚗcomᚋMam
 	return ret
 }
 
-func (ec *executionContext) marshalNOrderYearlyResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyResponse(ctx context.Context, sel ast.SelectionSet, v *model.OrderYearlyResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNOrderYearlyResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyResponse(ctx context.Context, sel ast.SelectionSet, v *model.OrderYearlyResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -75938,7 +76188,7 @@ func (ec *executionContext) marshalNOrderYearlyResponse2ᚖgithubᚗcomᚋMamang
 	return ec._OrderYearlyResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNOrderYearlyTotalRevenueResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyTotalRevenueResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderYearlyTotalRevenueResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNOrderYearlyTotalRevenueResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyTotalRevenueResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.OrderYearlyTotalRevenueResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -75962,7 +76212,7 @@ func (ec *executionContext) marshalNOrderYearlyTotalRevenueResponse2ᚕᚖgithub
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNOrderYearlyTotalRevenueResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyTotalRevenueResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNOrderYearlyTotalRevenueResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyTotalRevenueResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -75982,7 +76232,7 @@ func (ec *executionContext) marshalNOrderYearlyTotalRevenueResponse2ᚕᚖgithub
 	return ret
 }
 
-func (ec *executionContext) marshalNOrderYearlyTotalRevenueResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyTotalRevenueResponse(ctx context.Context, sel ast.SelectionSet, v *model.OrderYearlyTotalRevenueResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNOrderYearlyTotalRevenueResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderYearlyTotalRevenueResponse(ctx context.Context, sel ast.SelectionSet, v *model.OrderYearlyTotalRevenueResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -75992,7 +76242,7 @@ func (ec *executionContext) marshalNOrderYearlyTotalRevenueResponse2ᚖgithubᚗ
 	return ec._OrderYearlyTotalRevenueResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta(ctx context.Context, sel ast.SelectionSet, v *model.PaginationMeta) graphql.Marshaler {
+func (ec *executionContext) marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta(ctx context.Context, sel ast.SelectionSet, v *model.PaginationMeta) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -76002,7 +76252,7 @@ func (ec *executionContext) marshalNPaginationMeta2ᚖgithubᚗcomᚋMamangRust�
 	return ec._PaginationMeta(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNProductResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐProductResponse(ctx context.Context, sel ast.SelectionSet, v *model.ProductResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNProductResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐProductResponse(ctx context.Context, sel ast.SelectionSet, v *model.ProductResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -76012,7 +76262,7 @@ func (ec *executionContext) marshalNProductResponse2ᚖgithubᚗcomᚋMamangRust
 	return ec._ProductResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNProductResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐProductResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.ProductResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNProductResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐProductResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.ProductResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -76022,22 +76272,22 @@ func (ec *executionContext) marshalNProductResponseDeleteAt2ᚖgithubᚗcomᚋMa
 	return ec._ProductResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNRefreshTokenInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐRefreshTokenInput(ctx context.Context, v any) (model.RefreshTokenInput, error) {
+func (ec *executionContext) unmarshalNRefreshTokenInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐRefreshTokenInput(ctx context.Context, v any) (model.RefreshTokenInput, error) {
 	res, err := ec.unmarshalInputRefreshTokenInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNRegisterInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐRegisterInput(ctx context.Context, v any) (model.RegisterInput, error) {
+func (ec *executionContext) unmarshalNRegisterInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐRegisterInput(ctx context.Context, v any) (model.RegisterInput, error) {
 	res, err := ec.unmarshalInputRegisterInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNResetPasswordInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐResetPasswordInput(ctx context.Context, v any) (model.ResetPasswordInput, error) {
+func (ec *executionContext) unmarshalNResetPasswordInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐResetPasswordInput(ctx context.Context, v any) (model.ResetPasswordInput, error) {
 	res, err := ec.unmarshalInputResetPasswordInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNReviewRelationDetailResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewRelationDetailResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.ReviewRelationDetailResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNReviewRelationDetailResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewRelationDetailResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.ReviewRelationDetailResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -76061,7 +76311,7 @@ func (ec *executionContext) marshalNReviewRelationDetailResponse2ᚕᚖgithubᚗ
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNReviewRelationDetailResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewRelationDetailResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNReviewRelationDetailResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewRelationDetailResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -76081,7 +76331,7 @@ func (ec *executionContext) marshalNReviewRelationDetailResponse2ᚕᚖgithubᚗ
 	return ret
 }
 
-func (ec *executionContext) marshalNReviewRelationDetailResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewRelationDetailResponse(ctx context.Context, sel ast.SelectionSet, v *model.ReviewRelationDetailResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNReviewRelationDetailResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewRelationDetailResponse(ctx context.Context, sel ast.SelectionSet, v *model.ReviewRelationDetailResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -76091,7 +76341,7 @@ func (ec *executionContext) marshalNReviewRelationDetailResponse2ᚖgithubᚗcom
 	return ec._ReviewRelationDetailResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNReviewResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.ReviewResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNReviewResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.ReviewResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -76115,7 +76365,7 @@ func (ec *executionContext) marshalNReviewResponse2ᚕᚖgithubᚗcomᚋMamangRu
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNReviewResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNReviewResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -76135,7 +76385,7 @@ func (ec *executionContext) marshalNReviewResponse2ᚕᚖgithubᚗcomᚋMamangRu
 	return ret
 }
 
-func (ec *executionContext) marshalNReviewResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewResponse(ctx context.Context, sel ast.SelectionSet, v *model.ReviewResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNReviewResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewResponse(ctx context.Context, sel ast.SelectionSet, v *model.ReviewResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -76145,7 +76395,7 @@ func (ec *executionContext) marshalNReviewResponse2ᚖgithubᚗcomᚋMamangRust�
 	return ec._ReviewResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNReviewResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.ReviewResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNReviewResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.ReviewResponseDeleteAt) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -76169,7 +76419,7 @@ func (ec *executionContext) marshalNReviewResponseDeleteAt2ᚕᚖgithubᚗcomᚋ
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNReviewResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewResponseDeleteAt(ctx, sel, v[i])
+			ret[i] = ec.marshalNReviewResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewResponseDeleteAt(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -76189,7 +76439,7 @@ func (ec *executionContext) marshalNReviewResponseDeleteAt2ᚕᚖgithubᚗcomᚋ
 	return ret
 }
 
-func (ec *executionContext) marshalNReviewResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.ReviewResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNReviewResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.ReviewResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -76199,7 +76449,7 @@ func (ec *executionContext) marshalNReviewResponseDeleteAt2ᚖgithubᚗcomᚋMam
 	return ec._ReviewResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNRoleResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐRoleResponse(ctx context.Context, sel ast.SelectionSet, v *model.RoleResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNRoleResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐRoleResponse(ctx context.Context, sel ast.SelectionSet, v *model.RoleResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -76209,7 +76459,7 @@ func (ec *executionContext) marshalNRoleResponse2ᚖgithubᚗcomᚋMamangRustᚋ
 	return ec._RoleResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNRoleResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐRoleResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.RoleResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNRoleResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐRoleResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.RoleResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -76219,7 +76469,7 @@ func (ec *executionContext) marshalNRoleResponseDeleteAt2ᚖgithubᚗcomᚋMaman
 	return ec._RoleResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNShippingResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐShippingResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.ShippingResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNShippingResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐShippingResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.ShippingResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -76243,7 +76493,7 @@ func (ec *executionContext) marshalNShippingResponse2ᚕᚖgithubᚗcomᚋMamang
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNShippingResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐShippingResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNShippingResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐShippingResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -76263,7 +76513,7 @@ func (ec *executionContext) marshalNShippingResponse2ᚕᚖgithubᚗcomᚋMamang
 	return ret
 }
 
-func (ec *executionContext) marshalNShippingResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐShippingResponse(ctx context.Context, sel ast.SelectionSet, v *model.ShippingResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNShippingResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐShippingResponse(ctx context.Context, sel ast.SelectionSet, v *model.ShippingResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -76273,7 +76523,7 @@ func (ec *executionContext) marshalNShippingResponse2ᚖgithubᚗcomᚋMamangRus
 	return ec._ShippingResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNShippingResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐShippingResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.ShippingResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNShippingResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐShippingResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.ShippingResponseDeleteAt) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -76297,7 +76547,7 @@ func (ec *executionContext) marshalNShippingResponseDeleteAt2ᚕᚖgithubᚗcom�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNShippingResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐShippingResponseDeleteAt(ctx, sel, v[i])
+			ret[i] = ec.marshalNShippingResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐShippingResponseDeleteAt(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -76317,7 +76567,7 @@ func (ec *executionContext) marshalNShippingResponseDeleteAt2ᚕᚖgithubᚗcom�
 	return ret
 }
 
-func (ec *executionContext) marshalNShippingResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐShippingResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.ShippingResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNShippingResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐShippingResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.ShippingResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -76327,7 +76577,7 @@ func (ec *executionContext) marshalNShippingResponseDeleteAt2ᚖgithubᚗcomᚋM
 	return ec._ShippingResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNSliderResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐSliderResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.SliderResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNSliderResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐSliderResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.SliderResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -76351,7 +76601,7 @@ func (ec *executionContext) marshalNSliderResponse2ᚕᚖgithubᚗcomᚋMamangRu
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNSliderResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐSliderResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNSliderResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐSliderResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -76371,7 +76621,7 @@ func (ec *executionContext) marshalNSliderResponse2ᚕᚖgithubᚗcomᚋMamangRu
 	return ret
 }
 
-func (ec *executionContext) marshalNSliderResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐSliderResponse(ctx context.Context, sel ast.SelectionSet, v *model.SliderResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNSliderResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐSliderResponse(ctx context.Context, sel ast.SelectionSet, v *model.SliderResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -76381,7 +76631,7 @@ func (ec *executionContext) marshalNSliderResponse2ᚖgithubᚗcomᚋMamangRust�
 	return ec._SliderResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNSliderResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐSliderResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.SliderResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNSliderResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐSliderResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.SliderResponseDeleteAt) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -76405,7 +76655,7 @@ func (ec *executionContext) marshalNSliderResponseDeleteAt2ᚕᚖgithubᚗcomᚋ
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNSliderResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐSliderResponseDeleteAt(ctx, sel, v[i])
+			ret[i] = ec.marshalNSliderResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐSliderResponseDeleteAt(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -76425,7 +76675,7 @@ func (ec *executionContext) marshalNSliderResponseDeleteAt2ᚕᚖgithubᚗcomᚋ
 	return ret
 }
 
-func (ec *executionContext) marshalNSliderResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐSliderResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.SliderResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNSliderResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐSliderResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.SliderResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -76451,54 +76701,14 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 	return res
 }
 
-func (ec *executionContext) unmarshalNUpdateBannerInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateBannerInput(ctx context.Context, v any) (model.UpdateBannerInput, error) {
-	res, err := ec.unmarshalInputUpdateBannerInput(ctx, v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) unmarshalNUpdateCategoryInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateCategoryInput(ctx context.Context, v any) (model.UpdateCategoryInput, error) {
-	res, err := ec.unmarshalInputUpdateCategoryInput(ctx, v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) unmarshalNUpdateMerchantAwardInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantAwardInput(ctx context.Context, v any) (model.UpdateMerchantAwardInput, error) {
-	res, err := ec.unmarshalInputUpdateMerchantAwardInput(ctx, v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) unmarshalNUpdateMerchantBusinessInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantBusinessInput(ctx context.Context, v any) (model.UpdateMerchantBusinessInput, error) {
-	res, err := ec.unmarshalInputUpdateMerchantBusinessInput(ctx, v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) unmarshalNUpdateMerchantDetailInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantDetailInput(ctx context.Context, v any) (model.UpdateMerchantDetailInput, error) {
-	res, err := ec.unmarshalInputUpdateMerchantDetailInput(ctx, v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) unmarshalNUpdateMerchantInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantInput(ctx context.Context, v any) (model.UpdateMerchantInput, error) {
-	res, err := ec.unmarshalInputUpdateMerchantInput(ctx, v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) unmarshalNUpdateMerchantPoliciesInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantPoliciesInput(ctx context.Context, v any) (model.UpdateMerchantPoliciesInput, error) {
-	res, err := ec.unmarshalInputUpdateMerchantPoliciesInput(ctx, v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) unmarshalNUpdateOrderInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateOrderInput(ctx context.Context, v any) (model.UpdateOrderInput, error) {
-	res, err := ec.unmarshalInputUpdateOrderInput(ctx, v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) unmarshalNUpdateOrderItemInput2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateOrderItemInputᚄ(ctx context.Context, v any) ([]*model.UpdateOrderItemInput, error) {
+func (ec *executionContext) unmarshalNString2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
 	var vSlice []any
 	vSlice = graphql.CoerceList(v)
 	var err error
-	res := make([]*model.UpdateOrderItemInput, len(vSlice))
+	res := make([]string, len(vSlice))
 	for i := range vSlice {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNUpdateOrderItemInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateOrderItemInput(ctx, vSlice[i])
+		res[i], err = ec.unmarshalNString2string(ctx, vSlice[i])
 		if err != nil {
 			return nil, err
 		}
@@ -76506,47 +76716,117 @@ func (ec *executionContext) unmarshalNUpdateOrderItemInput2ᚕᚖgithubᚗcomᚋ
 	return res, nil
 }
 
-func (ec *executionContext) unmarshalNUpdateOrderItemInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateOrderItemInput(ctx context.Context, v any) (*model.UpdateOrderItemInput, error) {
+func (ec *executionContext) marshalNString2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNString2string(ctx, sel, v[i])
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) unmarshalNUpdateBannerInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateBannerInput(ctx context.Context, v any) (model.UpdateBannerInput, error) {
+	res, err := ec.unmarshalInputUpdateBannerInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNUpdateCategoryInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateCategoryInput(ctx context.Context, v any) (model.UpdateCategoryInput, error) {
+	res, err := ec.unmarshalInputUpdateCategoryInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNUpdateMerchantAwardInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantAwardInput(ctx context.Context, v any) (model.UpdateMerchantAwardInput, error) {
+	res, err := ec.unmarshalInputUpdateMerchantAwardInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNUpdateMerchantBusinessInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantBusinessInput(ctx context.Context, v any) (model.UpdateMerchantBusinessInput, error) {
+	res, err := ec.unmarshalInputUpdateMerchantBusinessInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNUpdateMerchantDetailInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantDetailInput(ctx context.Context, v any) (model.UpdateMerchantDetailInput, error) {
+	res, err := ec.unmarshalInputUpdateMerchantDetailInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNUpdateMerchantInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantInput(ctx context.Context, v any) (model.UpdateMerchantInput, error) {
+	res, err := ec.unmarshalInputUpdateMerchantInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNUpdateMerchantPoliciesInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantPoliciesInput(ctx context.Context, v any) (model.UpdateMerchantPoliciesInput, error) {
+	res, err := ec.unmarshalInputUpdateMerchantPoliciesInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNUpdateOrderInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateOrderInput(ctx context.Context, v any) (model.UpdateOrderInput, error) {
+	res, err := ec.unmarshalInputUpdateOrderInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNUpdateOrderItemInput2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateOrderItemInputᚄ(ctx context.Context, v any) ([]*model.UpdateOrderItemInput, error) {
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*model.UpdateOrderItemInput, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNUpdateOrderItemInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateOrderItemInput(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalNUpdateOrderItemInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateOrderItemInput(ctx context.Context, v any) (*model.UpdateOrderItemInput, error) {
 	res, err := ec.unmarshalInputUpdateOrderItemInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNUpdateProductInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateProductInput(ctx context.Context, v any) (model.UpdateProductInput, error) {
+func (ec *executionContext) unmarshalNUpdateProductInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateProductInput(ctx context.Context, v any) (model.UpdateProductInput, error) {
 	res, err := ec.unmarshalInputUpdateProductInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNUpdateReviewDetailInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateReviewDetailInput(ctx context.Context, v any) (model.UpdateReviewDetailInput, error) {
+func (ec *executionContext) unmarshalNUpdateReviewDetailInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateReviewDetailInput(ctx context.Context, v any) (model.UpdateReviewDetailInput, error) {
 	res, err := ec.unmarshalInputUpdateReviewDetailInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNUpdateReviewRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateReviewRequest(ctx context.Context, v any) (model.UpdateReviewRequest, error) {
+func (ec *executionContext) unmarshalNUpdateReviewRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateReviewRequest(ctx context.Context, v any) (model.UpdateReviewRequest, error) {
 	res, err := ec.unmarshalInputUpdateReviewRequest(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNUpdateRoleInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateRoleInput(ctx context.Context, v any) (model.UpdateRoleInput, error) {
+func (ec *executionContext) unmarshalNUpdateRoleInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateRoleInput(ctx context.Context, v any) (model.UpdateRoleInput, error) {
 	res, err := ec.unmarshalInputUpdateRoleInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNUpdateShippingAddressInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateShippingAddressInput(ctx context.Context, v any) (*model.UpdateShippingAddressInput, error) {
+func (ec *executionContext) unmarshalNUpdateShippingAddressInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateShippingAddressInput(ctx context.Context, v any) (*model.UpdateShippingAddressInput, error) {
 	res, err := ec.unmarshalInputUpdateShippingAddressInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNUpdateSliderRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateSliderRequest(ctx context.Context, v any) (model.UpdateSliderRequest, error) {
+func (ec *executionContext) unmarshalNUpdateSliderRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateSliderRequest(ctx context.Context, v any) (model.UpdateSliderRequest, error) {
 	res, err := ec.unmarshalInputUpdateSliderRequest(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNUpdateTransactionRequest2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateTransactionRequest(ctx context.Context, v any) (model.UpdateTransactionRequest, error) {
+func (ec *executionContext) unmarshalNUpdateTransactionRequest2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateTransactionRequest(ctx context.Context, v any) (model.UpdateTransactionRequest, error) {
 	res, err := ec.unmarshalInputUpdateTransactionRequest(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNUpdateUserInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateUserInput(ctx context.Context, v any) (model.UpdateUserInput, error) {
+func (ec *executionContext) unmarshalNUpdateUserInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateUserInput(ctx context.Context, v any) (model.UpdateUserInput, error) {
 	res, err := ec.unmarshalInputUpdateUserInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
@@ -76567,7 +76847,7 @@ func (ec *executionContext) marshalNUpload2githubᚗcomᚋ99designsᚋgqlgenᚋg
 	return res
 }
 
-func (ec *executionContext) marshalNUserResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUserResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.UserResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNUserResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUserResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.UserResponse) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -76591,7 +76871,7 @@ func (ec *executionContext) marshalNUserResponse2ᚕᚖgithubᚗcomᚋMamangRust
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUserResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUserResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -76611,7 +76891,7 @@ func (ec *executionContext) marshalNUserResponse2ᚕᚖgithubᚗcomᚋMamangRust
 	return ret
 }
 
-func (ec *executionContext) marshalNUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUserResponse(ctx context.Context, sel ast.SelectionSet, v *model.UserResponse) graphql.Marshaler {
+func (ec *executionContext) marshalNUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUserResponse(ctx context.Context, sel ast.SelectionSet, v *model.UserResponse) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -76621,7 +76901,7 @@ func (ec *executionContext) marshalNUserResponse2ᚖgithubᚗcomᚋMamangRustᚋ
 	return ec._UserResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNUserResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUserResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.UserResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNUserResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUserResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.UserResponseDeleteAt) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -76645,7 +76925,7 @@ func (ec *executionContext) marshalNUserResponseDeleteAt2ᚕᚖgithubᚗcomᚋMa
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNUserResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUserResponseDeleteAt(ctx, sel, v[i])
+			ret[i] = ec.marshalNUserResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUserResponseDeleteAt(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -76665,7 +76945,7 @@ func (ec *executionContext) marshalNUserResponseDeleteAt2ᚕᚖgithubᚗcomᚋMa
 	return ret
 }
 
-func (ec *executionContext) marshalNUserResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUserResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.UserResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalNUserResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUserResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.UserResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -76675,17 +76955,17 @@ func (ec *executionContext) marshalNUserResponseDeleteAt2ᚖgithubᚗcomᚋMaman
 	return ec._UserResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNVerifyCodeInput2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐVerifyCodeInput(ctx context.Context, v any) (model.VerifyCodeInput, error) {
+func (ec *executionContext) unmarshalNVerifyCodeInput2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐVerifyCodeInput(ctx context.Context, v any) (model.VerifyCodeInput, error) {
 	res, err := ec.unmarshalInputVerifyCodeInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNYearTransactionMethod2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐYearTransactionMethod(ctx context.Context, v any) (model.YearTransactionMethod, error) {
+func (ec *executionContext) unmarshalNYearTransactionMethod2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐYearTransactionMethod(ctx context.Context, v any) (model.YearTransactionMethod, error) {
 	res, err := ec.unmarshalInputYearTransactionMethod(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNYearTransactionMethodByMerchant2githubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐYearTransactionMethodByMerchant(ctx context.Context, v any) (model.YearTransactionMethodByMerchant, error) {
+func (ec *executionContext) unmarshalNYearTransactionMethodByMerchant2githubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐYearTransactionMethodByMerchant(ctx context.Context, v any) (model.YearTransactionMethodByMerchant, error) {
 	res, err := ec.unmarshalInputYearTransactionMethodByMerchant(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
@@ -76943,385 +77223,385 @@ func (ec *executionContext) marshalN__TypeKind2string(ctx context.Context, sel a
 	return res
 }
 
-func (ec *executionContext) marshalOApiResponseCategoryMonthPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthPrice(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryMonthPrice) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseCategoryMonthPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryMonthPrice(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryMonthPrice) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseCategoryMonthPrice(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseCategoryYearPrice2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearPrice(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryYearPrice) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseCategoryYearPrice2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseCategoryYearPrice(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseCategoryYearPrice) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseCategoryYearPrice(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseMerchantSocialMediaLink2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantSocialMediaLink(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantSocialMediaLink) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseMerchantSocialMediaLink2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseMerchantSocialMediaLink(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseMerchantSocialMediaLink) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseMerchantSocialMediaLink(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsePaginationProduct2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProduct(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationProduct) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsePaginationProduct2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProduct(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationProduct) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsePaginationProduct(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsePaginationProductDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProductDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationProductDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsePaginationProductDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationProductDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationProductDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsePaginationProductDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsePaginationReview2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationReview(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationReview) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsePaginationReview2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationReview(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationReview) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsePaginationReview(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsePaginationReviewDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationReviewDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationReviewDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsePaginationReviewDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationReviewDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationReviewDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsePaginationReviewDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsePaginationReviewDetails2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationReviewDetails(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationReviewDetails) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsePaginationReviewDetails2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationReviewDetails(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationReviewDetails) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsePaginationReviewDetails(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsePaginationReviewDetailsDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationReviewDetailsDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationReviewDetailsDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsePaginationReviewDetailsDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationReviewDetailsDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationReviewDetailsDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsePaginationReviewDetailsDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsePaginationReviewRelationDetail2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationReviewRelationDetail(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationReviewRelationDetail) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsePaginationReviewRelationDetail2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationReviewRelationDetail(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationReviewRelationDetail) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsePaginationReviewRelationDetail(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsePaginationRole2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationRole(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationRole) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsePaginationRole2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationRole(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationRole) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsePaginationRole(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsePaginationRoleDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationRoleDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationRoleDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsePaginationRoleDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationRoleDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationRoleDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsePaginationRoleDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsePaginationShipping2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationShipping(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationShipping) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsePaginationShipping2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationShipping(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationShipping) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsePaginationShipping(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsePaginationShippingDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationShippingDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationShippingDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsePaginationShippingDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationShippingDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationShippingDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsePaginationShippingDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsePaginationSlider2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationSlider(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationSlider) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsePaginationSlider2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationSlider(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationSlider) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsePaginationSlider(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsePaginationSliderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationSliderDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationSliderDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsePaginationSliderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationSliderDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationSliderDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsePaginationSliderDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsePaginationTransaction2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationTransaction(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationTransaction) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsePaginationTransaction2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationTransaction(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationTransaction) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsePaginationTransaction(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsePaginationTransactionDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationTransactionDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationTransactionDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsePaginationTransactionDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsePaginationTransactionDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsePaginationTransactionDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsePaginationTransactionDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseProduct2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProduct(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseProduct) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseProduct2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProduct(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseProduct) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseProduct(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseProductAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseProductAll) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseProductAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseProductAll) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseProductAll(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseProductDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseProductDelete) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseProductDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseProductDelete) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseProductDelete(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseProductDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseProductDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseProductDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseProductDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseProductDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseProductDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseReview2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReview(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseReview) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseReview2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReview(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseReview) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseReview(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseReviewAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseReviewAll) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseReviewAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseReviewAll) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseReviewAll(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseReviewDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseReviewDelete) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseReviewDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseReviewDelete) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseReviewDelete(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseReviewDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseReviewDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseReviewDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseReviewDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseReviewDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseReviewDetail2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDetail(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseReviewDetail) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseReviewDetail2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDetail(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseReviewDetail) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseReviewDetail(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseReviewDetailAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDetailAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseReviewDetailAll) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseReviewDetailAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDetailAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseReviewDetailAll) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseReviewDetailAll(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseReviewDetailDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDetailDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseReviewDetailDelete) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseReviewDetailDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDetailDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseReviewDetailDelete) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseReviewDetailDelete(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseReviewDetailDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDetailDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseReviewDetailDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseReviewDetailDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseReviewDetailDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseReviewDetailDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseReviewDetailDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseRole2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRole(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseRole) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseRole2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRole(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseRole) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseRole(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseRoleAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseRoleAll) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseRoleAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseRoleAll) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseRoleAll(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseRoleDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseRoleDelete) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseRoleDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseRoleDelete) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseRoleDelete(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseRoleDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseRoleDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseRoleDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseRoleDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseRoleDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseRoleDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseShipping2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseShipping(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseShipping) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseShipping2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseShipping(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseShipping) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseShipping(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseShippingAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseShippingAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseShippingAll) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseShippingAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseShippingAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseShippingAll) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseShippingAll(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseShippingDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseShippingDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseShippingDelete) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseShippingDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseShippingDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseShippingDelete) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseShippingDelete(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseShippingDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseShippingDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseShippingDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseShippingDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseShippingDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseShippingDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseShippingDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseSlider2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseSlider(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseSlider) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseSlider2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseSlider(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseSlider) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseSlider(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseSliderAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseSliderAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseSliderAll) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseSliderAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseSliderAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseSliderAll) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseSliderAll(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseSliderDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseSliderDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseSliderDelete) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseSliderDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseSliderDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseSliderDelete) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseSliderDelete(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseSliderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseSliderDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseSliderDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseSliderDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseSliderDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseSliderDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseSliderDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseTransaction2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransaction(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransaction) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseTransaction2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransaction(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransaction) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseTransaction(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseTransactionAll2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionAll) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseTransactionAll2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionAll(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionAll) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseTransactionAll(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseTransactionDelete2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionDelete) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseTransactionDelete2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionDelete(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionDelete) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseTransactionDelete(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseTransactionDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseTransactionDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseTransactionDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseTransactionMonthAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthAmountFailed(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionMonthAmountFailed) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseTransactionMonthAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthAmountFailed(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionMonthAmountFailed) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseTransactionMonthAmountFailed(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseTransactionMonthAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthAmountSuccess(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionMonthAmountSuccess) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseTransactionMonthAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthAmountSuccess(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionMonthAmountSuccess) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseTransactionMonthAmountSuccess(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseTransactionMonthPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthPaymentMethod(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionMonthPaymentMethod) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseTransactionMonthPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionMonthPaymentMethod(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionMonthPaymentMethod) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseTransactionMonthPaymentMethod(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseTransactionYearAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearAmountFailed(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionYearAmountFailed) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseTransactionYearAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearAmountFailed(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionYearAmountFailed) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseTransactionYearAmountFailed(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseTransactionYearAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearAmountSuccess(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionYearAmountSuccess) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseTransactionYearAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearAmountSuccess(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionYearAmountSuccess) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseTransactionYearAmountSuccess(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponseTransactionYearPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearPaymentMethod(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionYearPaymentMethod) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponseTransactionYearPaymentMethod2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponseTransactionYearPaymentMethod(ctx context.Context, sel ast.SelectionSet, v *model.APIResponseTransactionYearPaymentMethod) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponseTransactionYearPaymentMethod(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOApiResponsesRole2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐAPIResponsesRole(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsesRole) graphql.Marshaler {
+func (ec *executionContext) marshalOApiResponsesRole2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐAPIResponsesRole(ctx context.Context, sel ast.SelectionSet, v *model.APIResponsesRole) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ApiResponsesRole(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOBannerResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐBannerResponse(ctx context.Context, sel ast.SelectionSet, v *model.BannerResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOBannerResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐBannerResponse(ctx context.Context, sel ast.SelectionSet, v *model.BannerResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._BannerResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOBannerResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐBannerResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.BannerResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOBannerResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐBannerResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.BannerResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -77358,28 +77638,28 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	return res
 }
 
-func (ec *executionContext) marshalOCartResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCartResponse(ctx context.Context, sel ast.SelectionSet, v *model.CartResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOCartResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCartResponse(ctx context.Context, sel ast.SelectionSet, v *model.CartResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._CartResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOCategoryResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCategoryResponse(ctx context.Context, sel ast.SelectionSet, v *model.CategoryResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOCategoryResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCategoryResponse(ctx context.Context, sel ast.SelectionSet, v *model.CategoryResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._CategoryResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOCategoryResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.CategoryResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOCategoryResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCategoryResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.CategoryResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._CategoryResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalOCreateMerchantSocialInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantSocialInput(ctx context.Context, v any) (*model.CreateMerchantSocialInput, error) {
+func (ec *executionContext) unmarshalOCreateMerchantSocialInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐCreateMerchantSocialInput(ctx context.Context, v any) (*model.CreateMerchantSocialInput, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -77387,7 +77667,7 @@ func (ec *executionContext) unmarshalOCreateMerchantSocialInput2ᚖgithubᚗcom�
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalOFindAllProductCategoryInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllProductCategoryInput(ctx context.Context, v any) (*model.FindAllProductCategoryInput, error) {
+func (ec *executionContext) unmarshalOFindAllProductCategoryInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllProductCategoryInput(ctx context.Context, v any) (*model.FindAllProductCategoryInput, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -77395,7 +77675,7 @@ func (ec *executionContext) unmarshalOFindAllProductCategoryInput2ᚖgithubᚗco
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalOFindAllProductInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllProductInput(ctx context.Context, v any) (*model.FindAllProductInput, error) {
+func (ec *executionContext) unmarshalOFindAllProductInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllProductInput(ctx context.Context, v any) (*model.FindAllProductInput, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -77403,7 +77683,7 @@ func (ec *executionContext) unmarshalOFindAllProductInput2ᚖgithubᚗcomᚋMama
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalOFindAllProductMerchantInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllProductMerchantInput(ctx context.Context, v any) (*model.FindAllProductMerchantInput, error) {
+func (ec *executionContext) unmarshalOFindAllProductMerchantInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllProductMerchantInput(ctx context.Context, v any) (*model.FindAllProductMerchantInput, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -77411,7 +77691,7 @@ func (ec *executionContext) unmarshalOFindAllProductMerchantInput2ᚖgithubᚗco
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalOFindAllReviewDetailInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllReviewDetailInput(ctx context.Context, v any) (*model.FindAllReviewDetailInput, error) {
+func (ec *executionContext) unmarshalOFindAllReviewDetailInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllReviewDetailInput(ctx context.Context, v any) (*model.FindAllReviewDetailInput, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -77419,7 +77699,7 @@ func (ec *executionContext) unmarshalOFindAllReviewDetailInput2ᚖgithubᚗcom�
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalOFindAllReviewMerchantRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllReviewMerchantRequest(ctx context.Context, v any) (*model.FindAllReviewMerchantRequest, error) {
+func (ec *executionContext) unmarshalOFindAllReviewMerchantRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllReviewMerchantRequest(ctx context.Context, v any) (*model.FindAllReviewMerchantRequest, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -77427,7 +77707,7 @@ func (ec *executionContext) unmarshalOFindAllReviewMerchantRequest2ᚖgithubᚗc
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalOFindAllReviewProductRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllReviewProductRequest(ctx context.Context, v any) (*model.FindAllReviewProductRequest, error) {
+func (ec *executionContext) unmarshalOFindAllReviewProductRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllReviewProductRequest(ctx context.Context, v any) (*model.FindAllReviewProductRequest, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -77435,7 +77715,7 @@ func (ec *executionContext) unmarshalOFindAllReviewProductRequest2ᚖgithubᚗco
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalOFindAllReviewRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllReviewRequest(ctx context.Context, v any) (*model.FindAllReviewRequest, error) {
+func (ec *executionContext) unmarshalOFindAllReviewRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllReviewRequest(ctx context.Context, v any) (*model.FindAllReviewRequest, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -77443,7 +77723,7 @@ func (ec *executionContext) unmarshalOFindAllReviewRequest2ᚖgithubᚗcomᚋMam
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalOFindAllRoleInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllRoleInput(ctx context.Context, v any) (*model.FindAllRoleInput, error) {
+func (ec *executionContext) unmarshalOFindAllRoleInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllRoleInput(ctx context.Context, v any) (*model.FindAllRoleInput, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -77451,7 +77731,7 @@ func (ec *executionContext) unmarshalOFindAllRoleInput2ᚖgithubᚗcomᚋMamangR
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalOFindAllShippingRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllShippingRequest(ctx context.Context, v any) (*model.FindAllShippingRequest, error) {
+func (ec *executionContext) unmarshalOFindAllShippingRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllShippingRequest(ctx context.Context, v any) (*model.FindAllShippingRequest, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -77459,7 +77739,7 @@ func (ec *executionContext) unmarshalOFindAllShippingRequest2ᚖgithubᚗcomᚋM
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalOFindAllSliderRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllSliderRequest(ctx context.Context, v any) (*model.FindAllSliderRequest, error) {
+func (ec *executionContext) unmarshalOFindAllSliderRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllSliderRequest(ctx context.Context, v any) (*model.FindAllSliderRequest, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -77467,7 +77747,7 @@ func (ec *executionContext) unmarshalOFindAllSliderRequest2ᚖgithubᚗcomᚋMam
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalOFindAllTransactionMerchantRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllTransactionMerchantRequest(ctx context.Context, v any) (*model.FindAllTransactionMerchantRequest, error) {
+func (ec *executionContext) unmarshalOFindAllTransactionMerchantRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllTransactionMerchantRequest(ctx context.Context, v any) (*model.FindAllTransactionMerchantRequest, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -77475,7 +77755,7 @@ func (ec *executionContext) unmarshalOFindAllTransactionMerchantRequest2ᚖgithu
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalOFindAllTransactionRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllTransactionRequest(ctx context.Context, v any) (*model.FindAllTransactionRequest, error) {
+func (ec *executionContext) unmarshalOFindAllTransactionRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllTransactionRequest(ctx context.Context, v any) (*model.FindAllTransactionRequest, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -77483,7 +77763,7 @@ func (ec *executionContext) unmarshalOFindAllTransactionRequest2ᚖgithubᚗcom�
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalOFindAllUserInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindAllUserInput(ctx context.Context, v any) (*model.FindAllUserInput, error) {
+func (ec *executionContext) unmarshalOFindAllUserInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindAllUserInput(ctx context.Context, v any) (*model.FindAllUserInput, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -77491,7 +77771,7 @@ func (ec *executionContext) unmarshalOFindAllUserInput2ᚖgithubᚗcomᚋMamangR
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalOFindByIdProductInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDProductInput(ctx context.Context, v any) (*model.FindByIDProductInput, error) {
+func (ec *executionContext) unmarshalOFindByIdProductInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDProductInput(ctx context.Context, v any) (*model.FindByIDProductInput, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -77499,7 +77779,7 @@ func (ec *executionContext) unmarshalOFindByIdProductInput2ᚖgithubᚗcomᚋMam
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalOFindByIdReviewDetailInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDReviewDetailInput(ctx context.Context, v any) (*model.FindByIDReviewDetailInput, error) {
+func (ec *executionContext) unmarshalOFindByIdReviewDetailInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDReviewDetailInput(ctx context.Context, v any) (*model.FindByIDReviewDetailInput, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -77507,7 +77787,7 @@ func (ec *executionContext) unmarshalOFindByIdReviewDetailInput2ᚖgithubᚗcom�
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalOFindByIdShippingRequest2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐFindByIDShippingRequest(ctx context.Context, v any) (*model.FindByIDShippingRequest, error) {
+func (ec *executionContext) unmarshalOFindByIdShippingRequest2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐFindByIDShippingRequest(ctx context.Context, v any) (*model.FindByIDShippingRequest, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -77533,112 +77813,112 @@ func (ec *executionContext) marshalOInt2ᚖint32(ctx context.Context, sel ast.Se
 	return res
 }
 
-func (ec *executionContext) marshalOMerchantAwardResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantAwardResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantAwardResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOMerchantAwardResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantAwardResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantAwardResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._MerchantAwardResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOMerchantAwardResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantAwardResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.MerchantAwardResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOMerchantAwardResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantAwardResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.MerchantAwardResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._MerchantAwardResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOMerchantBusinessResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantBusinessResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantBusinessResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOMerchantBusinessResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantBusinessResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantBusinessResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._MerchantBusinessResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOMerchantBusinessResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantBusinessResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.MerchantBusinessResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOMerchantBusinessResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantBusinessResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.MerchantBusinessResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._MerchantBusinessResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOMerchantDetailRelationResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailRelationResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantDetailRelationResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOMerchantDetailRelationResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailRelationResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantDetailRelationResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._MerchantDetailRelationResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOMerchantDetailResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantDetailResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOMerchantDetailResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantDetailResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._MerchantDetailResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOMerchantDetailResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.MerchantDetailResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOMerchantDetailResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantDetailResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.MerchantDetailResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._MerchantDetailResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOMerchantPolicyResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantPolicyResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantPolicyResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOMerchantPolicyResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantPolicyResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantPolicyResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._MerchantPolicyResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOMerchantPolicyResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantPolicyResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.MerchantPolicyResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOMerchantPolicyResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantPolicyResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.MerchantPolicyResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._MerchantPolicyResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOMerchantResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOMerchantResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantResponse(ctx context.Context, sel ast.SelectionSet, v *model.MerchantResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._MerchantResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOMerchantResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.MerchantResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOMerchantResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐMerchantResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.MerchantResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._MerchantResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOOrderItemResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponse(ctx context.Context, sel ast.SelectionSet, v *model.OrderItemResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOOrderItemResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderItemResponse(ctx context.Context, sel ast.SelectionSet, v *model.OrderItemResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._OrderItemResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOOrderResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderResponse(ctx context.Context, sel ast.SelectionSet, v *model.OrderResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOOrderResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderResponse(ctx context.Context, sel ast.SelectionSet, v *model.OrderResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._OrderResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOOrderResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐOrderResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.OrderResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOOrderResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐOrderResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.OrderResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._OrderResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta(ctx context.Context, sel ast.SelectionSet, v *model.PaginationMeta) graphql.Marshaler {
+func (ec *executionContext) marshalOPaginationMeta2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐPaginationMeta(ctx context.Context, sel ast.SelectionSet, v *model.PaginationMeta) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._PaginationMeta(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOProductResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐProductResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.ProductResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOProductResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐProductResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.ProductResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -77665,7 +77945,7 @@ func (ec *executionContext) marshalOProductResponse2ᚕᚖgithubᚗcomᚋMamangR
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNProductResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐProductResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNProductResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐProductResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -77685,7 +77965,7 @@ func (ec *executionContext) marshalOProductResponse2ᚕᚖgithubᚗcomᚋMamangR
 	return ret
 }
 
-func (ec *executionContext) marshalOProductResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐProductResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.ProductResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOProductResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐProductResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.ProductResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -77712,7 +77992,7 @@ func (ec *executionContext) marshalOProductResponseDeleteAt2ᚕᚖgithubᚗcom�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNProductResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐProductResponseDeleteAt(ctx, sel, v[i])
+			ret[i] = ec.marshalNProductResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐProductResponseDeleteAt(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -77732,7 +78012,7 @@ func (ec *executionContext) marshalOProductResponseDeleteAt2ᚕᚖgithubᚗcom�
 	return ret
 }
 
-func (ec *executionContext) marshalOReviewDetailResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewDetailResponse(ctx context.Context, sel ast.SelectionSet, v []*model.ReviewDetailResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOReviewDetailResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewDetailResponse(ctx context.Context, sel ast.SelectionSet, v []*model.ReviewDetailResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -77759,7 +78039,7 @@ func (ec *executionContext) marshalOReviewDetailResponse2ᚕᚖgithubᚗcomᚋMa
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalOReviewDetailResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewDetailResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalOReviewDetailResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewDetailResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -77773,14 +78053,14 @@ func (ec *executionContext) marshalOReviewDetailResponse2ᚕᚖgithubᚗcomᚋMa
 	return ret
 }
 
-func (ec *executionContext) marshalOReviewDetailResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewDetailResponse(ctx context.Context, sel ast.SelectionSet, v *model.ReviewDetailResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOReviewDetailResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewDetailResponse(ctx context.Context, sel ast.SelectionSet, v *model.ReviewDetailResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ReviewDetailResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOReviewDetailResponseDeletedAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewDetailResponseDeletedAt(ctx context.Context, sel ast.SelectionSet, v []*model.ReviewDetailResponseDeletedAt) graphql.Marshaler {
+func (ec *executionContext) marshalOReviewDetailResponseDeletedAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewDetailResponseDeletedAt(ctx context.Context, sel ast.SelectionSet, v []*model.ReviewDetailResponseDeletedAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -77807,7 +78087,7 @@ func (ec *executionContext) marshalOReviewDetailResponseDeletedAt2ᚕᚖgithub�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalOReviewDetailResponseDeletedAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewDetailResponseDeletedAt(ctx, sel, v[i])
+			ret[i] = ec.marshalOReviewDetailResponseDeletedAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewDetailResponseDeletedAt(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -77821,28 +78101,28 @@ func (ec *executionContext) marshalOReviewDetailResponseDeletedAt2ᚕᚖgithub�
 	return ret
 }
 
-func (ec *executionContext) marshalOReviewDetailResponseDeletedAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewDetailResponseDeletedAt(ctx context.Context, sel ast.SelectionSet, v *model.ReviewDetailResponseDeletedAt) graphql.Marshaler {
+func (ec *executionContext) marshalOReviewDetailResponseDeletedAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewDetailResponseDeletedAt(ctx context.Context, sel ast.SelectionSet, v *model.ReviewDetailResponseDeletedAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ReviewDetailResponseDeletedAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOReviewResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewResponse(ctx context.Context, sel ast.SelectionSet, v *model.ReviewResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOReviewResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewResponse(ctx context.Context, sel ast.SelectionSet, v *model.ReviewResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ReviewResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOReviewResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐReviewResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.ReviewResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOReviewResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐReviewResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.ReviewResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ReviewResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalORoleResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐRoleResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.RoleResponse) graphql.Marshaler {
+func (ec *executionContext) marshalORoleResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐRoleResponseᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.RoleResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -77869,7 +78149,7 @@ func (ec *executionContext) marshalORoleResponse2ᚕᚖgithubᚗcomᚋMamangRust
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNRoleResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐRoleResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalNRoleResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐRoleResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -77889,14 +78169,14 @@ func (ec *executionContext) marshalORoleResponse2ᚕᚖgithubᚗcomᚋMamangRust
 	return ret
 }
 
-func (ec *executionContext) marshalORoleResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐRoleResponse(ctx context.Context, sel ast.SelectionSet, v *model.RoleResponse) graphql.Marshaler {
+func (ec *executionContext) marshalORoleResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐRoleResponse(ctx context.Context, sel ast.SelectionSet, v *model.RoleResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._RoleResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalORoleResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐRoleResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.RoleResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalORoleResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐRoleResponseDeleteAtᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.RoleResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -77923,7 +78203,7 @@ func (ec *executionContext) marshalORoleResponseDeleteAt2ᚕᚖgithubᚗcomᚋMa
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNRoleResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐRoleResponseDeleteAt(ctx, sel, v[i])
+			ret[i] = ec.marshalNRoleResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐRoleResponseDeleteAt(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -77943,35 +78223,35 @@ func (ec *executionContext) marshalORoleResponseDeleteAt2ᚕᚖgithubᚗcomᚋMa
 	return ret
 }
 
-func (ec *executionContext) marshalORoleResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐRoleResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.RoleResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalORoleResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐRoleResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.RoleResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._RoleResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOShippingResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐShippingResponse(ctx context.Context, sel ast.SelectionSet, v *model.ShippingResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOShippingResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐShippingResponse(ctx context.Context, sel ast.SelectionSet, v *model.ShippingResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ShippingResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOShippingResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐShippingResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.ShippingResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOShippingResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐShippingResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.ShippingResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ShippingResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOSliderResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐSliderResponse(ctx context.Context, sel ast.SelectionSet, v *model.SliderResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOSliderResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐSliderResponse(ctx context.Context, sel ast.SelectionSet, v *model.SliderResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._SliderResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOSliderResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐSliderResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.SliderResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOSliderResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐSliderResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.SliderResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -77996,14 +78276,14 @@ func (ec *executionContext) marshalOString2ᚖstring(ctx context.Context, sel as
 	return res
 }
 
-func (ec *executionContext) marshalOTokenResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTokenResponse(ctx context.Context, sel ast.SelectionSet, v *model.TokenResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOTokenResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTokenResponse(ctx context.Context, sel ast.SelectionSet, v *model.TokenResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._TokenResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOTransactionMonthlyAmountFailed2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountFailed(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionMonthlyAmountFailed) graphql.Marshaler {
+func (ec *executionContext) marshalOTransactionMonthlyAmountFailed2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountFailed(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionMonthlyAmountFailed) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -78030,7 +78310,7 @@ func (ec *executionContext) marshalOTransactionMonthlyAmountFailed2ᚕᚖgithub�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalOTransactionMonthlyAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountFailed(ctx, sel, v[i])
+			ret[i] = ec.marshalOTransactionMonthlyAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountFailed(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -78044,14 +78324,14 @@ func (ec *executionContext) marshalOTransactionMonthlyAmountFailed2ᚕᚖgithub�
 	return ret
 }
 
-func (ec *executionContext) marshalOTransactionMonthlyAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountFailed(ctx context.Context, sel ast.SelectionSet, v *model.TransactionMonthlyAmountFailed) graphql.Marshaler {
+func (ec *executionContext) marshalOTransactionMonthlyAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountFailed(ctx context.Context, sel ast.SelectionSet, v *model.TransactionMonthlyAmountFailed) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._TransactionMonthlyAmountFailed(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOTransactionMonthlyAmountSuccess2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountSuccess(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionMonthlyAmountSuccess) graphql.Marshaler {
+func (ec *executionContext) marshalOTransactionMonthlyAmountSuccess2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountSuccess(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionMonthlyAmountSuccess) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -78078,7 +78358,7 @@ func (ec *executionContext) marshalOTransactionMonthlyAmountSuccess2ᚕᚖgithub
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalOTransactionMonthlyAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountSuccess(ctx, sel, v[i])
+			ret[i] = ec.marshalOTransactionMonthlyAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountSuccess(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -78092,14 +78372,14 @@ func (ec *executionContext) marshalOTransactionMonthlyAmountSuccess2ᚕᚖgithub
 	return ret
 }
 
-func (ec *executionContext) marshalOTransactionMonthlyAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountSuccess(ctx context.Context, sel ast.SelectionSet, v *model.TransactionMonthlyAmountSuccess) graphql.Marshaler {
+func (ec *executionContext) marshalOTransactionMonthlyAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyAmountSuccess(ctx context.Context, sel ast.SelectionSet, v *model.TransactionMonthlyAmountSuccess) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._TransactionMonthlyAmountSuccess(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOTransactionMonthlyMethod2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyMethod(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionMonthlyMethod) graphql.Marshaler {
+func (ec *executionContext) marshalOTransactionMonthlyMethod2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyMethod(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionMonthlyMethod) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -78126,7 +78406,7 @@ func (ec *executionContext) marshalOTransactionMonthlyMethod2ᚕᚖgithubᚗcom�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalOTransactionMonthlyMethod2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyMethod(ctx, sel, v[i])
+			ret[i] = ec.marshalOTransactionMonthlyMethod2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyMethod(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -78140,14 +78420,14 @@ func (ec *executionContext) marshalOTransactionMonthlyMethod2ᚕᚖgithubᚗcom�
 	return ret
 }
 
-func (ec *executionContext) marshalOTransactionMonthlyMethod2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyMethod(ctx context.Context, sel ast.SelectionSet, v *model.TransactionMonthlyMethod) graphql.Marshaler {
+func (ec *executionContext) marshalOTransactionMonthlyMethod2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionMonthlyMethod(ctx context.Context, sel ast.SelectionSet, v *model.TransactionMonthlyMethod) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._TransactionMonthlyMethod(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOTransactionResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionResponse(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOTransactionResponse2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionResponse(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -78174,7 +78454,7 @@ func (ec *executionContext) marshalOTransactionResponse2ᚕᚖgithubᚗcomᚋMam
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalOTransactionResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionResponse(ctx, sel, v[i])
+			ret[i] = ec.marshalOTransactionResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionResponse(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -78188,14 +78468,14 @@ func (ec *executionContext) marshalOTransactionResponse2ᚕᚖgithubᚗcomᚋMam
 	return ret
 }
 
-func (ec *executionContext) marshalOTransactionResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionResponse(ctx context.Context, sel ast.SelectionSet, v *model.TransactionResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOTransactionResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionResponse(ctx context.Context, sel ast.SelectionSet, v *model.TransactionResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._TransactionResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOTransactionResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOTransactionResponseDeleteAt2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -78222,7 +78502,7 @@ func (ec *executionContext) marshalOTransactionResponseDeleteAt2ᚕᚖgithubᚗc
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalOTransactionResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionResponseDeleteAt(ctx, sel, v[i])
+			ret[i] = ec.marshalOTransactionResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionResponseDeleteAt(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -78236,14 +78516,14 @@ func (ec *executionContext) marshalOTransactionResponseDeleteAt2ᚕᚖgithubᚗc
 	return ret
 }
 
-func (ec *executionContext) marshalOTransactionResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.TransactionResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOTransactionResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.TransactionResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._TransactionResponseDeleteAt(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOTransactionYearlyAmountFailed2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountFailed(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionYearlyAmountFailed) graphql.Marshaler {
+func (ec *executionContext) marshalOTransactionYearlyAmountFailed2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountFailed(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionYearlyAmountFailed) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -78270,7 +78550,7 @@ func (ec *executionContext) marshalOTransactionYearlyAmountFailed2ᚕᚖgithub�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalOTransactionYearlyAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountFailed(ctx, sel, v[i])
+			ret[i] = ec.marshalOTransactionYearlyAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountFailed(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -78284,14 +78564,14 @@ func (ec *executionContext) marshalOTransactionYearlyAmountFailed2ᚕᚖgithub�
 	return ret
 }
 
-func (ec *executionContext) marshalOTransactionYearlyAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountFailed(ctx context.Context, sel ast.SelectionSet, v *model.TransactionYearlyAmountFailed) graphql.Marshaler {
+func (ec *executionContext) marshalOTransactionYearlyAmountFailed2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountFailed(ctx context.Context, sel ast.SelectionSet, v *model.TransactionYearlyAmountFailed) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._TransactionYearlyAmountFailed(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOTransactionYearlyAmountSuccess2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountSuccess(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionYearlyAmountSuccess) graphql.Marshaler {
+func (ec *executionContext) marshalOTransactionYearlyAmountSuccess2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountSuccess(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionYearlyAmountSuccess) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -78318,7 +78598,7 @@ func (ec *executionContext) marshalOTransactionYearlyAmountSuccess2ᚕᚖgithub�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalOTransactionYearlyAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountSuccess(ctx, sel, v[i])
+			ret[i] = ec.marshalOTransactionYearlyAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountSuccess(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -78332,14 +78612,14 @@ func (ec *executionContext) marshalOTransactionYearlyAmountSuccess2ᚕᚖgithub�
 	return ret
 }
 
-func (ec *executionContext) marshalOTransactionYearlyAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountSuccess(ctx context.Context, sel ast.SelectionSet, v *model.TransactionYearlyAmountSuccess) graphql.Marshaler {
+func (ec *executionContext) marshalOTransactionYearlyAmountSuccess2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyAmountSuccess(ctx context.Context, sel ast.SelectionSet, v *model.TransactionYearlyAmountSuccess) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._TransactionYearlyAmountSuccess(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOTransactionYearlyMethod2ᚕᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyMethod(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionYearlyMethod) graphql.Marshaler {
+func (ec *executionContext) marshalOTransactionYearlyMethod2ᚕᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyMethod(ctx context.Context, sel ast.SelectionSet, v []*model.TransactionYearlyMethod) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -78366,7 +78646,7 @@ func (ec *executionContext) marshalOTransactionYearlyMethod2ᚕᚖgithubᚗcom�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalOTransactionYearlyMethod2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyMethod(ctx, sel, v[i])
+			ret[i] = ec.marshalOTransactionYearlyMethod2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyMethod(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -78380,14 +78660,14 @@ func (ec *executionContext) marshalOTransactionYearlyMethod2ᚕᚖgithubᚗcom�
 	return ret
 }
 
-func (ec *executionContext) marshalOTransactionYearlyMethod2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyMethod(ctx context.Context, sel ast.SelectionSet, v *model.TransactionYearlyMethod) graphql.Marshaler {
+func (ec *executionContext) marshalOTransactionYearlyMethod2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐTransactionYearlyMethod(ctx context.Context, sel ast.SelectionSet, v *model.TransactionYearlyMethod) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._TransactionYearlyMethod(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalOUpdateMerchantSocialInput2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantSocialInput(ctx context.Context, v any) (*model.UpdateMerchantSocialInput, error) {
+func (ec *executionContext) unmarshalOUpdateMerchantSocialInput2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUpdateMerchantSocialInput(ctx context.Context, v any) (*model.UpdateMerchantSocialInput, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -78413,14 +78693,14 @@ func (ec *executionContext) marshalOUpload2ᚖgithubᚗcomᚋ99designsᚋgqlgen�
 	return res
 }
 
-func (ec *executionContext) marshalOUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUserResponse(ctx context.Context, sel ast.SelectionSet, v *model.UserResponse) graphql.Marshaler {
+func (ec *executionContext) marshalOUserResponse2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUserResponse(ctx context.Context, sel ast.SelectionSet, v *model.UserResponse) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._UserResponse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOUserResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmonolithᚑgraphqlᚑecommerceᚑapigatewayᚋinternalᚋmodelᚐUserResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.UserResponseDeleteAt) graphql.Marshaler {
+func (ec *executionContext) marshalOUserResponseDeleteAt2ᚖgithubᚗcomᚋMamangRustᚋmicroserviceᚑecommerceᚑgrpcᚑapigatewayᚋinternalᚋmodelᚐUserResponseDeleteAt(ctx context.Context, sel ast.SelectionSet, v *model.UserResponseDeleteAt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}

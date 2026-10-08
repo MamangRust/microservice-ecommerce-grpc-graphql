@@ -8,17 +8,17 @@ import (
 	"context"
 	"fmt"
 
+	mycontext "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/context"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/auth"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	sharedErrors "github.com/MamangRust/microservice-ecommerce-shared/errors"
-	pb "github.com/MamangRust/microservice-ecommerce-shared/pb"
-	mycontext "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/context"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
 )
 
 // VerifyCode is the resolver for the verifyCode field.
 func (r *mutationResolver) VerifyCode(ctx context.Context, input model.VerifyCodeInput) (*model.APIResponseVerifyCode, error) {
 	return ResolverHandle(r.ResolverHandle, "VerifyCode", ctx, func(ctx context.Context) (*model.APIResponseVerifyCode, error) {
-		req := &pb.VerifyCodeRequest{
+		req := &pb_auth.VerifyCodeRequest{
 			Code: input.Code,
 		}
 
@@ -46,7 +46,7 @@ func (r *mutationResolver) ForgotPassword(ctx context.Context, input model.Forgo
 			return nil, sharedErrors.NewValidationError(validations)
 		}
 
-		req := &pb.ForgotPasswordRequest{
+		req := &pb_auth.ForgotPasswordRequest{
 			Email: input.Email,
 		}
 
@@ -76,7 +76,7 @@ func (r *mutationResolver) ResetPassword(ctx context.Context, input model.ResetP
 			return nil, sharedErrors.NewValidationError(validations)
 		}
 
-		req := &pb.ResetPasswordRequest{
+		req := &pb_auth.ResetPasswordRequest{
 			ResetToken:      input.ResetToken,
 			Password:        input.Password,
 			ConfirmPassword: input.ConfirmPassword,
@@ -110,7 +110,7 @@ func (r *mutationResolver) RegisterUser(ctx context.Context, input model.Registe
 			return nil, sharedErrors.NewValidationError(validations)
 		}
 
-		req := &pb.RegisterRequest{
+		req := &pb_auth.RegisterRequest{
 			Firstname:       request.FirstName,
 			Lastname:        request.LastName,
 			Email:           request.Email,
@@ -148,7 +148,7 @@ func (r *mutationResolver) LoginUser(ctx context.Context, input model.LoginInput
 			return cachedResponse, nil
 		}
 
-		req := &pb.LoginRequest{
+		req := &pb_auth.LoginRequest{
 			Email:    request.Email,
 			Password: request.Password,
 		}
@@ -175,7 +175,7 @@ func (r *mutationResolver) RefreshToken(ctx context.Context, input model.Refresh
 			return cachedResponse, nil
 		}
 
-		res, err := r.AuthGraphql.AuthClient.RefreshToken(ctx, &pb.RefreshTokenRequest{
+		res, err := r.AuthGraphql.AuthClient.RefreshToken(ctx, &pb_auth.RefreshTokenRequest{
 			RefreshToken: input.RefreshToken,
 		})
 
@@ -205,7 +205,7 @@ func (r *queryResolver) GetMe(ctx context.Context, input model.GetMeInput) (*mod
 			return cachedResponse, nil
 		}
 
-		res, err := r.AuthGraphql.AuthClient.GetMe(ctx, &pb.GetMeRequest{UserId: int32(uid)})
+		res, err := r.AuthGraphql.AuthClient.GetMe(ctx, &pb_auth.GetMeRequest{UserId: int32(uid)})
 
 		if err != nil {
 			return nil, r.handleGraphQLError(err, "GetMe")

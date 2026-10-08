@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	dto "github.com/MamangRust/microservice-ecommerce-auth/dto"
+	useradapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/user"
 	sharedcachehelpers "github.com/MamangRust/microservice-ecommerce-shared/cache"
 )
 
@@ -45,7 +45,7 @@ func (c *identityCache) DeleteRefreshToken(ctx context.Context, token string) {
 	sharedcachehelpers.DeleteFromCache(ctx, c.store, key)
 }
 
-func (c *identityCache) SetCachedUserInfo(ctx context.Context, user *dto.GetUserByIDRow, expiration time.Duration) {
+func (c *identityCache) SetCachedUserInfo(ctx context.Context, user *useradapter.User, expiration time.Duration) {
 	if user == nil {
 		return
 	}
@@ -55,10 +55,10 @@ func (c *identityCache) SetCachedUserInfo(ctx context.Context, user *dto.GetUser
 	sharedcachehelpers.SetToCache(ctx, c.store, key, user, expiration)
 }
 
-func (c *identityCache) GetCachedUserInfo(ctx context.Context, userId string) (*dto.GetUserByIDRow, bool) {
+func (c *identityCache) GetCachedUserInfo(ctx context.Context, userId string) (*useradapter.User, bool) {
 	key := fmt.Sprintf(keyIdentityUserInfo, userId)
 
-	return sharedcachehelpers.GetFromCache[dto.GetUserByIDRow](ctx, c.store, key)
+	return sharedcachehelpers.GetFromCache[useradapter.User](ctx, c.store, key)
 }
 
 func (c *identityCache) DeleteCachedUserInfo(ctx context.Context, userId string) {

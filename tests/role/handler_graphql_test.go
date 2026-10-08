@@ -1,86 +1,103 @@
 package role_test
 
 import (
-	"bytes"
-	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/graphtest"
 	tests "github.com/MamangRust/microservice-ecommerce-test"
 	"github.com/stretchr/testify/suite"
 )
 
-type RoleGraphQLTestSuite struct {
+type RoleGraphqlTestSuite struct {
 	tests.BaseTestSuite
-	graphqlH http.Handler
-	roleID   int
+	handler http.Handler
+	roleID  int
 }
 
-func (s *RoleGraphQLTestSuite) SetupSuite() {
+func (s *RoleGraphqlTestSuite) SetupSuite() {
 	s.BaseTestSuite.SetupSuite()
 	s.SetupRoleService()
 
-	cacheStore := s.GetCacheStore()
-	s.graphqlH = graphtest.NewTestHandler(s.Conns, cacheStore, s.Log)
+	s.handler = s.GraphQLHandler()
 }
 
-func (s *RoleGraphQLTestSuite) TearDownSuite() {
-	s.BaseTestSuite.TearDownSuite()
-}
-
-func gqlRole(h http.Handler, query string, variables map[string]interface{}) map[string]interface{} {
-	body := map[string]interface{}{"query": query, "variables": variables}
-	jsonBody, _ := json.Marshal(body)
-	req := httptest.NewRequest(http.MethodPost, "/query", bytes.NewBuffer(jsonBody))
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, req)
-	var result map[string]interface{}
-	json.Unmarshal(rec.Body.Bytes(), &result)
-	return result
-}
-
-func (s *RoleGraphQLTestSuite) Test1_CreateRole() {
-	result := gqlRole(s.graphqlH, `mutation { createRole(input: {name:"GraphQL Role"}) { status message data { id name } } }`, nil)
-	s.Equal("success", result["data"].(map[string]interface{})["createRole"].(map[string]interface{})["status"])
-	data := result["data"].(map[string]interface{})["createRole"].(map[string]interface{})["data"].(map[string]interface{})
-	s.Equal("GraphQL Role", data["name"])
-	s.roleID = int(data["id"].(float64))
-}
-
-func (s *RoleGraphQLTestSuite) Test2_FindAllRole() {
-	vars := map[string]interface{}{"input": map[string]interface{}{"page": 1, "page_size": 10}}
-	result := gqlRole(s.graphqlH, `query FindAllRole($input: FindAllRoleInput) { findAllRole(input: $input) { status message data { id name } pagination { current_page page_size total_pages total_records } } }`, vars)
-	s.Equal("success", result["data"].(map[string]interface{})["findAllRole"].(map[string]interface{})["status"])
-}
-
-func (s *RoleGraphQLTestSuite) Test3_FindByIdRole() {
+func (s *RoleGraphqlTestSuite) TestRoleGraphqlLifecycle() {
+	// 1. Create
+	create := s.GQL(s.handler, `mutation CreateRole($input: CreateRoleInput!) {
+		createRole(input: $input) { status message data { id name } }
+	}`, map[string]interface{}{
+		"input": map[string]interface{}{"name": "API Role"},
+	})
+	createData := s.Obj(s.Obj(create, "createRole"), "data")
+	s.roleID = int(createData["id"].(float64))
 	s.Require().NotZero(s.roleID)
-	vars := map[string]interface{}{"input": map[string]interface{}{"role_id": s.roleID}}
-	result := gqlRole(s.graphqlH, `query FindByIdRole($input: FindByIdRoleInput!) { findByIdRole(input: $input) { status message data { id name } } }`, vars)
-	s.Equal("success", result["data"].(map[string]interface{})["findByIdRole"].(map[string]interface{})["status"])
+	s.Equal("API Role", createData["name"])
+
+	// 2. FindAll
+	all := s.GQL(s.handler, `query FindAllRole($input: FindAllRoleInput) {
+		findAllRole(input: $input) { status message pagination { total_records } data { id name } }
+	}`, map[string]interface{}{"input": map[string]interface{}{"page": 1, "page_size": 10}})
+	s.NotEmpty(s.Arr(s.Obj(all, "findAllRole"), "data"))
+
+	// 3. FindById
+	byID := s.GQL(s.handler, `query FindByIdRole($input: FindByIdRoleInput!) {
+		findByIdRole(input: $input) { status message data { id name } }
+	}`, map[string]interface{}{"input": map[string]interface{}{"role_id": s.roleID}})
+	s.Equal(float64(s.roleID), s.Obj(s.Obj(byID, "findByIdRole"), "data")["id"])
+
+	// 4. FindByActive
+	active := s.GQL(s.handler, `query FindByActiveRole($input: FindAllRoleInput) {
+		findByActiveRole(input: $input) { status message pagination { total_records } data { id name } }
+	}`, map[string]interface{}{"input": map[string]interface{}{"page": 1, "page_size": 10}})
+	s.NotEmpty(s.Arr(s.Obj(active, "findByActiveRole"), "data"))
+
+	// 5. FindByUserId
+	s.GQL(s.handler, `query FindByUserIdRole($input: FindByIdUserRoleInput!) {
+		findByUserIdRole(input: $input) { status message data { id name } }
+	}`, map[string]interface{}{"input": map[string]interface{}{"user_id": 1}})
+
+	// 6. Update
+	updated := s.GQL(s.handler, `mutation UpdateRole($input: UpdateRoleInput!) {
+		updateRole(input: $input) { status message data { id name } }
+	}`, map[string]interface{}{
+		"input": map[string]interface{}{"id": s.roleID, "name": "Updated API Role"},
+	})
+	s.Equal("Updated API Role", s.Obj(s.Obj(updated, "updateRole"), "data")["name"])
+
+	// 7. Trash
+	s.GQL(s.handler, `mutation TrashedRole($input: FindByIdRoleInput!) {
+		trashedRole(input: $input) { status message data { id name } }
+	}`, map[string]interface{}{"input": map[string]interface{}{"role_id": s.roleID}})
+
+	// 8. FindByTrashed
+	trashed := s.GQL(s.handler, `query FindByTrashedRole($input: FindAllRoleInput) {
+		findByTrashedRole(input: $input) { status message pagination { total_records } data { id name } }
+	}`, map[string]interface{}{"input": map[string]interface{}{"page": 1, "page_size": 10}})
+	s.NotEmpty(s.Arr(s.Obj(trashed, "findByTrashedRole"), "data"))
+
+	// 9. Restore
+	s.GQL(s.handler, `mutation RestoreRole($input: FindByIdRoleInput!) {
+		restoreRole(input: $input) { status message data { id name } }
+	}`, map[string]interface{}{"input": map[string]interface{}{"role_id": s.roleID}})
+
+	// 10. DeletePermanent (trash first so the row is eligible)
+	s.GQL(s.handler, `mutation TrashedRole($input: FindByIdRoleInput!) {
+		trashedRole(input: $input) { status message data { id } }
+	}`, map[string]interface{}{"input": map[string]interface{}{"role_id": s.roleID}})
+	s.GQL(s.handler, `mutation DeleteRolePermanent($input: FindByIdRoleInput!) {
+		deleteRolePermanent(input: $input) { status message }
+	}`, map[string]interface{}{"input": map[string]interface{}{"role_id": s.roleID}})
+
+	// 11. RestoreAll
+	s.GQL(s.handler, `mutation { restoreAllRole { status message } }`, nil)
+
+	// 12. DeleteAll
+	s.GQL(s.handler, `mutation { deleteAllRolePermanent { status message } }`, nil)
 }
 
-func (s *RoleGraphQLTestSuite) Test4_UpdateRole() {
-	s.Require().NotZero(s.roleID)
-	vars := map[string]interface{}{"input": map[string]interface{}{"id": s.roleID, "name": "Updated GraphQL Role"}}
-	result := gqlRole(s.graphqlH, `mutation UpdateRole($input: UpdateRoleInput!) { updateRole(input: $input) { status message data { id name } } }`, vars)
-	s.Equal("success", result["data"].(map[string]interface{})["updateRole"].(map[string]interface{})["status"])
-}
-
-func (s *RoleGraphQLTestSuite) Test5_RestoreAllAndDeleteAll() {
-	result := gqlRole(s.graphqlH, `mutation { restoreAllRole { status message } }`, nil)
-	s.Equal("success", result["data"].(map[string]interface{})["restoreAllRole"].(map[string]interface{})["status"])
-
-	result = gqlRole(s.graphqlH, `mutation { deleteAllRolePermanent { status message } }`, nil)
-	s.Equal("success", result["data"].(map[string]interface{})["deleteAllRolePermanent"].(map[string]interface{})["status"])
-}
-
-func TestRoleGraphQLSuite(t *testing.T) {
+func TestRoleGraphqlSuite(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
-	suite.Run(t, new(RoleGraphQLTestSuite))
+	suite.Run(t, new(RoleGraphqlTestSuite))
 }

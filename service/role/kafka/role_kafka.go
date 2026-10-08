@@ -15,18 +15,18 @@ import (
 )
 
 type roleKafkaHandler struct {
-	logger      logger.LoggerInterface
-	roleService service.RoleQueryService
-	kafka       *kafka.Kafka
-	ctx         context.Context
+	logger          logger.LoggerInterface
+	userRoleService service.UserRoleQueryService
+	kafka           *kafka.Kafka
+	ctx             context.Context
 }
 
-func NewRoleKafkaHandler(ctx context.Context, roleService service.RoleQueryService, kafka *kafka.Kafka, logger logger.LoggerInterface) sarama.ConsumerGroupHandler {
+func NewRoleKafkaHandler(ctx context.Context, userRoleService service.UserRoleQueryService, kafka *kafka.Kafka, logger logger.LoggerInterface) sarama.ConsumerGroupHandler {
 	return &roleKafkaHandler{
-		ctx:         ctx,
-		roleService: roleService,
-		kafka:       kafka,
-		logger:      logger,
+		ctx:             ctx,
+		userRoleService: userRoleService,
+		kafka:           kafka,
+		logger:          logger,
 	}
 }
 
@@ -70,7 +70,7 @@ func (h *roleKafkaHandler) ConsumeClaim(session sarama.ConsumerGroupSession, cla
 			zap.String("correlation_id", payload.CorrelationID))
 
 		// Panggil service untuk mendapatkan role
-		roles, err := h.roleService.FindByUserId(msgCtx, payload.UserID)
+		roles, err := h.userRoleService.FindByUserId(msgCtx, payload.UserID)
 
 		// Siapkan payload respons
 		resp := response.RoleResponsePayload{

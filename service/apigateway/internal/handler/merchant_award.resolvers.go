@@ -7,11 +7,12 @@ package graph
 import (
 	"context"
 
+	graphqlerror "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/errors"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_award"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	sharedErrors "github.com/MamangRust/microservice-ecommerce-shared/errors"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphqlerror "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/errors"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -33,7 +34,7 @@ func (r *mutationResolver) CreateMerchantAward(ctx context.Context, input model.
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewValidationError(validations))
 		}
 
-		reqPb := &pb.CreateMerchantAwardRequest{
+		reqPb := &pb_merchant_award.CreateMerchantAwardRequest{
 			MerchantId:     int32(req.MerchantID),
 			Title:          req.Title,
 			Description:    req.Description,
@@ -80,7 +81,7 @@ func (r *mutationResolver) UpdateMerchantAward(ctx context.Context, input model.
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewValidationError(validations))
 		}
 
-		reqPb := &pb.UpdateMerchantAwardRequest{
+		reqPb := &pb_merchant_award.UpdateMerchantAwardRequest{
 			MerchantCertificationId: int32(id),
 			Title:                   req.Title,
 			Description:             req.Description,
@@ -112,7 +113,7 @@ func (r *mutationResolver) TrashMerchantAward(ctx context.Context, input model.F
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("id is required"))
 		}
 
-		reqPb := &pb.FindByIdMerchantAwardRequest{
+		reqPb := &pb_merchant_award.FindByIdMerchantAwardRequest{
 			Id: int32(id),
 		}
 
@@ -138,7 +139,7 @@ func (r *mutationResolver) RestoreMerchantAward(ctx context.Context, input model
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("id is required"))
 		}
 
-		reqPb := &pb.FindByIdMerchantAwardRequest{
+		reqPb := &pb_merchant_award.FindByIdMerchantAwardRequest{
 			Id: int32(id),
 		}
 
@@ -164,7 +165,7 @@ func (r *mutationResolver) DeleteMerchantAwardPermanent(ctx context.Context, inp
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: merchantId ID cannot be zero"))
 		}
 
-		merchant, err := r.MerchantAwardGraphql.MerchantAwardCommandClient.DeleteMerchantAwardPermanent(ctx, &pb.FindByIdMerchantAwardRequest{
+		merchant, err := r.MerchantAwardGraphql.MerchantAwardCommandClient.DeleteMerchantAwardPermanent(ctx, &pb_merchant_award.FindByIdMerchantAwardRequest{
 			Id: merchantId,
 		})
 		if err != nil {
@@ -233,7 +234,7 @@ func (r *queryResolver) FindAllMerchantAwards(ctx context.Context, input model.F
 			return data, nil
 		}
 
-		req := &pb.FindAllMerchantRequest{
+		req := &pb_merchant.FindAllMerchantRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,
@@ -264,7 +265,7 @@ func (r *queryResolver) FindMerchantAwardByID(ctx context.Context, input model.F
 			return data, nil
 		}
 
-		res, err := r.MerchantAwardGraphql.MerchantAwardQueryClient.FindById(ctx, &pb.FindByIdMerchantAwardRequest{
+		res, err := r.MerchantAwardGraphql.MerchantAwardQueryClient.FindById(ctx, &pb_merchant_award.FindByIdMerchantAwardRequest{
 			Id: int32(id),
 		})
 		if err != nil {
@@ -308,7 +309,7 @@ func (r *queryResolver) FindActiveMerchantAwards(ctx context.Context, input mode
 			return data, nil
 		}
 
-		req := &pb.FindAllMerchantRequest{
+		req := &pb_merchant.FindAllMerchantRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,
@@ -355,7 +356,7 @@ func (r *queryResolver) FindTrashedMerchantAwards(ctx context.Context, input mod
 			return data, nil
 		}
 
-		req := &pb.FindAllMerchantRequest{
+		req := &pb_merchant.FindAllMerchantRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,

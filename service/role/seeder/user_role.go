@@ -13,9 +13,9 @@ import (
 	"golang.org/x/exp/rand"
 )
 
-// userRoleSeeder assigns seeded users to seeded roles. users live in the user
-// service DB (DB_USER) while roles and user_roles live in the role service DB
-// (DB_ROLE), so it needs both connections.
+// userRoleSeeder assigns seeded users to seeded roles. users, roles and
+// user_roles all live in the identity context database, so it holds a
+// connection per table owner.
 type userRoleSeeder struct {
 	userDB *userdb.Queries
 	roleDB *db.Queries

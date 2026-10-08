@@ -98,6 +98,19 @@ func (h *emailHandler) ConsumeClaim(sess sarama.ConsumerGroupSession, claim sara
 		h.recordMetrics("ConsumeClaim", status, start)
 	}()
 
+	// Phase 1 (consumer safety): offsets are committed manually, only after a
+	// terminal outcome. SMTP failures leave the offset uncommitted so the
+	// message is redelivered on the next rebalance; malformed payloads are
+	// committed as poison messages so they cannot block the partition.
+	// Phase 2 (event contract): the payload must be a standard email envelope
+	// (event_id, schema_version=1, event_type + email/subject/body). Events
+	// that fail validation never reach SMTP — they are committed as poison.
+	// Phase 3 (durable idempotency): a PostgreSQL consumer inbox reserves each
+	// event before the SMTP side effect and marks it processed only after the
+	// send succeeds. At-least-once redelivery (rebalance, crash, offset reset)
+	// is therefore idempotent without relying on in-memory state.
+	// Phase 5 (tracing): a span per consumed message, parented to the
+	// traceparent/tracestate header injected by the publishing service.
 	for msg := range claim.Messages() {
 		ctx := otel.GetTextMapPropagator().Extract(h.ctx, kafkaHeaderCarrier(msg.Headers))
 		ctx, span := h.trace.Start(ctx, "consume:"+msg.Topic)
@@ -184,6 +197,10 @@ func (h *emailHandler) ConsumeClaim(sess sarama.ConsumerGroupSession, claim sara
 
 			metrics.EmailFailed.Add(ctx, 1)
 
+			// Phase 4: publish the original envelope to the shared retry topic
+			// (attempt 1) and commit the source offset only after the publish
+			// succeeds. If publishing fails, return the error so the source
+			// message is redelivered instead of being lost.
 			if h.producer == nil {
 				span.End()
 				return err

@@ -23,8 +23,8 @@ func open(logger logger.LoggerInterface, prefix string) (*db.Queries, func(), er
 	return db.New(conn), closeFn, nil
 }
 
-// openItem connects to the order_item database, which the order seeder seeds
-// across the per-service database boundary (F-per-service schema).
+// openItem connects to the order_item tables, which live in the same sales
+// context as orders (one PostgreSQL instance per bounded context).
 func openItem(logger logger.LoggerInterface, prefix string) (*orderitemdb.Queries, func(), error) {
 	conn, err := database.NewClientWithPrefix(logger, prefix)
 	if err != nil {
@@ -46,13 +46,13 @@ func main() {
 
 	ctx := context.Background()
 
-	orderDB, closeOrder, err := open(logger, "DB_ORDER")
+	orderDB, closeOrder, err := open(logger, database.SalesCluster)
 	if err != nil {
 		logger.Fatal("Failed to connect to order database", zap.Error(err))
 	}
 	defer closeOrder()
 
-	orderItemDB, closeItem, err := openItem(logger, "DB_ORDER_ITEM")
+	orderItemDB, closeItem, err := openItem(logger, database.SalesCluster)
 	if err != nil {
 		logger.Fatal("Failed to connect to order_item database", zap.Error(err))
 	}

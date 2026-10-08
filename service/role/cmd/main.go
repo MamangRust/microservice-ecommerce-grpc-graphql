@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/MamangRust/microservice-ecommerce-grpc-role/apps"
+	"github.com/MamangRust/microservice-ecommerce-pkg/database"
 	"github.com/MamangRust/microservice-ecommerce-pkg/server"
 )
 
@@ -12,7 +13,7 @@ func main() {
 		Environment:    "production",
 		OtelEndpoint:   "otel-collector:4317",
 		Port:           50052,
-		DBCluster:      "DB_ROLE",
+		DBCluster:      database.IdentityCluster,
 		MigrationPath:  "./database/migration",
 	})
 

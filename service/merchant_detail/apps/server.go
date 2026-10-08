@@ -2,15 +2,20 @@ package apps
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/MamangRust/microservice-ecommerce-grpc-merchant_detail/cache"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-merchant_detail/database/schema"
 	"github.com/MamangRust/microservice-ecommerce-grpc-merchant_detail/handler"
 	"github.com/MamangRust/microservice-ecommerce-grpc-merchant_detail/repository"
 	"github.com/MamangRust/microservice-ecommerce-grpc-merchant_detail/service"
+	pb_merchant "github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
+	pb_merchant_detail "github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_detail"
+	pb_merchant_social_link "github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_social_link"
+	"github.com/MamangRust/microservice-ecommerce-pkg/adapter"
+	"github.com/MamangRust/microservice-ecommerce-pkg/resilience"
 	"github.com/MamangRust/microservice-ecommerce-pkg/server"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -34,9 +39,14 @@ func NewServer(cfg *server.Config) (*server.GRPCServer, error) {
 		return nil, fmt.Errorf("failed to connect to merchant service: %w", err)
 	}
 
-	merchantQueryClient := pb.NewMerchantQueryServiceClient(merchantConn)
+	repos := repository.NewRepositories(queries, pb_merchant.NewMerchantQueryServiceClient(merchantConn),
+		repository.GuardOptions{
+			Merchant: []adapter.GuardOption{
+				adapter.WithDependencyGuard(resilience.NewDependencyGuard("merchant", 5, 30, 100, 3*time.Second, srv.Logger)),
+			},
+		},
+	)
 
-	repos := repository.NewRepositories(queries, merchantQueryClient)
 	obs, _ := observability.NewObservability("merchant-detail-server", srv.Logger)
 
 	cache := cache.NewMencache(srv.CacheStore)
@@ -51,9 +61,9 @@ func NewServer(cfg *server.Config) (*server.GRPCServer, error) {
 	h := handler.NewHandler(&handler.Deps{Service: svc, Logger: srv.Logger})
 
 	srv.RegisterServices = func(gs *grpc.Server) {
-		pb.RegisterMerchantDetailQueryServiceServer(gs, h.MerchantDetailQuery)
-		pb.RegisterMerchantDetailCommandServiceServer(gs, h.MerchantDetailCommand)
-		pb.RegisterMerchantSocialCommandServiceServer(gs, h.MerchantSocialLinkCommand)
+		pb_merchant_detail.RegisterMerchantDetailQueryServiceServer(gs, h.MerchantDetailQuery)
+		pb_merchant_detail.RegisterMerchantDetailCommandServiceServer(gs, h.MerchantDetailCommand)
+		pb_merchant_social_link.RegisterMerchantSocialCommandServiceServer(gs, h.MerchantSocialLinkCommand)
 	}
 
 	return srv, nil

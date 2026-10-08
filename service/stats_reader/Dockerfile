@@ -6,6 +6,7 @@ WORKDIR /app
 COPY go.work go.work.sum* ./
 COPY pkg/go.mod pkg/go.sum* ./pkg/
 COPY shared/go.mod shared/go.sum* ./shared/
+COPY pb/go.mod pb/go.sum* ./pb/
 COPY tests/go.mod tests/go.sum* ./tests/
 
 # Copy all service go.mod files
@@ -23,6 +24,7 @@ WORKDIR /app
 # Copy source code
 COPY pkg/ ./pkg/
 COPY shared/ ./shared/
+COPY pb/ ./pb/
 COPY service/stats_reader/ ./service/stats_reader/
 
 WORKDIR /app/service/stats_reader

@@ -1,19 +1,15 @@
 syntax = "proto3";
 
-package pb;
+package pb.role;
 
 import "role/role_common.proto";
 
-option go_package = "github.com/MamangRust/microservice-ecommerce-shared/pb";
+option go_package = "github.com/MamangRust/microservice-ecommerce-grpc-pb/role;pb_role";
 
 message FindAllRoleRequest {
     int32 page = 1;
     int32 page_size = 2;
     string search = 3;
-}
-
-message FindByIdUserRoleRequest{
-    int32 user_id = 1;
 }
 
 message FindByNameRoleRequest {
@@ -27,6 +23,4 @@ service RoleQueryService {
 
     rpc FindByActive(FindAllRoleRequest) returns(ApiResponsePaginationRoleDeleteAt);
     rpc FindByTrashed(FindAllRoleRequest) returns(ApiResponsePaginationRoleDeleteAt);
-
-    rpc FindByUserId(FindByIdUserRoleRequest) returns(ApiResponsesRole);
 }

@@ -7,6 +7,9 @@ import (
 	db "github.com/MamangRust/microservice-ecommerce-auth/database/schema"
 	"github.com/MamangRust/microservice-ecommerce-auth/repository"
 	"github.com/MamangRust/microservice-ecommerce-auth/service"
+	pb_role "github.com/MamangRust/microservice-ecommerce-grpc-pb/role"
+	pb_user_role "github.com/MamangRust/microservice-ecommerce-grpc-pb/user_role"
+	pb_user "github.com/MamangRust/microservice-ecommerce-grpc-pb/user"
 	roledb "github.com/MamangRust/microservice-ecommerce-grpc-role/database/schema"
 	userdb "github.com/MamangRust/microservice-ecommerce-grpc-user/database/schema"
 	"github.com/MamangRust/microservice-ecommerce-pkg/auth"
@@ -15,8 +18,9 @@ import (
 	"github.com/MamangRust/microservice-ecommerce-shared/cache"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	tests "github.com/MamangRust/microservice-ecommerce-test"
+
+	"net"
 
 	mencache "github.com/MamangRust/microservice-ecommerce-auth/cache"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -25,7 +29,6 @@ import (
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"net"
 
 	role_cache "github.com/MamangRust/microservice-ecommerce-grpc-role/cache"
 	role_handler "github.com/MamangRust/microservice-ecommerce-grpc-role/handler"
@@ -84,16 +87,22 @@ func (s *AuthServiceTestSuite) SetupSuite() {
 		Logger:  log,
 	})
 	roleServer := grpc.NewServer()
-	pb.RegisterRoleQueryServiceServer(roleServer, roleGapi.RoleQuery)
-	pb.RegisterRoleCommandServiceServer(roleServer, roleGapi.RoleCommand)
+	pb_role.RegisterRoleQueryServiceServer(roleServer, roleGapi.RoleQuery)
+	pb_role.RegisterRoleCommandServiceServer(roleServer, roleGapi.RoleCommand)
+	pb_user_role.RegisterUserRoleQueryServiceServer(roleServer, roleGapi.UserRoleQuery)
+	pb_user_role.RegisterUserRoleCommandServiceServer(roleServer, roleGapi.UserRoleCommand)
 	roleLis, _ := net.Listen("tcp", "localhost:0")
 	go roleServer.Serve(roleLis)
 	roleConn, _ := grpc.NewClient(roleLis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 	// 2. Setup User Service & gRPC Server
 	userMencache := user_cache.NewMencache(cacheStore)
-	roleQueryClientForUser := pb.NewRoleQueryServiceClient(roleConn)
-	userRepos := user_repo.NewRepositories(userdb.New(pool), roleQueryClientForUser)
+	userRepos := user_repo.NewRepositories(&user_repo.Deps{
+		Db:       userdb.New(pool),
+		Role:     pb_role.NewRoleQueryServiceClient(roleConn),
+		UserRole: pb_user_role.NewUserRoleCommandServiceClient(roleConn),
+		Guards:   user_repo.GuardOptions{},
+	})
 	userSvc := user_service.NewService(&user_service.Deps{
 		Repositories:  userRepos,
 		Logger:        log,
@@ -106,19 +115,25 @@ func (s *AuthServiceTestSuite) SetupSuite() {
 		Logger:  log,
 	})
 	userServer := grpc.NewServer()
-	pb.RegisterUserQueryServiceServer(userServer, userGapi.UserQuery)
-	pb.RegisterUserCommandServiceServer(userServer, userGapi.UserCommand)
+	pb_user.RegisterUserQueryServiceServer(userServer, userGapi.UserQuery)
+	pb_user.RegisterUserCommandServiceServer(userServer, userGapi.UserCommand)
 	userLis, _ := net.Listen("tcp", "localhost:0")
 	go userServer.Serve(userLis)
 	userConn, _ := grpc.NewClient(userLis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 	// 3. Setup Auth Service with gRPC clients
-	userQueryClient := pb.NewUserQueryServiceClient(userConn)
-	userCommandClient := pb.NewUserCommandServiceClient(userConn)
-	roleQueryClient := pb.NewRoleQueryServiceClient(roleConn)
-	roleCommandClient := pb.NewRoleCommandServiceClient(roleConn)
+	userQueryClient := pb_user.NewUserQueryServiceClient(userConn)
+	userCommandClient := pb_user.NewUserCommandServiceClient(userConn)
+	roleQueryClient := pb_role.NewRoleQueryServiceClient(roleConn)
 
-	repos := repository.NewRepositories(queries, userQueryClient, userCommandClient, roleQueryClient, roleCommandClient)
+	repos := repository.NewRepositories(&repository.Deps{
+		Db:              queries,
+		User:            userQueryClient,
+		UserCommand:     userCommandClient,
+		Role:            roleQueryClient,
+		UserRoleCommand: pb_user_role.NewUserRoleCommandServiceClient(roleConn),
+		Guards:          repository.GuardOptions{},
+	})
 
 	tokenManager, _ := auth.NewManager("mysecret")
 	s.service = service.NewService(&service.Deps{

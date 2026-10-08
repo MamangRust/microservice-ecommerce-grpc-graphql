@@ -1,8 +1,0 @@
-package merchant_policy
-
-import sharedpb "github.com/MamangRust/microservice-ecommerce-shared/pb"
-
-var NewMerchantPolicyCommandServiceClient = sharedpb.NewMerchantPolicyCommandServiceClient
-var NewMerchantPolicyQueryServiceClient = sharedpb.NewMerchantPolicyQueryServiceClient
-var RegisterMerchantPolicyCommandServiceServer = sharedpb.RegisterMerchantPolicyCommandServiceServer
-var RegisterMerchantPolicyQueryServiceServer = sharedpb.RegisterMerchantPolicyQueryServiceServer

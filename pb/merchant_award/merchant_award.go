@@ -1,8 +1,0 @@
-package merchant_award
-
-import sharedpb "github.com/MamangRust/microservice-ecommerce-shared/pb"
-
-var NewMerchantAwardCommandServiceClient = sharedpb.NewMerchantAwardCommandServiceClient
-var NewMerchantAwardQueryServiceClient = sharedpb.NewMerchantAwardQueryServiceClient
-var RegisterMerchantAwardCommandServiceServer = sharedpb.RegisterMerchantAwardCommandServiceServer
-var RegisterMerchantAwardQueryServiceServer = sharedpb.RegisterMerchantAwardQueryServiceServer

@@ -7,6 +7,7 @@ import (
 	"github.com/MamangRust/microservice-ecommerce-grpc-merchant_detail/cache"
 	"github.com/MamangRust/microservice-ecommerce-grpc-merchant_detail/repository"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-merchant_detail/database/schema"
+	merchantadapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/merchant"
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	"github.com/MamangRust/microservice-ecommerce-shared/errorhandler"
@@ -20,7 +21,7 @@ type merchantDetailCommandService struct {
 	observability            observability.TraceLoggerObservability
 	cache                    cache.MerchantDetailCommandCache
 	merchantDetailRepository repository.MerchantDetailCommandRepository
-	merchantQueryRepository  repository.MerchantQueryRepository
+	merchantQueryRepository  merchantadapter.QueryRepository
 	logger                   logger.LoggerInterface
 }
 
@@ -28,7 +29,7 @@ type MerchantDetailCommandServiceDeps struct {
 	Observability            observability.TraceLoggerObservability
 	Cache                    cache.MerchantDetailCommandCache
 	MerchantDetailRepository repository.MerchantDetailCommandRepository
-	MerchantQueryRepository  repository.MerchantQueryRepository
+	MerchantQueryRepository  merchantadapter.QueryRepository
 	Logger                   logger.LoggerInterface
 }
 

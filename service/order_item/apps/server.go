@@ -6,9 +6,9 @@ import (
 	"github.com/MamangRust/microservice-ecommerce-grpc-order-item/handler"
 	"github.com/MamangRust/microservice-ecommerce-grpc-order-item/repository"
 	"github.com/MamangRust/microservice-ecommerce-grpc-order-item/service"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/order_item"
 	"github.com/MamangRust/microservice-ecommerce-pkg/server"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	"google.golang.org/grpc"
 )
 
@@ -34,8 +34,8 @@ func NewServer(cfg *server.Config) (*server.GRPCServer, error) {
 	h := handler.NewHandler(&handler.Deps{Service: svc, Logger: srv.Logger})
 
 	srv.RegisterServices = func(gs *grpc.Server) {
-		pb.RegisterOrderItemQueryServiceServer(gs, h.OrderItemQuery)
-		pb.RegisterOrderItemCommandServiceServer(gs, h.OrderItemCommand)
+		pb_order_item.RegisterOrderItemQueryServiceServer(gs, h.OrderItemQuery)
+		pb_order_item.RegisterOrderItemCommandServiceServer(gs, h.OrderItemCommand)
 	}
 
 	return srv, nil

@@ -8,10 +8,15 @@ import (
 	db "github.com/MamangRust/microservice-ecommerce-grpc-order/database/schema"
 	"github.com/MamangRust/microservice-ecommerce-grpc-order/repository"
 	"github.com/MamangRust/microservice-ecommerce-grpc-order/service"
+	pb_merchant "github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
+	pb_order_item "github.com/MamangRust/microservice-ecommerce-grpc-pb/order_item"
+	pb_product "github.com/MamangRust/microservice-ecommerce-grpc-pb/product"
+	pb_shipping_address "github.com/MamangRust/microservice-ecommerce-grpc-pb/shipping_address"
+	pb_transaction "github.com/MamangRust/microservice-ecommerce-grpc-pb/transaction"
+	pb_user "github.com/MamangRust/microservice-ecommerce-grpc-pb/user"
 	"github.com/MamangRust/microservice-ecommerce-shared/cache"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	tests "github.com/MamangRust/microservice-ecommerce-test"
 	"github.com/stretchr/testify/suite"
 )
@@ -41,15 +46,17 @@ func (s *OrderServiceTestSuite) SetupSuite() {
 	// Order dependencies
 	mencache := order_cache.NewMencache(cacheStore)
 	repos := repository.NewRepositories(&repository.Deps{
-		DB:                 queries,
-		MerchantQuery:      pb.NewMerchantQueryServiceClient(s.Conns["merchant"]),
-		ProductQuery:       pb.NewProductQueryServiceClient(s.Conns["product"]),
-		ProductCommand:     pb.NewProductCommandServiceClient(s.Conns["product"]),
-		OrderItemQuery:     pb.NewOrderItemQueryServiceClient(s.Conns["order-item"]),
-		OrderItemCommand:   pb.NewOrderItemCommandServiceClient(s.Conns["order-item"]),
-		UserQuery:          pb.NewUserQueryServiceClient(s.Conns["user"]),
-		ShippingCommand:    pb.NewShippingCommandServiceClient(s.Conns["shipping-address"]),
-		TransactionCommand: pb.NewTransactionCommandServiceClient(s.Conns["transaction"]),
+		DB:                     queries,
+		UserQueryClient:          pb_user.NewUserQueryServiceClient(s.Conns["user"]),
+		ProductQueryClient:       pb_product.NewProductQueryServiceClient(s.Conns["product"]),
+		ProductCommandClient:     pb_product.NewProductCommandServiceClient(s.Conns["product"]),
+		MerchantQueryClient:      pb_merchant.NewMerchantQueryServiceClient(s.Conns["merchant"]),
+		OrderItemQueryClient:     pb_order_item.NewOrderItemQueryServiceClient(s.Conns["order-item"]),
+		OrderItemCommandClient:   pb_order_item.NewOrderItemCommandServiceClient(s.Conns["order-item"]),
+		ShippingCommandClient:    pb_shipping_address.NewShippingCommandServiceClient(s.Conns["shipping-address"]),
+		ShippingQueryClient:      pb_shipping_address.NewShippingQueryServiceClient(s.Conns["shipping-address"]),
+		TransactionCommandClient: pb_transaction.NewTransactionCommandServiceClient(s.Conns["transaction"]),
+		Guards:                repository.GuardOptions{},
 	})
 
 	s.svc = service.NewService(&service.Deps{

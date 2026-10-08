@@ -1,9 +1,9 @@
 package slidergraphqlmapper
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphqlmapper "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/mapper/pagination"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
+	graphqlmapper "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/mapper/pagination"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/slider"
 )
 
 type sliederResponseMapper struct{}
@@ -12,7 +12,7 @@ func NewSliderResponseMapper() *sliederResponseMapper {
 	return &sliederResponseMapper{}
 }
 
-func (s *sliederResponseMapper) ToGraphqlResponseSlider(res *pb.ApiResponseSlider) *model.APIResponseSlider {
+func (s *sliederResponseMapper) ToGraphqlResponseSlider(res *pb_slider.ApiResponseSlider) *model.APIResponseSlider {
 	return &model.APIResponseSlider{
 		Status:  res.Status,
 		Message: res.Message,
@@ -20,7 +20,7 @@ func (s *sliederResponseMapper) ToGraphqlResponseSlider(res *pb.ApiResponseSlide
 	}
 }
 
-func (s *sliederResponseMapper) ToGraphqlResponseSliderDeleteAt(res *pb.ApiResponseSliderDeleteAt) *model.APIResponseSliderDeleteAt {
+func (s *sliederResponseMapper) ToGraphqlResponseSliderDeleteAt(res *pb_slider.ApiResponseSliderDeleteAt) *model.APIResponseSliderDeleteAt {
 	return &model.APIResponseSliderDeleteAt{
 		Status:  res.Status,
 		Message: res.Message,
@@ -28,7 +28,7 @@ func (s *sliederResponseMapper) ToGraphqlResponseSliderDeleteAt(res *pb.ApiRespo
 	}
 }
 
-func (s *sliederResponseMapper) ToGraphqlResponsesSlider(res *pb.ApiResponsesSlider) *model.APIResponsesSlider {
+func (s *sliederResponseMapper) ToGraphqlResponsesSlider(res *pb_slider.ApiResponsesSlider) *model.APIResponsesSlider {
 	return &model.APIResponsesSlider{
 		Status:  res.Status,
 		Message: res.Message,
@@ -36,7 +36,7 @@ func (s *sliederResponseMapper) ToGraphqlResponsesSlider(res *pb.ApiResponsesSli
 	}
 }
 
-func (s *sliederResponseMapper) ToGraphqlResponseSliderDelete(res *pb.ApiResponseSliderDelete) *model.APIResponseSliderDelete {
+func (s *sliederResponseMapper) ToGraphqlResponseSliderDelete(res *pb_slider.ApiResponseSliderDelete) *model.APIResponseSliderDelete {
 	return &model.APIResponseSliderDelete{
 		Status:  res.Status,
 		Message: res.Message,
@@ -44,7 +44,7 @@ func (s *sliederResponseMapper) ToGraphqlResponseSliderDelete(res *pb.ApiRespons
 }
 
 func (s *sliederResponseMapper) ToGraphqlResponsePaginationSliderDeleteAt(
-	res *pb.ApiResponsePaginationSliderDeleteAt,
+	res *pb_slider.ApiResponsePaginationSliderDeleteAt,
 ) *model.APIResponsePaginationSliderDeleteAt {
 	return &model.APIResponsePaginationSliderDeleteAt{
 		Status:     res.Status,
@@ -54,7 +54,7 @@ func (s *sliederResponseMapper) ToGraphqlResponsePaginationSliderDeleteAt(
 	}
 }
 
-func (s *sliederResponseMapper) ToGraphqlResponseSliderAll(res *pb.ApiResponseSliderAll) *model.APIResponseSliderAll {
+func (s *sliederResponseMapper) ToGraphqlResponseSliderAll(res *pb_slider.ApiResponseSliderAll) *model.APIResponseSliderAll {
 	return &model.APIResponseSliderAll{
 		Status:  res.Status,
 		Message: res.Message,
@@ -62,7 +62,7 @@ func (s *sliederResponseMapper) ToGraphqlResponseSliderAll(res *pb.ApiResponseSl
 }
 
 func (s *sliederResponseMapper) ToGraphqlResponsePaginationSlider(
-	res *pb.ApiResponsePaginationSlider,
+	res *pb_slider.ApiResponsePaginationSlider,
 ) *model.APIResponsePaginationSlider {
 	return &model.APIResponsePaginationSlider{
 		Status:     res.Status,
@@ -72,7 +72,7 @@ func (s *sliederResponseMapper) ToGraphqlResponsePaginationSlider(
 	}
 }
 
-func (s *sliederResponseMapper) mapResponseSlider(slider *pb.SliderResponse) *model.SliderResponse {
+func (s *sliederResponseMapper) mapResponseSlider(slider *pb_slider.SliderResponse) *model.SliderResponse {
 	if slider == nil {
 		return nil
 	}
@@ -86,7 +86,7 @@ func (s *sliederResponseMapper) mapResponseSlider(slider *pb.SliderResponse) *mo
 	}
 }
 
-func (s *sliederResponseMapper) mapResponsesSlider(sliders []*pb.SliderResponse) []*model.SliderResponse {
+func (s *sliederResponseMapper) mapResponsesSlider(sliders []*pb_slider.SliderResponse) []*model.SliderResponse {
 	mapped := make([]*model.SliderResponse, 0, len(sliders))
 	for _, slider := range sliders {
 		mapped = append(mapped, s.mapResponseSlider(slider))
@@ -94,7 +94,7 @@ func (s *sliederResponseMapper) mapResponsesSlider(sliders []*pb.SliderResponse)
 	return mapped
 }
 
-func (s *sliederResponseMapper) mapResponseSliderDeleteAt(slider *pb.SliderResponseDeleteAt) *model.SliderResponseDeleteAt {
+func (s *sliederResponseMapper) mapResponseSliderDeleteAt(slider *pb_slider.SliderResponseDeleteAt) *model.SliderResponseDeleteAt {
 	var deletedAt string
 
 	if slider.DeletedAt != nil {
@@ -111,7 +111,7 @@ func (s *sliederResponseMapper) mapResponseSliderDeleteAt(slider *pb.SliderRespo
 	}
 }
 
-func (s *sliederResponseMapper) mapResponsesSliderDeleteAt(sliders []*pb.SliderResponseDeleteAt) []*model.SliderResponseDeleteAt {
+func (s *sliederResponseMapper) mapResponsesSliderDeleteAt(sliders []*pb_slider.SliderResponseDeleteAt) []*model.SliderResponseDeleteAt {
 	mapped := make([]*model.SliderResponseDeleteAt, 0, len(sliders))
 	for _, slider := range sliders {
 		mapped = append(mapped, s.mapResponseSliderDeleteAt(slider))

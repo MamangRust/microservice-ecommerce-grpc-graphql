@@ -49,8 +49,12 @@ resolver:
   # omit_template_comment: false
   # Optional: Pass in a path to a new gotpl template to use for generating resolvers
   # resolver_template: [your/path/resolver.gotpl]
-  # Optional: turn on to avoid rewriting existing resolver(s) when generating
-  # preserve_resolver: false
+  # Resolver files are hand maintained: stats.resolvers.go centralizes every
+  # stats resolver (category/order/transaction) in one file, which does not
+  # match the schema file layout gqlgen derives resolver file names from.
+  # Rewriting them would inject duplicate stubs, so generation must never
+  # touch existing resolver files. New fields have to be added by hand.
+  preserve_resolver: true
 
 # Optional: turn on use ` + "`" + `gqlgen:"fieldName"` + "`" + ` tags in your models
 # struct_tag: json

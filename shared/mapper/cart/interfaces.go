@@ -1,23 +1,23 @@
 package cartapimapper
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/cart"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/response"
 )
 
 type CartBaseResponseMapper interface {
-	ToResponseCart(pbResponse *pb.CartResponse) *response.CartResponse
-	ToResponseCarts(pbResponse []*pb.CartResponse) []*response.CartResponse
-	ToApiResponseCart(pbResponse *pb.ApiResponseCart) *response.ApiResponseCart
+	ToResponseCart(pbResponse *pb_cart.CartResponse) *response.CartResponse
+	ToResponseCarts(pbResponse []*pb_cart.CartResponse) []*response.CartResponse
+	ToApiResponseCart(pbResponse *pb_cart.ApiResponseCart) *response.ApiResponseCart
 }
 
 type CartQueryResponseMapper interface {
 	CartBaseResponseMapper
-	ToApiResponseCartPagination(pbResponse *pb.ApiResponsePaginationCart) *response.ApiResponseCartPagination
+	ToApiResponseCartPagination(pbResponse *pb_cart.ApiResponsePaginationCart) *response.ApiResponseCartPagination
 }
 
 type CartCommandResponseMapper interface {
 	CartBaseResponseMapper
-	ToApiResponseCartDelete(pbResponse *pb.ApiResponseCartDelete) *response.ApiResponseCartDelete
-	ToApiResponseCartAll(pbResponse *pb.ApiResponseCartAll) *response.ApiResponseCartAll
+	ToApiResponseCartDelete(pbResponse *pb_cart.ApiResponseCartDelete) *response.ApiResponseCartDelete
+	ToApiResponseCartAll(pbResponse *pb_cart.ApiResponseCartAll) *response.ApiResponseCartAll
 }

@@ -2,8 +2,9 @@ package handler
 
 import (
 	"github.com/MamangRust/microservice-ecommerce-grpc-merchant/service"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_document"
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 )
 
 type Deps struct {
@@ -12,10 +13,10 @@ type Deps struct {
 }
 
 type Handler struct {
-	MerchantQuery           pb.MerchantQueryServiceServer
-	MerchantCommandHandler  pb.MerchantCommandServiceServer
-	MerchantDocumentQuery   pb.MerchantDocumentQueryServiceServer
-	MerchantDocumentCommand pb.MerchantDocumentCommandServiceServer
+	MerchantQuery           pb_merchant.MerchantQueryServiceServer
+	MerchantCommandHandler  pb_merchant.MerchantCommandServiceServer
+	MerchantDocumentQuery   pb_merchant_document.MerchantDocumentQueryServiceServer
+	MerchantDocumentCommand pb_merchant_document.MerchantDocumentCommandServiceServer
 }
 
 func NewHandler(deps *Deps) *Handler {

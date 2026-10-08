@@ -1,15 +1,11 @@
 # docker-compose.infra.yml — Infra-only stack for running Go services locally.
 #
 # Runs ONLY the infrastructure:
-#   20 per-service PostgreSQL databases (ports 5543-5562), Redis, Kafka (KRaft),
-#   ClickHouse, and optional observability tools.
+#   Six PostgreSQL instances + six PgBouncer poolers (1 database = 1 bounded
+#   context), Redis, Kafka (KRaft), ClickHouse, and optional observability tools.
 #
 # The Go services are NOT part of this compose file — they are started
-# locally via `go run service/<name>/cmd/main.go` (see `just services-local-start`).
-#
-# Kafka uses a dual-listener setup so both Docker clients (kafka-exporter,
-# INTERNAL listener kafka:19092) and host clients (local Go services,
-# EXTERNAL listener localhost:9092) can connect.
+# locally via `go run service/<name>/cmd/main.go`.
 #
 # Usage:
 #   docker compose -f deployments/local/docker-compose.infra.yml up -d
@@ -19,25 +15,351 @@
 name: ecommerce-infra
 
 services:
-  postgres:
+  # 1 database = 1 PostgreSQL instance, masing-masing di-front PgBouncer
+  # (session pool) sendiri. Tidak ada instance/database shared. Port host pooler
+  # 6432-6437 dipakai service yang dijalankan di HOST lewat DB_<CONTEXT>_HOST /
+  # _PORT / _NAME di .env root.
+  postgres_identity:
     image: postgres:17-alpine
-    container_name: postgres_ecommerce
-    command: ["postgres", "-c", "max_connections=400", "-c", "shared_buffers=256MB"]
+    container_name: ecommerce-postgres-identity
     environment:
       POSTGRES_USER: DRAGON
       POSTGRES_PASSWORD: DRAGON
-      POSTGRES_DB: ECOMMERCE
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ec_identity
+      PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - postgres_ecommerce_data:/var/lib/postgresql/data
+      - postgres_identity_data:/var/lib/postgresql/data
     networks:
       - app_ecommerce_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U DRAGON -d ECOMMERCE"]
+      test: ["CMD-SHELL", "pg_isready -U DRAGON -d ec_identity"]
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 10s
+
+  pgbouncer_identity:
+    image: edoburu/pgbouncer:latest
+    container_name: ecommerce-pgbouncer-identity
+    environment:
+      DB_HOST: postgres_identity
+      DB_PORT: "5432"
+      DB_USER: DRAGON
+      DB_PASSWORD: DRAGON
+      DB_NAME: ec_identity
+      AUTH_TYPE: scram-sha-256
+      POOL_MODE: session
+    ports:
+      - "6432:5432"
+    networks:
+      - app_ecommerce_network
+    depends_on:
+      postgres_identity:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U DRAGON -d ec_identity"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  postgres-exporter-identity:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: ecommerce-postgres-exporter-identity
+    environment:
+      DATA_SOURCE_NAME: "postgresql://DRAGON:DRAGON@postgres_identity:5432/ec_identity?sslmode=disable"
+    ports:
+      - "9187:9187"
+    networks:
+      - app_ecommerce_network
+    depends_on:
+      postgres_identity:
+        condition: service_healthy
+
+  postgres_merchant:
+    image: postgres:17-alpine
+    container_name: ecommerce-postgres-merchant
+    environment:
+      POSTGRES_USER: DRAGON
+      POSTGRES_PASSWORD: DRAGON
+      POSTGRES_DB: ec_merchant
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_merchant_data:/var/lib/postgresql/data
+    networks:
+      - app_ecommerce_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U DRAGON -d ec_merchant"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  pgbouncer_merchant:
+    image: edoburu/pgbouncer:latest
+    container_name: ecommerce-pgbouncer-merchant
+    environment:
+      DB_HOST: postgres_merchant
+      DB_PORT: "5432"
+      DB_USER: DRAGON
+      DB_PASSWORD: DRAGON
+      DB_NAME: ec_merchant
+      AUTH_TYPE: scram-sha-256
+      POOL_MODE: session
+    ports:
+      - "6433:5432"
+    networks:
+      - app_ecommerce_network
+    depends_on:
+      postgres_merchant:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U DRAGON -d ec_merchant"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  postgres-exporter-merchant:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: ecommerce-postgres-exporter-merchant
+    environment:
+      DATA_SOURCE_NAME: "postgresql://DRAGON:DRAGON@postgres_merchant:5432/ec_merchant?sslmode=disable"
+    ports:
+      - "9188:9187"
+    networks:
+      - app_ecommerce_network
+    depends_on:
+      postgres_merchant:
+        condition: service_healthy
+
+  postgres_catalog:
+    image: postgres:17-alpine
+    container_name: ecommerce-postgres-catalog
+    environment:
+      POSTGRES_USER: DRAGON
+      POSTGRES_PASSWORD: DRAGON
+      POSTGRES_DB: ec_catalog
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_catalog_data:/var/lib/postgresql/data
+    networks:
+      - app_ecommerce_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U DRAGON -d ec_catalog"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  pgbouncer_catalog:
+    image: edoburu/pgbouncer:latest
+    container_name: ecommerce-pgbouncer-catalog
+    environment:
+      DB_HOST: postgres_catalog
+      DB_PORT: "5432"
+      DB_USER: DRAGON
+      DB_PASSWORD: DRAGON
+      DB_NAME: ec_catalog
+      AUTH_TYPE: scram-sha-256
+      POOL_MODE: session
+    ports:
+      - "6434:5432"
+    networks:
+      - app_ecommerce_network
+    depends_on:
+      postgres_catalog:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U DRAGON -d ec_catalog"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  postgres-exporter-catalog:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: ecommerce-postgres-exporter-catalog
+    environment:
+      DATA_SOURCE_NAME: "postgresql://DRAGON:DRAGON@postgres_catalog:5432/ec_catalog?sslmode=disable"
+    ports:
+      - "9189:9187"
+    networks:
+      - app_ecommerce_network
+    depends_on:
+      postgres_catalog:
+        condition: service_healthy
+
+  postgres_sales:
+    image: postgres:17-alpine
+    container_name: ecommerce-postgres-sales
+    environment:
+      POSTGRES_USER: DRAGON
+      POSTGRES_PASSWORD: DRAGON
+      POSTGRES_DB: ec_sales
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_sales_data:/var/lib/postgresql/data
+    networks:
+      - app_ecommerce_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U DRAGON -d ec_sales"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  pgbouncer_sales:
+    image: edoburu/pgbouncer:latest
+    container_name: ecommerce-pgbouncer-sales
+    environment:
+      DB_HOST: postgres_sales
+      DB_PORT: "5432"
+      DB_USER: DRAGON
+      DB_PASSWORD: DRAGON
+      DB_NAME: ec_sales
+      AUTH_TYPE: scram-sha-256
+      POOL_MODE: session
+    ports:
+      - "6435:5432"
+    networks:
+      - app_ecommerce_network
+    depends_on:
+      postgres_sales:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U DRAGON -d ec_sales"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  postgres-exporter-sales:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: ecommerce-postgres-exporter-sales
+    environment:
+      DATA_SOURCE_NAME: "postgresql://DRAGON:DRAGON@postgres_sales:5432/ec_sales?sslmode=disable"
+    ports:
+      - "9190:9187"
+    networks:
+      - app_ecommerce_network
+    depends_on:
+      postgres_sales:
+        condition: service_healthy
+
+  postgres_experience:
+    image: postgres:17-alpine
+    container_name: ecommerce-postgres-experience
+    environment:
+      POSTGRES_USER: DRAGON
+      POSTGRES_PASSWORD: DRAGON
+      POSTGRES_DB: ec_experience
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_experience_data:/var/lib/postgresql/data
+    networks:
+      - app_ecommerce_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U DRAGON -d ec_experience"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  pgbouncer_experience:
+    image: edoburu/pgbouncer:latest
+    container_name: ecommerce-pgbouncer-experience
+    environment:
+      DB_HOST: postgres_experience
+      DB_PORT: "5432"
+      DB_USER: DRAGON
+      DB_PASSWORD: DRAGON
+      DB_NAME: ec_experience
+      AUTH_TYPE: scram-sha-256
+      POOL_MODE: session
+    ports:
+      - "6436:5432"
+    networks:
+      - app_ecommerce_network
+    depends_on:
+      postgres_experience:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U DRAGON -d ec_experience"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  postgres-exporter-experience:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: ecommerce-postgres-exporter-experience
+    environment:
+      DATA_SOURCE_NAME: "postgresql://DRAGON:DRAGON@postgres_experience:5432/ec_experience?sslmode=disable"
+    ports:
+      - "9191:9187"
+    networks:
+      - app_ecommerce_network
+    depends_on:
+      postgres_experience:
+        condition: service_healthy
+
+  postgres_email:
+    image: postgres:17-alpine
+    container_name: ecommerce-postgres-email
+    environment:
+      POSTGRES_USER: DRAGON
+      POSTGRES_PASSWORD: DRAGON
+      POSTGRES_DB: ec_email
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_email_data:/var/lib/postgresql/data
+    networks:
+      - app_ecommerce_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U DRAGON -d ec_email"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  pgbouncer_email:
+    image: edoburu/pgbouncer:latest
+    container_name: ecommerce-pgbouncer-email
+    environment:
+      DB_HOST: postgres_email
+      DB_PORT: "5432"
+      DB_USER: DRAGON
+      DB_PASSWORD: DRAGON
+      DB_NAME: ec_email
+      AUTH_TYPE: scram-sha-256
+      POOL_MODE: session
+    ports:
+      - "6437:5432"
+    networks:
+      - app_ecommerce_network
+    depends_on:
+      postgres_email:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U DRAGON -d ec_email"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  postgres-exporter-email:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: ecommerce-postgres-exporter-email
+    environment:
+      DATA_SOURCE_NAME: "postgresql://DRAGON:DRAGON@postgres_email:5432/ec_email?sslmode=disable"
+    ports:
+      - "9192:9187"
+    networks:
+      - app_ecommerce_network
+    depends_on:
+      postgres_email:
+        condition: service_healthy
 
   redis:
     image: redis:7.4
@@ -52,17 +374,11 @@ services:
     networks:
       - app_ecommerce_network
     healthcheck:
-      # redis/redis.conf sets requirepass; plain `redis-cli ping` would fail
-      # with NOAUTH. Authenticate explicitly so the healthcheck is meaningful.
       test: ["CMD-SHELL", "redis-cli -a dragon_knight ping | grep -q PONG"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  # Kafka in KRaft mode (broker+controller), no zookeeper needed.
-  # Dual listeners:
-  #   INTERNAL kafka:19092  -> for Docker clients (kafka-exporter)
-  #   EXTERNAL localhost:9092 -> for host clients (local Go services)
   kafka:
     image: apache/kafka:latest
     container_name: my-kafka-ecommerce
@@ -214,221 +530,6 @@ services:
     command:
       - '--path.rootfs=/host'
 
-  # ─── Per-service PostgreSQL databases (ports 5543-5562) ────────────────
-  auth-db: &per-svc-db
-    image: postgres:17-alpine
-    command: ["postgres", "-c", "max_connections=400", "-c", "shared_buffers=256MB"]
-    container_name: postgres_auth
-    environment:
-      POSTGRES_USER: DRAGON
-      POSTGRES_PASSWORD: DRAGON
-      POSTGRES_DB: auth_db
-    ports:
-      - "5543:5432"
-    networks:
-      - app_ecommerce_network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U DRAGON -d auth_db"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
-  role-db:
-    <<: *per-svc-db
-    container_name: postgres_role
-    environment:
-      POSTGRES_USER: DRAGON
-      POSTGRES_PASSWORD: DRAGON
-      POSTGRES_DB: role_db
-    ports:
-      - "5544:5432"
-
-  user-db:
-    <<: *per-svc-db
-    container_name: postgres_user
-    environment:
-      POSTGRES_USER: DRAGON
-      POSTGRES_PASSWORD: DRAGON
-      POSTGRES_DB: user_db
-    ports:
-      - "5545:5432"
-
-  email-db:
-    <<: *per-svc-db
-    container_name: postgres_email
-    environment:
-      POSTGRES_USER: DRAGON
-      POSTGRES_PASSWORD: DRAGON
-      POSTGRES_DB: email_db
-    ports:
-      - "5546:5432"
-
-  category-db:
-    <<: *per-svc-db
-    container_name: postgres_category
-    environment:
-      POSTGRES_USER: DRAGON
-      POSTGRES_PASSWORD: DRAGON
-      POSTGRES_DB: category_db
-    ports:
-      - "5547:5432"
-
-  merchant-db:
-    <<: *per-svc-db
-    container_name: postgres_merchant
-    environment:
-      POSTGRES_USER: DRAGON
-      POSTGRES_PASSWORD: DRAGON
-      POSTGRES_DB: merchant_db
-    ports:
-      - "5548:5432"
-
-  merchant_award-db:
-    <<: *per-svc-db
-    container_name: postgres_merchant_award
-    environment:
-      POSTGRES_USER: DRAGON
-      POSTGRES_PASSWORD: DRAGON
-      POSTGRES_DB: merchant_award_db
-    ports:
-      - "5549:5432"
-
-  merchant_business-db:
-    <<: *per-svc-db
-    container_name: postgres_merchant_business
-    environment:
-      POSTGRES_USER: DRAGON
-      POSTGRES_PASSWORD: DRAGON
-      POSTGRES_DB: merchant_business_db
-    ports:
-      - "5550:5432"
-
-  merchant_detail-db:
-    <<: *per-svc-db
-    container_name: postgres_merchant_detail
-    environment:
-      POSTGRES_USER: DRAGON
-      POSTGRES_PASSWORD: DRAGON
-      POSTGRES_DB: merchant_detail_db
-    ports:
-      - "5551:5432"
-
-  merchant_policy-db:
-    <<: *per-svc-db
-    container_name: postgres_merchant_policy
-    environment:
-      POSTGRES_USER: DRAGON
-      POSTGRES_PASSWORD: DRAGON
-      POSTGRES_DB: merchant_policy_db
-    ports:
-      - "5552:5432"
-
-  order-db:
-    <<: *per-svc-db
-    container_name: postgres_order
-    environment:
-      POSTGRES_USER: DRAGON
-      POSTGRES_PASSWORD: DRAGON
-      POSTGRES_DB: order_db
-    ports:
-      - "5553:5432"
-
-  order_item-db:
-    <<: *per-svc-db
-    container_name: postgres_order-item
-    environment:
-      POSTGRES_USER: DRAGON
-      POSTGRES_PASSWORD: DRAGON
-      POSTGRES_DB: order_item_db
-    ports:
-      - "5554:5432"
-
-  product-db:
-    <<: *per-svc-db
-    container_name: postgres_product
-    environment:
-      POSTGRES_USER: DRAGON
-      POSTGRES_PASSWORD: DRAGON
-      POSTGRES_DB: product_db
-    ports:
-      - "5555:5432"
-
-  transaction-db:
-    <<: *per-svc-db
-    container_name: postgres_transaction
-    environment:
-      POSTGRES_USER: DRAGON
-      POSTGRES_PASSWORD: DRAGON
-      POSTGRES_DB: transaction_db
-    ports:
-      - "5556:5432"
-
-  cart-db:
-    <<: *per-svc-db
-    container_name: postgres_cart
-    environment:
-      POSTGRES_USER: DRAGON
-      POSTGRES_PASSWORD: DRAGON
-      POSTGRES_DB: cart_db
-    ports:
-      - "5557:5432"
-
-  review-db:
-    <<: *per-svc-db
-    container_name: postgres_review
-    environment:
-      POSTGRES_USER: DRAGON
-      POSTGRES_PASSWORD: DRAGON
-      POSTGRES_DB: review_db
-    ports:
-      - "5558:5432"
-
-  review_detail-db:
-    <<: *per-svc-db
-    container_name: postgres_review_detail
-    environment:
-      POSTGRES_USER: DRAGON
-      POSTGRES_PASSWORD: DRAGON
-      POSTGRES_DB: review_detail_db
-    ports:
-      - "5559:5432"
-
-  slider-db:
-    <<: *per-svc-db
-    container_name: postgres_slider
-    environment:
-      POSTGRES_USER: DRAGON
-      POSTGRES_PASSWORD: DRAGON
-      POSTGRES_DB: slider_db
-    ports:
-      - "5560:5432"
-
-  shipping_address-db:
-    <<: *per-svc-db
-    container_name: postgres_shipping_address
-    environment:
-      POSTGRES_USER: DRAGON
-      POSTGRES_PASSWORD: DRAGON
-      POSTGRES_DB: shipping_address_db
-    ports:
-      - "5561:5432"
-
-  banner-db:
-    <<: *per-svc-db
-    container_name: postgres_banner
-    environment:
-      POSTGRES_USER: DRAGON
-      POSTGRES_PASSWORD: DRAGON
-      POSTGRES_DB: banner_db
-    ports:
-      - "5562:5432"
-
-  # ClickHouse — OLAP engine for the stats pipeline (F3). stats-writer
-  # materializes stats.ecommerce.*.event topics here; stats-reader serves the
-  # stats gRPC contracts from these tables. The init script applies
-  # pkg/clickhouse/schema.sql on first boot (idempotent CREATE TABLE IF NOT
-  # EXISTS); stats-writer also applies it at startup for robustness.
   clickhouse:
     image: clickhouse/clickhouse-server:24.8-alpine
     container_name: clickhouse-ecommerce
@@ -439,45 +540,35 @@ services:
       nofile:
         soft: 262144
         hard: 262144
+    environment:
+      CLICKHOUSE_DB: ecommerce
+      CLICKHOUSE_USER: dragon
+      CLICKHOUSE_PASSWORD: dragon_knight
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
     volumes:
       - clickhouse_ecommerce_data:/var/lib/clickhouse
       - ../../pkg/clickhouse/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     networks:
       - app_ecommerce_network
     healthcheck:
-      test: ["CMD-SHELL", "clickhouse-client --query 'SELECT 1'"]
+      test: ["CMD-SHELL", "clickhouse-client --user dragon --password dragon_knight --query 'SELECT 1'"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 20s
 
 volumes:
+  postgres_identity_data:
+  postgres_catalog_data:
+  postgres_merchant_data:
+  postgres_sales_data:
+  postgres_experience_data:
+  postgres_email_data:
   loki_ecommerce_data:
   grafana_ecommerce-storage:
-  postgres_ecommerce_data:
   kafka_ecommerce_data:
   redis_ecommerce_data:
   clickhouse_ecommerce_data:
-  postgres_auth_data:
-  postgres_role_data:
-  postgres_user_data:
-  postgres_email_data:
-  postgres_category_data:
-  postgres_merchant_data:
-  postgres_merchant_award_data:
-  postgres_merchant_business_data:
-  postgres_merchant_detail_data:
-  postgres_merchant_policy_data:
-  postgres_order_data:
-  postgres_order-item_data:
-  postgres_product_data:
-  postgres_transaction_data:
-  postgres_cart_data:
-  postgres_review_data:
-  postgres_review_detail_data:
-  postgres_slider_data:
-  postgres_shipping_address_data:
-  postgres_banner_data:
 
 networks:
   app_ecommerce_network:

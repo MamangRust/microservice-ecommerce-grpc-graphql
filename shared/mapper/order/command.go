@@ -1,7 +1,7 @@
 package orderapimapper
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/order"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/response"
 )
 
@@ -11,8 +11,10 @@ func NewOrderCommandResponseMapper() OrderCommandResponseMapper {
 	return &orderCommandResponseMapper{}
 }
 
-func (o *orderCommandResponseMapper) ToResponseOrder(order *pb.OrderResponse) *response.OrderResponse {
-	if order == nil { return nil }
+func (o *orderCommandResponseMapper) ToResponseOrder(order *pb_order.OrderResponse) *response.OrderResponse {
+	if order == nil {
+		return nil
+	}
 	return &response.OrderResponse{
 		ID:         int(order.Id),
 		MerchantID: int(order.MerchantId),
@@ -23,7 +25,7 @@ func (o *orderCommandResponseMapper) ToResponseOrder(order *pb.OrderResponse) *r
 	}
 }
 
-func (o *orderCommandResponseMapper) ToResponsesOrder(orders []*pb.OrderResponse) []*response.OrderResponse {
+func (o *orderCommandResponseMapper) ToResponsesOrder(orders []*pb_order.OrderResponse) []*response.OrderResponse {
 	var mappedOrders []*response.OrderResponse
 	for _, order := range orders {
 		mappedOrders = append(mappedOrders, o.ToResponseOrder(order))
@@ -31,7 +33,7 @@ func (o *orderCommandResponseMapper) ToResponsesOrder(orders []*pb.OrderResponse
 	return mappedOrders
 }
 
-func (o *orderCommandResponseMapper) ToApiResponseOrder(pbResponse *pb.ApiResponseOrder) *response.ApiResponseOrder {
+func (o *orderCommandResponseMapper) ToApiResponseOrder(pbResponse *pb_order.ApiResponseOrder) *response.ApiResponseOrder {
 	return &response.ApiResponseOrder{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -39,7 +41,7 @@ func (o *orderCommandResponseMapper) ToApiResponseOrder(pbResponse *pb.ApiRespon
 	}
 }
 
-func (o *orderCommandResponseMapper) ToResponseOrderDeleteAt(order *pb.OrderResponseDeleteAt) *response.OrderResponseDeleteAt {
+func (o *orderCommandResponseMapper) ToResponseOrderDeleteAt(order *pb_order.OrderResponseDeleteAt) *response.OrderResponseDeleteAt {
 	var deletedAt string
 	if order.DeletedAt != nil {
 		deletedAt = order.DeletedAt.Value
@@ -56,7 +58,7 @@ func (o *orderCommandResponseMapper) ToResponseOrderDeleteAt(order *pb.OrderResp
 	}
 }
 
-func (o *orderCommandResponseMapper) ToResponsesOrderDeleteAt(orders []*pb.OrderResponseDeleteAt) []*response.OrderResponseDeleteAt {
+func (o *orderCommandResponseMapper) ToResponsesOrderDeleteAt(orders []*pb_order.OrderResponseDeleteAt) []*response.OrderResponseDeleteAt {
 	var mappedOrders []*response.OrderResponseDeleteAt
 	for _, order := range orders {
 		mappedOrders = append(mappedOrders, o.ToResponseOrderDeleteAt(order))
@@ -64,7 +66,7 @@ func (o *orderCommandResponseMapper) ToResponsesOrderDeleteAt(orders []*pb.Order
 	return mappedOrders
 }
 
-func (o *orderCommandResponseMapper) ToApiResponseOrderDeleteAt(pbResponse *pb.ApiResponseOrderDeleteAt) *response.ApiResponseOrderDeleteAt {
+func (o *orderCommandResponseMapper) ToApiResponseOrderDeleteAt(pbResponse *pb_order.ApiResponseOrderDeleteAt) *response.ApiResponseOrderDeleteAt {
 	return &response.ApiResponseOrderDeleteAt{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -72,14 +74,14 @@ func (o *orderCommandResponseMapper) ToApiResponseOrderDeleteAt(pbResponse *pb.A
 	}
 }
 
-func (o *orderCommandResponseMapper) ToApiResponseOrderDelete(pbResponse *pb.ApiResponseOrderDelete) *response.ApiResponseOrderDelete {
+func (o *orderCommandResponseMapper) ToApiResponseOrderDelete(pbResponse *pb_order.ApiResponseOrderDelete) *response.ApiResponseOrderDelete {
 	return &response.ApiResponseOrderDelete{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
 	}
 }
 
-func (o *orderCommandResponseMapper) ToApiResponseOrderAll(pbResponse *pb.ApiResponseOrderAll) *response.ApiResponseOrderAll {
+func (o *orderCommandResponseMapper) ToApiResponseOrderAll(pbResponse *pb_order.ApiResponseOrderAll) *response.ApiResponseOrderAll {
 	return &response.ApiResponseOrderAll{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,

@@ -4,13 +4,8 @@ import (
 	"context"
 
 	db "github.com/MamangRust/microservice-ecommerce-grpc-merchant_detail/database/schema"
-	dto "github.com/MamangRust/microservice-ecommerce-grpc-merchant_detail/dto"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 )
-
-type MerchantQueryRepository interface {
-	FindByID(ctx context.Context, user_id int) (*dto.GetMerchantByIDRow, error)
-}
 
 type MerchantDetailQueryRepository interface {
 	FindAll(ctx context.Context, req *requests.FindAllMerchant) ([]*db.GetMerchantDetailsRow, error)

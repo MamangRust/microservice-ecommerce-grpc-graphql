@@ -1,8 +1,0 @@
-package review_detail
-
-import sharedpb "github.com/MamangRust/microservice-ecommerce-shared/pb"
-
-var NewReviewDetailCommandServiceClient = sharedpb.NewReviewDetailCommandServiceClient
-var NewReviewDetailQueryServiceClient = sharedpb.NewReviewDetailQueryServiceClient
-var RegisterReviewDetailCommandServiceServer = sharedpb.RegisterReviewDetailCommandServiceServer
-var RegisterReviewDetailQueryServiceServer = sharedpb.RegisterReviewDetailQueryServiceServer

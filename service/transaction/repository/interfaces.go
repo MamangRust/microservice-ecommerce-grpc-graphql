@@ -6,38 +6,8 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	db "github.com/MamangRust/microservice-ecommerce-grpc-transaction/database/schema"
-	dto "github.com/MamangRust/microservice-ecommerce-grpc-transaction/dto"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 )
-
-type UserQueryRepository interface {
-	FindByID(ctx context.Context, user_id int) (*dto.GetUserByIDRow, error)
-}
-
-type MerchantQueryRepository interface {
-	FindByID(ctx context.Context, user_id int) (*dto.GetMerchantByIDRow, error)
-}
-
-type OrderItemRepository interface {
-	FindOrderItemByOrder(
-		ctx context.Context,
-		order_id int,
-	) ([]*dto.GetOrderItemsByOrderRow, error)
-}
-
-type OrderQueryRepository interface {
-	FindByID(
-		ctx context.Context,
-		order_id int,
-	) (*dto.GetOrderByIDRow, error)
-}
-
-type ShippingAddressQueryRepository interface {
-	FindByID(
-		ctx context.Context,
-		shipping_id int,
-	) (*dto.GetShippingAddressByOrderIDRow, error)
-}
 
 // F5: legacy OLTP transaction stats repositories were removed; stats are served
 // by service/stats_reader from ClickHouse.

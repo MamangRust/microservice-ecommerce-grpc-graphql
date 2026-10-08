@@ -157,40 +157,6 @@ func (s *roleQueryService) FindByName(ctx context.Context, name string) (*db.Rol
 	return res, nil
 }
 
-func (s *roleQueryService) FindByUserId(ctx context.Context, id int) ([]*db.Role, error) {
-	const method = "FindByUserId"
-
-	ctx, span, end, status, logSuccess := s.observability.StartTracingAndLogging(ctx, method,
-		attribute.Int("user.id", id))
-
-	defer func() {
-		end(status)
-	}()
-
-	if data, found := s.cache.GetCachedRoleByUserId(ctx, id); found {
-		logSuccess("Data found in cache", zap.Int("user.id", id))
-		return data, nil
-	}
-
-	res, err := s.roleRepository.FindByUserId(ctx, id)
-	if err != nil {
-		status = "error"
-		return errorhandler.HandleError[[]*db.Role](
-			s.logger,
-			role_errors.ErrRoleNotFound,
-			method,
-			span,
-			zap.Int("user.id", id),
-		)
-	}
-
-	s.cache.SetCachedRoleByUserId(ctx, id, res)
-
-	logSuccess("Successfully fetched role by user ID", zap.Int("user.id", id))
-
-	return res, nil
-}
-
 func (s *roleQueryService) FindActive(ctx context.Context, req *requests.FindAllRole) ([]*db.GetActiveRolesRow, *int, error) {
 	const method = "FindActive"
 

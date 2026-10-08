@@ -4,14 +4,14 @@ import (
 	"context"
 
 	"github.com/MamangRust/microservice-ecommerce-grpc-order-item/service"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/order_item"
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	"github.com/MamangRust/microservice-ecommerce-shared/errors"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 )
 
 type orderItemQueryHandler struct {
-	pb.UnimplementedOrderItemQueryServiceServer
+	pb_order_item.UnimplementedOrderItemQueryServiceServer
 	orderItemService service.OrderItemQueryService
 	logger           logger.LoggerInterface
 }
@@ -23,7 +23,7 @@ func NewOrderItemQueryHandler(orderItemService service.OrderItemQueryService, lo
 	}
 }
 
-func (h *orderItemQueryHandler) FindAll(ctx context.Context, request *pb.FindAllOrderItemRequest) (*pb.ApiResponsePaginationOrderItem, error) {
+func (h *orderItemQueryHandler) FindAll(ctx context.Context, request *pb_order_item.FindAllOrderItemRequest) (*pb_order_item.ApiResponsePaginationOrderItem, error) {
 	page, pageSize := normalizePage(int(request.GetPage()), int(request.GetPageSize()))
 	search := request.GetSearch()
 
@@ -38,14 +38,14 @@ func (h *orderItemQueryHandler) FindAll(ctx context.Context, request *pb.FindAll
 		return nil, errors.ToGrpcError(err)
 	}
 
-	pbOrderItems := make([]*pb.OrderItemResponse, len(orderItems))
+	pbOrderItems := make([]*pb_order_item.OrderItemResponse, len(orderItems))
 	for i, item := range orderItems {
 		pbOrderItems[i] = mapToProtoOrderItemResponse(item)
 	}
 
 	paginationMeta := createPaginationMeta(page, pageSize, *totalRecords)
 
-	return &pb.ApiResponsePaginationOrderItem{
+	return &pb_order_item.ApiResponsePaginationOrderItem{
 		Status:     "success",
 		Message:    "Successfully fetched order items",
 		Data:       pbOrderItems,
@@ -53,7 +53,7 @@ func (h *orderItemQueryHandler) FindAll(ctx context.Context, request *pb.FindAll
 	}, nil
 }
 
-func (h *orderItemQueryHandler) FindByActive(ctx context.Context, request *pb.FindAllOrderItemRequest) (*pb.ApiResponsePaginationOrderItemDeleteAt, error) {
+func (h *orderItemQueryHandler) FindByActive(ctx context.Context, request *pb_order_item.FindAllOrderItemRequest) (*pb_order_item.ApiResponsePaginationOrderItemDeleteAt, error) {
 	page, pageSize := normalizePage(int(request.GetPage()), int(request.GetPageSize()))
 	search := request.GetSearch()
 
@@ -68,14 +68,14 @@ func (h *orderItemQueryHandler) FindByActive(ctx context.Context, request *pb.Fi
 		return nil, errors.ToGrpcError(err)
 	}
 
-	pbOrderItems := make([]*pb.OrderItemResponseDeleteAt, len(orderItems))
+	pbOrderItems := make([]*pb_order_item.OrderItemResponseDeleteAt, len(orderItems))
 	for i, item := range orderItems {
 		pbOrderItems[i] = mapToProtoOrderItemResponseDeleteAt(item)
 	}
 
 	paginationMeta := createPaginationMeta(page, pageSize, *totalRecords)
 
-	return &pb.ApiResponsePaginationOrderItemDeleteAt{
+	return &pb_order_item.ApiResponsePaginationOrderItemDeleteAt{
 		Status:     "success",
 		Message:    "Successfully fetched active order items",
 		Data:       pbOrderItems,
@@ -83,7 +83,7 @@ func (h *orderItemQueryHandler) FindByActive(ctx context.Context, request *pb.Fi
 	}, nil
 }
 
-func (h *orderItemQueryHandler) FindByTrashed(ctx context.Context, request *pb.FindAllOrderItemRequest) (*pb.ApiResponsePaginationOrderItemDeleteAt, error) {
+func (h *orderItemQueryHandler) FindByTrashed(ctx context.Context, request *pb_order_item.FindAllOrderItemRequest) (*pb_order_item.ApiResponsePaginationOrderItemDeleteAt, error) {
 	page, pageSize := normalizePage(int(request.GetPage()), int(request.GetPageSize()))
 	search := request.GetSearch()
 
@@ -98,14 +98,14 @@ func (h *orderItemQueryHandler) FindByTrashed(ctx context.Context, request *pb.F
 		return nil, errors.ToGrpcError(err)
 	}
 
-	pbOrderItems := make([]*pb.OrderItemResponseDeleteAt, len(orderItems))
+	pbOrderItems := make([]*pb_order_item.OrderItemResponseDeleteAt, len(orderItems))
 	for i, item := range orderItems {
 		pbOrderItems[i] = mapToProtoOrderItemResponseDeleteAt(item)
 	}
 
 	paginationMeta := createPaginationMeta(page, pageSize, *totalRecords)
 
-	return &pb.ApiResponsePaginationOrderItemDeleteAt{
+	return &pb_order_item.ApiResponsePaginationOrderItemDeleteAt{
 		Status:     "success",
 		Message:    "Successfully fetched trashed order items",
 		Data:       pbOrderItems,
@@ -113,7 +113,7 @@ func (h *orderItemQueryHandler) FindByTrashed(ctx context.Context, request *pb.F
 	}, nil
 }
 
-func (h *orderItemQueryHandler) FindOrderItemByOrder(ctx context.Context, request *pb.FindByIdOrderItemRequest) (*pb.ApiResponsesOrderItem, error) {
+func (h *orderItemQueryHandler) FindOrderItemByOrder(ctx context.Context, request *pb_order_item.FindByIdOrderItemRequest) (*pb_order_item.ApiResponsesOrderItem, error) {
 	id := int(request.GetId())
 
 	orderItems, err := h.orderItemService.FindByOrder(ctx, id)
@@ -121,12 +121,12 @@ func (h *orderItemQueryHandler) FindOrderItemByOrder(ctx context.Context, reques
 		return nil, errors.ToGrpcError(err)
 	}
 
-	pbOrderItems := make([]*pb.OrderItemResponse, len(orderItems))
+	pbOrderItems := make([]*pb_order_item.OrderItemResponse, len(orderItems))
 	for i, item := range orderItems {
 		pbOrderItems[i] = mapToProtoOrderItemResponse(item)
 	}
 
-	return &pb.ApiResponsesOrderItem{
+	return &pb_order_item.ApiResponsesOrderItem{
 		Status:  "success",
 		Message: "Successfully fetched order items by order",
 		Data:    pbOrderItems,

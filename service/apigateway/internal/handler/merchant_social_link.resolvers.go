@@ -7,10 +7,10 @@ package graph
 import (
 	"context"
 
+	graphqlerror "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/errors"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_social_link"
 	sharedErrors "github.com/MamangRust/microservice-ecommerce-shared/errors"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphqlerror "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/errors"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
 )
 
 // CreateMerchantSocialLink is the resolver for the createMerchantSocialLink field.
@@ -20,7 +20,7 @@ func (r *mutationResolver) CreateMerchantSocialLink(ctx context.Context, input *
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: merchant detail ID cannot be zero"))
 		}
 
-		req := &pb.CreateMerchantSocialRequest{
+		req := &pb_merchant_social_link.CreateMerchantSocialRequest{
 			MerchantDetailId: int32(input.MerchantDetailID),
 			Platform:         input.Platform,
 			Url:              input.URL,
@@ -42,7 +42,7 @@ func (r *mutationResolver) UpdateMerchantSocialLink(ctx context.Context, input *
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: social link ID cannot be zero"))
 		}
 
-		req := &pb.UpdateMerchantSocialRequest{
+		req := &pb_merchant_social_link.UpdateMerchantSocialRequest{
 			Id:               int32(input.ID),
 			MerchantDetailId: int32(input.MerchantDetailID),
 			Platform:         input.Platform,

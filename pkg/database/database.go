@@ -13,20 +13,18 @@ import (
 	"go.uber.org/zap"
 )
 
-// NewClient connects to the base database configured via the generic DB_*
-// keys. It is kept for callers that operate against a single database
-// (e.g. the global seeder orchestrator).
-func NewClient(logger logger.LoggerInterface) (*pgxpool.Pool, error) {
-	return NewClientWithPrefix(logger, "DB")
-}
-
 // NewClientWithPrefix connects to the database configured via the given
-// prefix keys (e.g. DB_ORDER_HOST, DB_ORDER_NAME) with fallback to the base
-// DB_* keys when prefix-specific keys are not set. Each microservice uses its
-// own prefix so it talks exclusively to its own PostgreSQL instance.
+// cluster prefix keys (e.g. DB_IDENTITY_HOST, DB_IDENTITY_NAME). Each bounded
+// context has its own prefix so a service talks exclusively to its own
+// PostgreSQL instance; there is no shared/fallback database.
+//
+// Host, port and database name are mandatory per context: if any is empty the
+// connection fails fast instead of silently falling back to a default and
+// pointing at the wrong instance. Only DB_USERNAME / DB_PASSWORD still fall
+// back to the base keys.
 func NewClientWithPrefix(logger logger.LoggerInterface, prefix string) (*pgxpool.Pool, error) {
 	if prefix == "" {
-		prefix = "DB"
+		return nil, fmt.Errorf("database: cluster prefix must not be empty (expected one of DB_IDENTITY/DB_CATALOG/DB_MERCHANT/DB_SALES/DB_EXPERIENCE/DB_EMAIL)")
 	}
 
 	dbDriver := viper.GetString(fmt.Sprintf("%s_DRIVER", prefix))
@@ -46,24 +44,27 @@ func NewClientWithPrefix(logger logger.LoggerInterface, prefix string) (*pgxpool
 	passKey := fmt.Sprintf("%s_PASSWORD", prefix)
 
 	host := viper.GetString(hostKey)
-	if host == "" {
-		host = viper.GetString("DB_HOST")
-	}
 	port := viper.GetString(portKey)
-	if port == "" {
-		port = viper.GetString("DB_PORT")
-	}
 	user := viper.GetString(userKey)
 	if user == "" {
 		user = viper.GetString("DB_USERNAME")
 	}
 	dbname := viper.GetString(nameKey)
-	if dbname == "" {
-		dbname = viper.GetString("DB_NAME")
-	}
 	password := viper.GetString(passKey)
 	if password == "" {
 		password = viper.GetString("DB_PASSWORD")
+	}
+
+	// Fail-fast: a missing per-context host/port/name means the service would
+	// otherwise connect to the wrong (or no) database.
+	if host == "" {
+		return nil, fmt.Errorf("database: %s is required (cluster prefix %s)", hostKey, prefix)
+	}
+	if port == "" {
+		return nil, fmt.Errorf("database: %s is required (cluster prefix %s)", portKey, prefix)
+	}
+	if dbname == "" {
+		return nil, fmt.Errorf("database: %s is required (cluster prefix %s)", nameKey, prefix)
 	}
 
 	connStr := fmt.Sprintf("host=%s port=%s user=%s dbname=%s password=%s sslmode=disable",

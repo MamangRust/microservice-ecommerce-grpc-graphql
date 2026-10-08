@@ -20,6 +20,7 @@ import (
 	role "github.com/MamangRust/microservice-ecommerce-shared/mapper/role"
 	shippingaddress "github.com/MamangRust/microservice-ecommerce-shared/mapper/shipping_address"
 	slider "github.com/MamangRust/microservice-ecommerce-shared/mapper/slider"
+	stats "github.com/MamangRust/microservice-ecommerce-shared/mapper/stats"
 	transaction "github.com/MamangRust/microservice-ecommerce-shared/mapper/transaction"
 	user "github.com/MamangRust/microservice-ecommerce-shared/mapper/user"
 )
@@ -45,3 +46,4 @@ type MerchantDetailResponseMapper = merchantdetail.MerchantDetailResponseMapper
 type MerchantDocumentResponseMapper = merchantdocuments.MerchantDocumentResponseMapper
 type MerchantPolicyResponseMapper = merchantpolicy.MerchantPolicyResponseMapper
 type MerchantSocialLinkMapper = merchantsociallink.MerchantSocialLinkResponseMapper
+type StatsResponseMapper = stats.StatsResponseMapper

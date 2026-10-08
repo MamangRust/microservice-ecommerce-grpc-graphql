@@ -1,11 +1,11 @@
 package handler
 
-import "github.com/MamangRust/microservice-ecommerce-shared/pb"
+import "github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_business"
 
 type MerchantBusinessQueryHandler interface {
-	pb.MerchantBusinessQueryServiceServer
+	pb_merchant_business.MerchantBusinessQueryServiceServer
 }
 
 type MerchantBusinessCommandHandler interface {
-	pb.MerchantBusinessCommandServiceServer
+	pb_merchant_business.MerchantBusinessCommandServiceServer
 }

@@ -1,11 +1,11 @@
 package handler
 
-import "github.com/MamangRust/microservice-ecommerce-shared/pb"
+import "github.com/MamangRust/microservice-ecommerce-grpc-pb/transaction"
 
 type TransactionQueryHandler interface {
-	pb.TransactionQueryServiceServer
+	pb_transaction.TransactionQueryServiceServer
 }
 
 type TransactionCommandHandler interface {
-	pb.TransactionCommandServiceServer
+	pb_transaction.TransactionCommandServiceServer
 }

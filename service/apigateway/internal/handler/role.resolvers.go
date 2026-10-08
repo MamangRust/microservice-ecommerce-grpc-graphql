@@ -7,11 +7,12 @@ package graph
 import (
 	"context"
 
+	graphqlerror "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/errors"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/role"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/user_role"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	sharedErrors "github.com/MamangRust/microservice-ecommerce-shared/errors"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphqlerror "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/errors"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -26,7 +27,7 @@ func (r *mutationResolver) CreateRole(ctx context.Context, input model.CreateRol
 		return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewValidationError(validations))
 	}
 
-	req := &pb.CreateRoleRequest{
+	req := &pb_role.CreateRoleRequest{
 		Name: input.Name,
 	}
 
@@ -60,7 +61,7 @@ func (r *mutationResolver) UpdateRole(ctx context.Context, input model.UpdateRol
 		return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewValidationError(validations))
 	}
 
-	req := &pb.UpdateRoleRequest{
+	req := &pb_role.UpdateRoleRequest{
 		Id:   roleId,
 		Name: input.Name,
 	}
@@ -84,7 +85,7 @@ func (r *mutationResolver) TrashedRole(ctx context.Context, input model.FindByID
 		return nil, graphqlerror.ErrGraphqlRoleInvalidId
 	}
 
-	role, err := r.RoleGraphql.RoleCommandClient.TrashedRole(ctx, &pb.FindByIdRoleRequest{
+	role, err := r.RoleGraphql.RoleCommandClient.TrashedRole(ctx, &pb_role.FindByIdRoleRequest{
 		RoleId: roleID,
 	})
 
@@ -105,7 +106,7 @@ func (r *mutationResolver) RestoreRole(ctx context.Context, input model.FindByID
 		return nil, graphqlerror.ErrGraphqlRoleInvalidId
 	}
 
-	role, err := r.RoleGraphql.RoleCommandClient.RestoreRole(ctx, &pb.FindByIdRoleRequest{
+	role, err := r.RoleGraphql.RoleCommandClient.RestoreRole(ctx, &pb_role.FindByIdRoleRequest{
 		RoleId: roleID,
 	})
 
@@ -126,7 +127,7 @@ func (r *mutationResolver) DeleteRolePermanent(ctx context.Context, input model.
 		return nil, graphqlerror.ErrGraphqlRoleInvalidId
 	}
 
-	role, err := r.RoleGraphql.RoleCommandClient.DeleteRolePermanent(ctx, &pb.FindByIdRoleRequest{
+	role, err := r.RoleGraphql.RoleCommandClient.DeleteRolePermanent(ctx, &pb_role.FindByIdRoleRequest{
 		RoleId: roleID,
 	})
 
@@ -188,7 +189,7 @@ func (r *queryResolver) FindAllRole(ctx context.Context, input *model.FindAllRol
 		pageSize = 10
 	}
 
-	reqService := &pb.FindAllRoleRequest{
+	reqService := &pb_role.FindAllRoleRequest{
 		Page:     page,
 		PageSize: pageSize,
 		Search:   search,
@@ -211,7 +212,7 @@ func (r *queryResolver) FindByIDRole(ctx context.Context, input model.FindByIDRo
 		return nil, graphqlerror.ErrGraphqlRoleInvalidUserId
 	}
 
-	role, errResp := r.RoleGraphql.RoleQueryClient.FindByIdRole(ctx, &pb.FindByIdRoleRequest{RoleId: id})
+	role, errResp := r.RoleGraphql.RoleQueryClient.FindByIdRole(ctx, &pb_role.FindByIdRoleRequest{RoleId: id})
 	if errResp != nil {
 		return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(errResp)
 	}
@@ -244,7 +245,7 @@ func (r *queryResolver) FindByActiveRole(ctx context.Context, input *model.FindA
 		pageSize = 10
 	}
 
-	reqService := &pb.FindAllRoleRequest{
+	reqService := &pb_role.FindAllRoleRequest{
 		Page:     page,
 		PageSize: pageSize,
 		Search:   search,
@@ -283,7 +284,7 @@ func (r *queryResolver) FindByTrashedRole(ctx context.Context, input *model.Find
 		pageSize = 10
 	}
 
-	reqService := &pb.FindAllRoleRequest{
+	reqService := &pb_role.FindAllRoleRequest{
 		Page:     page,
 		PageSize: pageSize,
 		Search:   search,
@@ -306,7 +307,7 @@ func (r *queryResolver) FindByUserIDRole(ctx context.Context, input model.FindBy
 		return nil, graphqlerror.ErrGraphqlRoleInvalidUserId
 	}
 
-	role, errResp := r.RoleGraphql.RoleQueryClient.FindByUserId(ctx, &pb.FindByIdUserRoleRequest{UserId: id})
+	role, errResp := r.RoleGraphql.UserRoleQueryClient.FindByUserId(ctx, &pb_user_role.FindByIdUserRoleRequest{UserId: id})
 	if errResp != nil {
 		return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(errResp)
 	}

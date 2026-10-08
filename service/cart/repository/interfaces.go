@@ -4,7 +4,6 @@ import (
 	"context"
 
 	db "github.com/MamangRust/microservice-ecommerce-grpc-cart/database/schema"
-	dto "github.com/MamangRust/microservice-ecommerce-grpc-cart/dto"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 )
 
@@ -30,12 +29,4 @@ type CartCommandRepository interface {
 		ctx context.Context,
 		req *requests.DeleteAllCartRequest,
 	) (bool, error)
-}
-
-type ProductQueryRepository interface {
-	FindById(ctx context.Context, product_id int) (*dto.GetProductByIDRow, error)
-}
-
-type UserQueryRepository interface {
-	FindById(ctx context.Context, user_id int) (*dto.GetUserByIDRow, error)
 }

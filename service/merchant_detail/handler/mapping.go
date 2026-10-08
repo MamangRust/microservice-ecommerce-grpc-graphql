@@ -4,7 +4,8 @@ import (
 	"math"
 
 	db "github.com/MamangRust/microservice-ecommerce-grpc-merchant_detail/database/schema"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/common"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_detail"
 	"github.com/jackc/pgx/v5/pgtype"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
@@ -19,9 +20,9 @@ func normalizePage(page, pageSize int) (int, int) {
 	return page, pageSize
 }
 
-func createPaginationMeta(page, pageSize, totalRecords int) *pb.PaginationMeta {
+func createPaginationMeta(page, pageSize, totalRecords int) *pb_common.PaginationMeta {
 	totalPages := int(math.Ceil(float64(totalRecords) / float64(pageSize)))
-	return &pb.PaginationMeta{
+	return &pb_common.PaginationMeta{
 		CurrentPage:  int32(page),
 		PageSize:     int32(pageSize),
 		TotalPages:   int32(totalPages),
@@ -46,10 +47,10 @@ func formatTimestamp(v interface{}) string {
 	return ""
 }
 
-func mapToProtoMerchantDetailResponse(m interface{}) *pb.MerchantDetailResponse {
+func mapToProtoMerchantDetailResponse(m interface{}) *pb_merchant_detail.MerchantDetailResponse {
 	switch v := m.(type) {
 	case *db.MerchantDetail:
-		return &pb.MerchantDetailResponse{
+		return &pb_merchant_detail.MerchantDetailResponse{
 			Id:               v.MerchantDetailID,
 			MerchantId:       v.MerchantID,
 			DisplayName:      getString(v.DisplayName),
@@ -61,7 +62,7 @@ func mapToProtoMerchantDetailResponse(m interface{}) *pb.MerchantDetailResponse 
 			UpdatedAt:        formatTimestamp(v.UpdatedAt),
 		}
 	case *db.GetMerchantDetailRow:
-		return &pb.MerchantDetailResponse{
+		return &pb_merchant_detail.MerchantDetailResponse{
 			Id:               v.MerchantDetailID,
 			MerchantId:       v.MerchantID,
 			DisplayName:      getString(v.DisplayName),
@@ -73,7 +74,7 @@ func mapToProtoMerchantDetailResponse(m interface{}) *pb.MerchantDetailResponse 
 			UpdatedAt:        formatTimestamp(v.UpdatedAt),
 		}
 	case *db.CreateMerchantDetailRow:
-		return &pb.MerchantDetailResponse{
+		return &pb_merchant_detail.MerchantDetailResponse{
 			Id:               v.MerchantDetailID,
 			MerchantId:       v.MerchantID,
 			DisplayName:      getString(v.DisplayName),
@@ -85,7 +86,7 @@ func mapToProtoMerchantDetailResponse(m interface{}) *pb.MerchantDetailResponse 
 			UpdatedAt:        formatTimestamp(v.UpdatedAt),
 		}
 	case *db.UpdateMerchantDetailRow:
-		return &pb.MerchantDetailResponse{
+		return &pb_merchant_detail.MerchantDetailResponse{
 			Id:               v.MerchantDetailID,
 			MerchantId:       v.MerchantID,
 			DisplayName:      getString(v.DisplayName),
@@ -97,7 +98,7 @@ func mapToProtoMerchantDetailResponse(m interface{}) *pb.MerchantDetailResponse 
 			UpdatedAt:        formatTimestamp(v.UpdatedAt),
 		}
 	case *db.GetMerchantDetailsRow:
-		return &pb.MerchantDetailResponse{
+		return &pb_merchant_detail.MerchantDetailResponse{
 			Id:               v.MerchantDetailID,
 			MerchantId:       v.MerchantID,
 			DisplayName:      getString(v.DisplayName),
@@ -113,13 +114,13 @@ func mapToProtoMerchantDetailResponse(m interface{}) *pb.MerchantDetailResponse 
 	}
 }
 
-func mapToProtoMerchantDetailResponseDeleteAt(m interface{}) *pb.MerchantDetailResponseDeleteAt {
-	var res *pb.MerchantDetailResponseDeleteAt
+func mapToProtoMerchantDetailResponseDeleteAt(m interface{}) *pb_merchant_detail.MerchantDetailResponseDeleteAt {
+	var res *pb_merchant_detail.MerchantDetailResponseDeleteAt
 	var deletedAt interface{}
 
 	switch v := m.(type) {
 	case *db.MerchantDetail:
-		res = &pb.MerchantDetailResponseDeleteAt{
+		res = &pb_merchant_detail.MerchantDetailResponseDeleteAt{
 			Id:               v.MerchantDetailID,
 			MerchantId:       v.MerchantID,
 			DisplayName:      getString(v.DisplayName),
@@ -132,7 +133,7 @@ func mapToProtoMerchantDetailResponseDeleteAt(m interface{}) *pb.MerchantDetailR
 		}
 		deletedAt = v.DeletedAt
 	case *db.GetMerchantDetailsActiveRow:
-		res = &pb.MerchantDetailResponseDeleteAt{
+		res = &pb_merchant_detail.MerchantDetailResponseDeleteAt{
 			Id:               v.MerchantDetailID,
 			MerchantId:       v.MerchantID,
 			DisplayName:      getString(v.DisplayName),
@@ -145,7 +146,7 @@ func mapToProtoMerchantDetailResponseDeleteAt(m interface{}) *pb.MerchantDetailR
 		}
 		deletedAt = v.DeletedAt
 	case *db.GetMerchantDetailsTrashedRow:
-		res = &pb.MerchantDetailResponseDeleteAt{
+		res = &pb_merchant_detail.MerchantDetailResponseDeleteAt{
 			Id:               v.MerchantDetailID,
 			MerchantId:       v.MerchantID,
 			DisplayName:      getString(v.DisplayName),
@@ -168,10 +169,10 @@ func mapToProtoMerchantDetailResponseDeleteAt(m interface{}) *pb.MerchantDetailR
 	return res
 }
 
-func mapToProtoMerchantSocialLinkResponse(m interface{}) *pb.MerchantSocialMediaLinkResponse {
+func mapToProtoMerchantSocialLinkResponse(m interface{}) *pb_merchant_detail.MerchantSocialMediaLinkResponse {
 	switch v := m.(type) {
 	case *db.MerchantSocialMediaLink:
-		return &pb.MerchantSocialMediaLinkResponse{
+		return &pb_merchant_detail.MerchantSocialMediaLinkResponse{
 			Id:               v.MerchantSocialID,
 			MerchantDetailId: v.MerchantDetailID,
 			Platform:         v.Platform,
@@ -180,7 +181,7 @@ func mapToProtoMerchantSocialLinkResponse(m interface{}) *pb.MerchantSocialMedia
 			UpdatedAt:        formatTimestamp(v.UpdatedAt),
 		}
 	case *db.CreateMerchantSocialMediaLinkRow:
-		return &pb.MerchantSocialMediaLinkResponse{
+		return &pb_merchant_detail.MerchantSocialMediaLinkResponse{
 			Id:               v.MerchantSocialID,
 			MerchantDetailId: v.MerchantDetailID,
 			Platform:         v.Platform,
@@ -189,7 +190,7 @@ func mapToProtoMerchantSocialLinkResponse(m interface{}) *pb.MerchantSocialMedia
 			UpdatedAt:        formatTimestamp(v.UpdatedAt),
 		}
 	case *db.UpdateMerchantSocialMediaLinkRow:
-		return &pb.MerchantSocialMediaLinkResponse{
+		return &pb_merchant_detail.MerchantSocialMediaLinkResponse{
 			Id:               v.MerchantSocialID,
 			MerchantDetailId: v.MerchantDetailID,
 			Platform:         v.Platform,

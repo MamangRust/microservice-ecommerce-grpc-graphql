@@ -7,10 +7,10 @@ package graph
 import (
 	"context"
 
+	graphqlerror "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/errors"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/shipping_address"
 	sharedErrors "github.com/MamangRust/microservice-ecommerce-shared/errors"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphqlerror "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/errors"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -22,7 +22,7 @@ func (r *mutationResolver) TrashedShipping(ctx context.Context, input model.Find
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: shipping ID cannot be zero"))
 		}
 
-		shipping, err := r.ShippingAddressGraphql.ShippingCommandClient.TrashedShipping(ctx, &pb.FindByIdShippingRequest{
+		shipping, err := r.ShippingAddressGraphql.ShippingCommandClient.TrashedShipping(ctx, &pb_shipping_address.FindByIdShippingRequest{
 			Id: id,
 		})
 		if err != nil {
@@ -45,7 +45,7 @@ func (r *mutationResolver) RestoreShipping(ctx context.Context, input model.Find
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: shipping ID cannot be zero"))
 		}
 
-		shipping, err := r.ShippingAddressGraphql.ShippingCommandClient.RestoreShipping(ctx, &pb.FindByIdShippingRequest{
+		shipping, err := r.ShippingAddressGraphql.ShippingCommandClient.RestoreShipping(ctx, &pb_shipping_address.FindByIdShippingRequest{
 			Id: id,
 		})
 		if err != nil {
@@ -68,7 +68,7 @@ func (r *mutationResolver) DeleteShippingPermanent(ctx context.Context, input mo
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: shipping ID cannot be zero"))
 		}
 
-		res, err := r.ShippingAddressGraphql.ShippingCommandClient.DeleteShippingPermanent(ctx, &pb.FindByIdShippingRequest{
+		res, err := r.ShippingAddressGraphql.ShippingCommandClient.DeleteShippingPermanent(ctx, &pb_shipping_address.FindByIdShippingRequest{
 			Id: id,
 		})
 		if err != nil {
@@ -140,7 +140,7 @@ func (r *queryResolver) FindAllShipping(ctx context.Context, input *model.FindAl
 		pageSize = 10
 	}
 
-	reqService := &pb.FindAllShippingRequest{
+	reqService := &pb_shipping_address.FindAllShippingRequest{
 		Page:     page,
 		PageSize: pageSize,
 		Search:   search,
@@ -173,7 +173,7 @@ func (r *queryResolver) FindShippingByID(ctx context.Context, input *model.FindB
 		return data, nil
 	}
 
-	shipping, err := r.ShippingAddressGraphql.ShippingQueryClient.FindById(ctx, &pb.FindByIdShippingRequest{
+	shipping, err := r.ShippingAddressGraphql.ShippingQueryClient.FindById(ctx, &pb_shipping_address.FindByIdShippingRequest{
 		Id: int32(id),
 	})
 	if err != nil {
@@ -202,7 +202,7 @@ func (r *queryResolver) FindShippingByOrder(ctx context.Context, input *model.Fi
 		return data, nil
 	}
 
-	shipping, err := r.ShippingAddressGraphql.ShippingQueryClient.FindByOrder(ctx, &pb.FindByIdShippingRequest{
+	shipping, err := r.ShippingAddressGraphql.ShippingQueryClient.FindByOrder(ctx, &pb_shipping_address.FindByIdShippingRequest{
 		Id: int32(orderID),
 	})
 	if err != nil {
@@ -241,7 +241,7 @@ func (r *queryResolver) FindActiveShipping(ctx context.Context, input *model.Fin
 		pageSize = 10
 	}
 
-	reqService := &pb.FindAllShippingRequest{
+	reqService := &pb_shipping_address.FindAllShippingRequest{
 		Page:     page,
 		PageSize: pageSize,
 		Search:   search,
@@ -288,7 +288,7 @@ func (r *queryResolver) FindTrashedShipping(ctx context.Context, input *model.Fi
 		pageSize = 10
 	}
 
-	reqService := &pb.FindAllShippingRequest{
+	reqService := &pb_shipping_address.FindAllShippingRequest{
 		Page:     page,
 		PageSize: pageSize,
 		Search:   search,

@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	pb_category "github.com/MamangRust/microservice-ecommerce-grpc-pb/category"
+	pb_merchant "github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
 	prod_cache "github.com/MamangRust/microservice-ecommerce-grpc-product/cache"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-product/database/schema"
 	"github.com/MamangRust/microservice-ecommerce-grpc-product/repository"
@@ -11,7 +13,6 @@ import (
 	"github.com/MamangRust/microservice-ecommerce-shared/cache"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	tests "github.com/MamangRust/microservice-ecommerce-test"
 	"github.com/stretchr/testify/suite"
 )
@@ -39,8 +40,9 @@ func (s *ProductServiceTestSuite) SetupSuite() {
 	mencache := prod_cache.NewMencache(cacheStore)
 	repos := repository.NewRepositories(
 		queries,
-		pb.NewCategoryQueryServiceClient(s.Conns["category"]),
-		pb.NewMerchantQueryServiceClient(s.Conns["merchant"]),
+		pb_category.NewCategoryQueryServiceClient(s.Conns["category"]),
+		pb_merchant.NewMerchantQueryServiceClient(s.Conns["merchant"]),
+		repository.GuardOptions{},
 	)
 
 	s.svc = service.NewService(&service.Deps{

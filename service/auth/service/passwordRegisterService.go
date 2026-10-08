@@ -10,6 +10,7 @@ import (
 	"github.com/MamangRust/microservice-ecommerce-auth/repository"
 
 	db "github.com/MamangRust/microservice-ecommerce-auth/database/schema"
+	useradapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/user"
 	emails "github.com/MamangRust/microservice-ecommerce-pkg/email"
 	"github.com/MamangRust/microservice-ecommerce-pkg/event"
 	"github.com/MamangRust/microservice-ecommerce-pkg/kafka"
@@ -31,7 +32,8 @@ type PasswordResetServiceDeps struct {
 	Pool          *pgxpool.Pool
 	Outbox        *outbox.OutboxService
 	Logger        logger.LoggerInterface
-	User          repository.UserRepository
+	User          useradapter.QueryRepository
+	UserCommand   useradapter.CommandRepository
 	ResetToken    repository.ResetTokenRepository
 	Observability observability.TraceLoggerObservability
 }
@@ -43,7 +45,8 @@ type passwordResetService struct {
 	pool          *pgxpool.Pool
 	outbox        *outbox.OutboxService
 	logger        logger.LoggerInterface
-	user          repository.UserRepository
+	user          useradapter.QueryRepository
+	userCommand   useradapter.CommandRepository
 	resetToken    repository.ResetTokenRepository
 	observability observability.TraceLoggerObservability
 }
@@ -57,6 +60,7 @@ func NewPasswordResetService(params *PasswordResetServiceDeps) *passwordResetSer
 		outbox:        params.Outbox,
 		logger:        params.Logger,
 		user:          params.User,
+		userCommand:   params.UserCommand,
 		resetToken:    params.ResetToken,
 		observability: params.Observability,
 	}
@@ -98,6 +102,9 @@ func (s *passwordResetService) ForgotPassword(ctx context.Context, email string)
 		return sharederrorhandler.HandleError[bool](s.logger, err, method, span, zap.String("email", email))
 	}
 
+	// Phase 6 — transactional outbox: the reset-token insert (local DB) and the
+	// outbox event commit in a single transaction; the relay publishes durably.
+	// Without a pool (tests/local) this falls back to direct Kafka.
 	if s.pool != nil {
 		tx, beginErr := s.pool.Begin(ctx)
 		if beginErr != nil {
@@ -177,7 +184,7 @@ func (s *passwordResetService) ResetPassword(ctx context.Context, req *requests.
 		return sharederrorhandler.HandleError[bool](s.logger, err, method, span, zap.String("reset_token", req.ResetToken))
 	}
 
-	_, err := s.user.UpdateUserPassword(ctx, userID, req.Password)
+	_, err := s.userCommand.UpdatePassword(ctx, userID, req.Password)
 	if err != nil {
 		status = "error"
 		return sharederrorhandler.HandleError[bool](s.logger, err, method, span, zap.Int("user.id", userID))
@@ -206,7 +213,7 @@ func (s *passwordResetService) VerifyCode(ctx context.Context, code string) (boo
 		return sharederrorhandler.HandleError[bool](s.logger, err, method, span, zap.String("code", code))
 	}
 
-	_, err = s.user.UpdateUserIsVerified(ctx, int(res.UserID), true)
+	_, err = s.userCommand.UpdateIsVerified(ctx, int(res.UserID), true)
 	if err != nil {
 		status = "error"
 		return sharederrorhandler.HandleError[bool](s.logger, err, method, span, zap.Int("user.id", int(res.UserID)))
@@ -227,6 +234,9 @@ func (s *passwordResetService) VerifyCode(ctx context.Context, code string) (boo
 		return sharederrorhandler.HandleError[bool](s.logger, err, method, span, zap.String("code", code))
 	}
 
+	// Phase 6 — transactional outbox (best-effort enqueue; the user update lives
+	// in the user service over gRPC). The relay guarantees delivery; direct
+	// Kafka remains the fallback when no DB pool is configured.
 	if s.outbox != nil {
 		if enqueueErr := s.outbox.Enqueue(ctx, "email-service-topic-auth-verify-code-success", strconv.Itoa(int(res.UserID)), payloadBytes); enqueueErr != nil {
 			status = "error"

@@ -8,6 +8,7 @@ import (
 	"github.com/MamangRust/microservice-ecommerce-grpc-merchant/cache"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-merchant/database/schema"
 	"github.com/MamangRust/microservice-ecommerce-grpc-merchant/repository"
+	useradapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/user"
 	"github.com/MamangRust/microservice-ecommerce-pkg/email"
 	"github.com/MamangRust/microservice-ecommerce-pkg/event"
 	"github.com/MamangRust/microservice-ecommerce-pkg/kafka"
@@ -28,7 +29,7 @@ type merchantDocumentCommandService struct {
 	cache         cache.MerchantDocumentCommandCache
 	repository    repository.MerchantDocumentCommandRepository
 	merchantQuery repository.MerchantQueryRepository
-	userQuery     repository.UserQueryRepository
+	userQuery     useradapter.QueryRepository
 	pool          *pgxpool.Pool
 	outbox        *outbox.OutboxService
 	logger        logger.LoggerInterface
@@ -40,7 +41,7 @@ type MerchantDocumentCommandServiceDeps struct {
 	Cache         cache.MerchantDocumentCommandCache
 	Repository    repository.MerchantDocumentCommandRepository
 	MerchantQuery repository.MerchantQueryRepository
-	UserQuery     repository.UserQueryRepository
+	UserQuery     useradapter.QueryRepository
 	Pool          *pgxpool.Pool
 	Outbox        *outbox.OutboxService
 	Logger        logger.LoggerInterface
@@ -95,6 +96,10 @@ func (s *merchantDocumentCommandService) publishDocumentEmail(ctx context.Contex
 		return
 	}
 
+	// Phase 6 — transactional outbox: when a transaction is supplied the event is
+	// enqueued inside it (atomic with the business write); otherwise it falls
+	// back to a direct Kafka publish (tests/local). Email failure never fails
+	// the document operation.
 	if tx != nil && s.outbox != nil {
 		if err := s.outbox.EnqueueInTx(ctx, NewOutboxQuerier(db.New(tx)), topic, strconv.Itoa(int(documentID)), payloadBytes); err != nil {
 			s.logger.Error("failed to enqueue merchant document email to outbox", zap.Error(err), zap.String("topic", topic), zap.Int32("document_id", documentID))
@@ -115,7 +120,9 @@ func (s *merchantDocumentCommandService) Create(ctx context.Context, request *re
 
 	defer func() {
 		end(status)
-	}()
+	}() // Phase 6 — transactional outbox: document insert + email outbox event commit
+	// in a single transaction; the relay publishes durably. Without a pool
+	// (tests) this falls back to direct Kafka.
 	var res *db.CreateMerchantDocumentRow
 	var tx pgx.Tx
 	var err error
@@ -208,6 +215,9 @@ func (s *merchantDocumentCommandService) UpdateStatus(ctx context.Context, reque
 		end(status)
 	}()
 
+	// Phase 6 — transactional outbox: document status update + email outbox event
+	// commit in a single transaction; the relay publishes durably. Without a
+	// pool (tests) this falls back to direct Kafka.
 	var res *db.UpdateMerchantDocumentStatusRow
 	var tx pgx.Tx
 	var err error

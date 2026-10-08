@@ -2,21 +2,41 @@ package repository
 
 import (
 	db "github.com/MamangRust/microservice-ecommerce-grpc-product/database/schema"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
+	pb_category "github.com/MamangRust/microservice-ecommerce-grpc-pb/category"
+	pb_merchant "github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
+	"github.com/MamangRust/microservice-ecommerce-pkg/adapter"
+	categoryadapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/category"
+	merchantadapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/merchant"
 )
+
+type GuardOptions struct {
+	Category []adapter.GuardOption
+	Merchant []adapter.GuardOption
+}
 
 type Repositories struct {
 	ProductQuery   ProductQueryRepository
 	ProductCommand ProductCommandRepository
-	CategoryQuery  CategoryQueryRepository
-	MerchantQuery  MerchantQueryRepository
+	CategoryQuery  categoryadapter.QueryRepository
+	MerchantQuery  merchantadapter.QueryRepository
 }
 
-func NewRepositories(DB *db.Queries, categoryQueryClient pb.CategoryQueryServiceClient, merchantQueryClient pb.MerchantQueryServiceClient) *Repositories {
+func NewRepositories(db *db.Queries,
+	categoryQueryClient pb_category.CategoryQueryServiceClient,
+	merchantQueryClient pb_merchant.MerchantQueryServiceClient,
+	guards ...GuardOptions,
+) *Repositories {
+	var g GuardOptions
+	if len(guards) > 0 {
+		g = guards[0]
+	}
+
+	categoryQuery := categoryadapter.NewAdapter(categoryQueryClient, g.Category...)
+
 	return &Repositories{
-		ProductQuery:   NewProductQueryRepository(DB, categoryQueryClient),
-		ProductCommand: NewProductCommandRepository(DB),
-		CategoryQuery:  NewCategoryQueryRepository(categoryQueryClient),
-		MerchantQuery:  NewMerchantQueryRepository(merchantQueryClient),
+		ProductQuery:   NewProductQueryRepository(db, categoryQuery),
+		ProductCommand: NewProductCommandRepository(db),
+		CategoryQuery:  categoryQuery,
+		MerchantQuery:  merchantadapter.NewQueryAdapter(merchantQueryClient, g.Merchant...),
 	}
 }

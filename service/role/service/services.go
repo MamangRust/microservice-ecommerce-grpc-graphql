@@ -8,8 +8,10 @@ import (
 )
 
 type Service struct {
-	RoleQuery   RoleQueryService
-	RoleCommand RoleCommandService
+	RoleQuery       RoleQueryService
+	RoleCommand     RoleCommandService
+	UserRoleQuery   UserRoleQueryService
+	UserRoleCommand UserRoleCommandService
 }
 
 type Deps struct {
@@ -28,9 +30,20 @@ func NewService(deps *Deps) *Service {
 			Logger:         deps.Logger,
 		}),
 		RoleCommand: NewRoleCommandService(&RoleCommandServiceDeps{
+			Observability:  deps.Observability,
+			Cache:          deps.Cache,
+			RoleRepository: deps.Repository.RoleCommand,
+			Logger:         deps.Logger,
+		}),
+		UserRoleQuery: NewUserRoleQueryService(&UserRoleQueryServiceDeps{
 			Observability:      deps.Observability,
 			Cache:              deps.Cache,
-			RoleRepository:     deps.Repository.RoleCommand,
+			UserRoleRepository: deps.Repository.UserRole,
+			Logger:             deps.Logger,
+		}),
+		UserRoleCommand: NewUserRoleCommandService(&UserRoleCommandServiceDeps{
+			Observability:      deps.Observability,
+			Cache:              deps.Cache,
 			UserRoleRepository: deps.Repository.UserRole,
 			Logger:             deps.Logger,
 		}),

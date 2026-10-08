@@ -1,7 +1,7 @@
 package authapimapper
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/auth"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/response"
 )
 
@@ -11,7 +11,7 @@ func NewAuthQueryResponseMapper() AuthQueryResponseMapper {
 	return &authQueryResponseMapper{}
 }
 
-func (s *authQueryResponseMapper) ToResponseGetMe(res *pb.ApiResponseGetMe) *response.ApiResponseGetMe {
+func (s *authQueryResponseMapper) ToResponseGetMe(res *pb_auth.ApiResponseGetMe) *response.ApiResponseGetMe {
 	if res == nil {
 		return &response.ApiResponseGetMe{
 			Status:  "error",

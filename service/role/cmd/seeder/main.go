@@ -23,8 +23,8 @@ func open(logger logger.LoggerInterface, prefix string) (*db.Queries, func(), er
 	return db.New(conn), closeFn, nil
 }
 
-// openUser connects to the user database, which the role seeder reads across
-// the per-service database boundary (F-per-service schema).
+// openUser connects to the user tables, which live in the same identity
+// context as roles (one PostgreSQL instance per bounded context).
 func openUser(logger logger.LoggerInterface, prefix string) (*userdb.Queries, func(), error) {
 	conn, err := database.NewClientWithPrefix(logger, prefix)
 	if err != nil {
@@ -46,13 +46,13 @@ func main() {
 
 	ctx := context.Background()
 
-	roleDB, closeRole, err := open(logger, "DB_ROLE")
+	roleDB, closeRole, err := open(logger, database.IdentityCluster)
 	if err != nil {
 		logger.Fatal("Failed to connect to role database", zap.Error(err))
 	}
 	defer closeRole()
 
-	userDB, closeUser, err := openUser(logger, "DB_USER")
+	userDB, closeUser, err := openUser(logger, database.IdentityCluster)
 	if err != nil {
 		logger.Fatal("Failed to connect to user database", zap.Error(err))
 	}

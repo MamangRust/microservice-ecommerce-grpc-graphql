@@ -31,3 +31,5 @@ use (
 	./shared
 	./tests
 )
+
+replace github.com/MamangRust/microservice-ecommerce-grpc-pb v0.0.0 => ./pb

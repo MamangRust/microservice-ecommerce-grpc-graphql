@@ -7,25 +7,29 @@ import (
 	"time"
 
 	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/modules/clickhouse"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/modules/redis"
 	"github.com/testcontainers/testcontainers-go/wait"
+
+	"net"
+	"os"
+	"path/filepath"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 	goredis "github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
-	"net"
-	"os"
-	"path/filepath"
 )
 
 type TestSuite struct {
 	PGContainer    *postgres.PostgresContainer
 	RedisContainer *redis.RedisContainer
+	CHContainer    *clickhouse.ClickHouseContainer
 	DBURL          string
 	RedisURL       string
+	CHURL          string
 	Ctx            context.Context
 }
 
@@ -63,11 +67,33 @@ func SetupTestSuite() (*TestSuite, error) {
 		return nil, fmt.Errorf("failed to get redis connection string: %w", err)
 	}
 
+	// Setup ClickHouse. The stats suites read/write real aggregates, so they need
+	// a live server; the shared container keeps their fixtures isolated from any
+	// externally configured instance.
+	chContainer, err := clickhouse.Run(ctx,
+		"clickhouse/clickhouse-server:24.3-alpine",
+		clickhouse.WithDatabase("testdb"),
+		clickhouse.WithUsername("testuser"),
+		clickhouse.WithPassword("testpass"),
+		testcontainers.WithWaitStrategy(
+			wait.ForHTTP("/ping").WithPort("8123/tcp").WithStartupTimeout(30*time.Second)),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start clickhouse container: %w", err)
+	}
+
+	chURL, err := chContainer.ConnectionString(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get clickhouse connection string: %w", err)
+	}
+
 	ts := &TestSuite{
 		PGContainer:    pgContainer,
 		RedisContainer: redisContainer,
+		CHContainer:    chContainer,
 		DBURL:          dbURL,
 		RedisURL:       redisURL,
+		CHURL:          chURL,
 		Ctx:            ctx,
 	}
 
@@ -170,6 +196,11 @@ func (ts *TestSuite) Teardown() {
 	if ts.RedisContainer != nil {
 		if err := ts.RedisContainer.Terminate(ts.Ctx); err != nil {
 			log.Printf("failed to terminate redis container: %v", err)
+		}
+	}
+	if ts.CHContainer != nil {
+		if err := ts.CHContainer.Terminate(ts.Ctx); err != nil {
+			log.Printf("failed to terminate clickhouse container: %v", err)
 		}
 	}
 }

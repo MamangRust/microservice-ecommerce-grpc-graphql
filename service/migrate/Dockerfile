@@ -32,6 +32,19 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /app/migrate_bin ./cmd/main.go
 
 
+# Migrations stage: keep only the per-service SQL so the migrate image ships
+# the full context-aware migration tree (service/<svc>/database/migration)
+# without the Go sources.
+FROM alpine:latest AS migrations
+
+WORKDIR /app
+
+COPY service/ ./service/
+
+RUN find service -type f ! -path "*/database/migration/*" -delete && \
+    find service -type d -empty -delete
+
+
 FROM alpine:latest
 
 RUN apk --no-cache add ca-certificates
@@ -44,9 +57,12 @@ WORKDIR /app
 RUN mkdir -p /var/log/app && chown -R 1000:1000 /var/log/app
 
 COPY --from=builder /app/migrate_bin ./migrate
+COPY --from=migrations /app/service ./service
 
-RUN chown -R 1000:1000 ./migrate
+RUN chown -R 1000:1000 ./migrate ./service
 
 USER appuser
 
-CMD ["./migrate"]
+# Default to `up` so the Kubernetes migrate Job (Sync wave 0) migrates all six
+# contexts without needing an explicit arg.
+CMD ["./migrate", "up"]

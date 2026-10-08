@@ -6,6 +6,7 @@ import (
 	"github.com/MamangRust/microservice-ecommerce-grpc-user/cache"
 	"github.com/MamangRust/microservice-ecommerce-grpc-user/repository"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-user/database/schema"
+	roleadapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/role"
 	"github.com/MamangRust/microservice-ecommerce-pkg/hash"
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
@@ -21,7 +22,7 @@ type userCommandService struct {
 	cache                 cache.UserCommandCache
 	userCommandRepository repository.UserCommandRepository
 	userQueryRepository   repository.UserQueryRepository
-	roleRepository        repository.RoleRepository
+	roleRepository        roleadapter.QueryRepository
 	logger                logger.LoggerInterface
 	hashing               hash.HashPassword
 }
@@ -31,7 +32,7 @@ type UserCommandServiceDeps struct {
 	Cache                 cache.UserCommandCache
 	UserCommandRepository repository.UserCommandRepository
 	UserQueryRepository   repository.UserQueryRepository
-	RoleRepository        repository.RoleRepository
+	RoleRepository        roleadapter.QueryRepository
 	Logger                logger.LoggerInterface
 	Hash                  hash.HashPassword
 }

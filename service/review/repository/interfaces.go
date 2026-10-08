@@ -4,17 +4,8 @@ import (
 	"context"
 
 	db "github.com/MamangRust/microservice-ecommerce-grpc-review/database/schema"
-	dto "github.com/MamangRust/microservice-ecommerce-grpc-review/dto"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 )
-
-type UserQueryRepository interface {
-	FindByID(ctx context.Context, user_id int) (*dto.GetUserByIDRow, error)
-}
-
-type ProductQueryRepository interface {
-	FindByID(ctx context.Context, product_id int) (*dto.GetProductByIDRow, error)
-}
 
 type ReviewQueryRepository interface {
 	FindAll(ctx context.Context, req *requests.FindAllReview) ([]*db.GetReviewsRow, error)

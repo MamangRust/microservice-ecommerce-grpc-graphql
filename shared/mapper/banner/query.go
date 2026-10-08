@@ -1,7 +1,7 @@
 package bannerapimapper
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/banner"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/response"
 	paginationapimapper "github.com/MamangRust/microservice-ecommerce-shared/mapper/pagination"
 )
@@ -12,8 +12,10 @@ func NewBannerQueryResponseMapper() BannerQueryResponseMapper {
 	return &bannerQueryResponseMapper{}
 }
 
-func (m *bannerQueryResponseMapper) ToResponseBanner(banner *pb.BannerResponse) *response.BannerResponse {
-	if banner == nil { return nil }
+func (m *bannerQueryResponseMapper) ToResponseBanner(banner *pb_banner.BannerResponse) *response.BannerResponse {
+	if banner == nil {
+		return nil
+	}
 	return &response.BannerResponse{
 		ID:        banner.BannerId,
 		Name:      banner.Name,
@@ -27,7 +29,7 @@ func (m *bannerQueryResponseMapper) ToResponseBanner(banner *pb.BannerResponse) 
 	}
 }
 
-func (m *bannerQueryResponseMapper) ToResponsesBanner(banners []*pb.BannerResponse) []*response.BannerResponse {
+func (m *bannerQueryResponseMapper) ToResponsesBanner(banners []*pb_banner.BannerResponse) []*response.BannerResponse {
 	var mappedBanners []*response.BannerResponse
 	for _, banner := range banners {
 		mappedBanners = append(mappedBanners, m.ToResponseBanner(banner))
@@ -35,7 +37,7 @@ func (m *bannerQueryResponseMapper) ToResponsesBanner(banners []*pb.BannerRespon
 	return mappedBanners
 }
 
-func (m *bannerQueryResponseMapper) ToApiResponseBanner(pbResponse *pb.ApiResponseBanner) *response.ApiResponseBanner {
+func (m *bannerQueryResponseMapper) ToApiResponseBanner(pbResponse *pb_banner.ApiResponseBanner) *response.ApiResponseBanner {
 	return &response.ApiResponseBanner{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -43,7 +45,7 @@ func (m *bannerQueryResponseMapper) ToApiResponseBanner(pbResponse *pb.ApiRespon
 	}
 }
 
-func (m *bannerQueryResponseMapper) ToApiResponsesBanner(pbResponse *pb.ApiResponsesBanner) *response.ApiResponsesBanner {
+func (m *bannerQueryResponseMapper) ToApiResponsesBanner(pbResponse *pb_banner.ApiResponsesBanner) *response.ApiResponsesBanner {
 	return &response.ApiResponsesBanner{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -51,7 +53,7 @@ func (m *bannerQueryResponseMapper) ToApiResponsesBanner(pbResponse *pb.ApiRespo
 	}
 }
 
-func (m *bannerQueryResponseMapper) ToApiResponsePaginationBanner(pbResponse *pb.ApiResponsePaginationBanner) *response.ApiResponsePaginationBanner {
+func (m *bannerQueryResponseMapper) ToApiResponsePaginationBanner(pbResponse *pb_banner.ApiResponsePaginationBanner) *response.ApiResponsePaginationBanner {
 	return &response.ApiResponsePaginationBanner{
 		Status:     pbResponse.Status,
 		Message:    pbResponse.Message,
@@ -60,11 +62,13 @@ func (m *bannerQueryResponseMapper) ToApiResponsePaginationBanner(pbResponse *pb
 	}
 }
 
-func (m *bannerQueryResponseMapper) ToApiResponsePaginationBannerDeleteAt(pbResponse *pb.ApiResponsePaginationBannerDeleteAt) *response.ApiResponsePaginationBannerDeleteAt {
+func (m *bannerQueryResponseMapper) ToApiResponsePaginationBannerDeleteAt(pbResponse *pb_banner.ApiResponsePaginationBannerDeleteAt) *response.ApiResponsePaginationBannerDeleteAt {
 	var data []*response.BannerResponseDeleteAt
 	for _, b := range pbResponse.Data {
 		var deletedAt string
-		if b.DeletedAt != nil { deletedAt = b.DeletedAt.Value }
+		if b.DeletedAt != nil {
+			deletedAt = b.DeletedAt.Value
+		}
 		data = append(data, &response.BannerResponseDeleteAt{
 			ID:        b.BannerId,
 			Name:      b.Name,

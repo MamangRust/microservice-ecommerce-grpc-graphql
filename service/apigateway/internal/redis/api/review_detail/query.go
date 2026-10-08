@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
 	"github.com/MamangRust/microservice-ecommerce-shared/cache"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
 )
 
 const (

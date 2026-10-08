@@ -6,20 +6,20 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
+	"github.com/MamangRust/microservice-ecommerce-pkg/database"
 	"github.com/MamangRust/microservice-ecommerce-pkg/dotenv"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 	"github.com/spf13/viper"
 )
 
-const (
-	dialect = "pgx"
-)
+const dialect = "pgx"
 
 var (
 	flags = flag.NewFlagSet("migrate", flag.ExitOnError)
-	dir   = flags.String("dir", "/app/migrations", "directory with migration files")
+	root  = flags.String("root", ".", "directory holding the service/ tree with per-service migrations")
 )
 
 func main() {
@@ -37,33 +37,77 @@ func main() {
 
 	command := args[0]
 
-	err := dotenv.Viper()
-	if err != nil {
+	if err := dotenv.Viper(); err != nil {
 		log.Fatalf("Error loading environment variables: %v", err)
 	}
 
-	connStr := fmt.Sprintf("host=%s port=%s user=%s dbname=%s password=%s sslmode=disable",
-		viper.GetString("DB_HOST"),
-		viper.GetString("DB_PORT"),
-		viper.GetString("DB_USERNAME"),
-		viper.GetString("DB_NAME"),
-		viper.GetString("DB_PASSWORD"),
-	)
+	ctx := context.Background()
+	for _, cluster := range database.Clusters {
+		if err := migrateCluster(ctx, cluster, command, args[1:]...); err != nil {
+			log.Fatalf("Migration failed for %s: %v", cluster, err)
+		}
+	}
+}
 
-	db, err := goose.OpenDBWithDriver(dialect, connStr)
+// migrateCluster runs the goose command against one context database for every
+// service that owns tables in it. Each service keeps its own goose version
+// table so sibling services sharing the database never see each other's
+// versions (which would otherwise trigger goose's "missing migrations" error).
+func migrateCluster(ctx context.Context, cluster, command string, extra ...string) error {
+	dsn, err := contextDSN(cluster)
 	if err != nil {
-		log.Fatalf("Error opening database: %v", err)
+		return err
 	}
 
+	db, err := goose.OpenDBWithDriver(dialect, dsn)
+	if err != nil {
+		return fmt.Errorf("open database: %w", err)
+	}
 	defer func() {
 		if err := db.Close(); err != nil {
-			log.Fatalf("Error closing database: %v", err)
+			log.Printf("Error closing %s database: %v", cluster, err)
 		}
 	}()
 
-	if err := goose.RunContext(context.Background(), command, db, *dir, args[1:]...); err != nil {
-		log.Fatalf("Migration failed: %v", err)
+	for _, svc := range database.ServicesForCluster(cluster) {
+		dir := filepath.Join(*root, "service", svc, "database", "migration")
+		if _, err := os.Stat(dir); err != nil {
+			log.Printf("skip %s/%s: no migration directory at %s", cluster, svc, dir)
+			continue
+		}
+
+		goose.SetTableName(database.MigrationTableName(svc))
+		log.Printf("goose %s: %s (%s)", command, svc, dir)
+		if err := goose.RunContext(ctx, command, db, dir, extra...); err != nil {
+			return fmt.Errorf("%s: %w", svc, err)
+		}
 	}
+
+	return nil
+}
+
+// contextDSN builds the DSN for a context from its mandatory DB_<CTX>_* keys,
+// falling back to the shared DB_USERNAME/DB_PASSWORD. It fails fast when a
+// required key is missing rather than connecting to the wrong instance.
+func contextDSN(cluster string) (string, error) {
+	host := viper.GetString(cluster + "_HOST")
+	port := viper.GetString(cluster + "_PORT")
+	name := viper.GetString(cluster + "_NAME")
+	user := viper.GetString(cluster + "_USERNAME")
+	password := viper.GetString(cluster + "_PASSWORD")
+
+	if user == "" {
+		user = viper.GetString("DB_USERNAME")
+	}
+	if password == "" {
+		password = viper.GetString("DB_PASSWORD")
+	}
+	if host == "" || port == "" || name == "" {
+		return "", fmt.Errorf("%s_HOST, %s_PORT and %s_NAME are required", cluster, cluster, cluster)
+	}
+
+	return fmt.Sprintf("host=%s port=%s user=%s dbname=%s password=%s sslmode=disable",
+		host, port, user, name, password), nil
 }
 
 func usage() {
@@ -73,9 +117,13 @@ func usage() {
 }
 
 var (
-	usagePrefix = `Usage: migrate COMMAND
+	usagePrefix = `Usage: migrate [-root DIR] COMMAND
+The command is applied to all six bounded-context databases (DB_IDENTITY,
+DB_CATALOG, DB_MERCHANT, DB_SALES, DB_EXPERIENCE, DB_EMAIL) in dependency order.
 Examples:
+    migrate up
     migrate status
+    migrate -root /app up
 `
 
 	usageCommands = `

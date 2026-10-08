@@ -4,30 +4,30 @@ import (
 	"context"
 
 	"github.com/MamangRust/microservice-ecommerce-grpc-order/service"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/order"
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	"github.com/MamangRust/microservice-ecommerce-shared/errors"
 	"github.com/MamangRust/microservice-ecommerce-shared/errors/order_errors"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 )
 
 type orderQueryHandler struct {
-	pb.UnimplementedOrderQueryServiceServer
-	orderQuery           service.OrderQueryService
-	logger               logger.LoggerInterface
+	pb_order.UnimplementedOrderQueryServiceServer
+	orderQuery service.OrderQueryService
+	logger     logger.LoggerInterface
 }
 
 func NewOrderQueryHandler(
 	orderQuery service.OrderQueryService,
 	logger logger.LoggerInterface,
-) pb.OrderQueryServiceServer {
+) pb_order.OrderQueryServiceServer {
 	return &orderQueryHandler{
-		orderQuery:           orderQuery,
-		logger:               logger,
+		orderQuery: orderQuery,
+		logger:     logger,
 	}
 }
 
-func (s *orderQueryHandler) FindAll(ctx context.Context, request *pb.FindAllOrderRequest) (*pb.ApiResponsePaginationOrder, error) {
+func (s *orderQueryHandler) FindAll(ctx context.Context, request *pb_order.FindAllOrderRequest) (*pb_order.ApiResponsePaginationOrder, error) {
 	page, pageSize := normalizePage(int(request.GetPage()), int(request.GetPageSize()))
 	search := request.GetSearch()
 
@@ -42,14 +42,14 @@ func (s *orderQueryHandler) FindAll(ctx context.Context, request *pb.FindAllOrde
 		return nil, errors.ToGrpcError(err)
 	}
 
-	pbOrders := make([]*pb.OrderResponse, len(orders))
+	pbOrders := make([]*pb_order.OrderResponse, len(orders))
 	for i, order := range orders {
 		pbOrders[i] = mapToProtoOrderResponse(order)
 	}
 
 	paginationMeta := createPaginationMeta(page, pageSize, *totalRecords)
 
-	return &pb.ApiResponsePaginationOrder{
+	return &pb_order.ApiResponsePaginationOrder{
 		Status:     "success",
 		Message:    "Successfully fetched order",
 		Data:       pbOrders,
@@ -57,7 +57,7 @@ func (s *orderQueryHandler) FindAll(ctx context.Context, request *pb.FindAllOrde
 	}, nil
 }
 
-func (s *orderQueryHandler) FindById(ctx context.Context, request *pb.FindByIdOrderRequest) (*pb.ApiResponseOrder, error) {
+func (s *orderQueryHandler) FindById(ctx context.Context, request *pb_order.FindByIdOrderRequest) (*pb_order.ApiResponseOrder, error) {
 	id := int(request.GetId())
 	if id == 0 {
 		return nil, order_errors.ErrGrpcFailedInvalidId
@@ -68,14 +68,14 @@ func (s *orderQueryHandler) FindById(ctx context.Context, request *pb.FindByIdOr
 		return nil, errors.ToGrpcError(err)
 	}
 
-	return &pb.ApiResponseOrder{
+	return &pb_order.ApiResponseOrder{
 		Status:  "success",
 		Message: "Successfully fetched order",
 		Data:    mapToProtoOrderResponse(order),
 	}, nil
 }
 
-func (s *orderQueryHandler) FindByActive(ctx context.Context, request *pb.FindAllOrderRequest) (*pb.ApiResponsePaginationOrderDeleteAt, error) {
+func (s *orderQueryHandler) FindByActive(ctx context.Context, request *pb_order.FindAllOrderRequest) (*pb_order.ApiResponsePaginationOrderDeleteAt, error) {
 	page, pageSize := normalizePage(int(request.GetPage()), int(request.GetPageSize()))
 	search := request.GetSearch()
 
@@ -90,14 +90,14 @@ func (s *orderQueryHandler) FindByActive(ctx context.Context, request *pb.FindAl
 		return nil, errors.ToGrpcError(err)
 	}
 
-	pbOrders := make([]*pb.OrderResponseDeleteAt, len(orders))
+	pbOrders := make([]*pb_order.OrderResponseDeleteAt, len(orders))
 	for i, order := range orders {
 		pbOrders[i] = mapToProtoOrderResponseDeleteAt(order)
 	}
 
 	paginationMeta := createPaginationMeta(page, pageSize, *totalRecords)
 
-	return &pb.ApiResponsePaginationOrderDeleteAt{
+	return &pb_order.ApiResponsePaginationOrderDeleteAt{
 		Status:     "success",
 		Message:    "Successfully fetched active order",
 		Data:       pbOrders,
@@ -105,7 +105,7 @@ func (s *orderQueryHandler) FindByActive(ctx context.Context, request *pb.FindAl
 	}, nil
 }
 
-func (s *orderQueryHandler) FindByTrashed(ctx context.Context, request *pb.FindAllOrderRequest) (*pb.ApiResponsePaginationOrderDeleteAt, error) {
+func (s *orderQueryHandler) FindByTrashed(ctx context.Context, request *pb_order.FindAllOrderRequest) (*pb_order.ApiResponsePaginationOrderDeleteAt, error) {
 	page, pageSize := normalizePage(int(request.GetPage()), int(request.GetPageSize()))
 	search := request.GetSearch()
 
@@ -120,14 +120,14 @@ func (s *orderQueryHandler) FindByTrashed(ctx context.Context, request *pb.FindA
 		return nil, errors.ToGrpcError(err)
 	}
 
-	pbOrders := make([]*pb.OrderResponseDeleteAt, len(orders))
+	pbOrders := make([]*pb_order.OrderResponseDeleteAt, len(orders))
 	for i, order := range orders {
 		pbOrders[i] = mapToProtoOrderResponseDeleteAt(order)
 	}
 
 	paginationMeta := createPaginationMeta(page, pageSize, *totalRecords)
 
-	return &pb.ApiResponsePaginationOrderDeleteAt{
+	return &pb_order.ApiResponsePaginationOrderDeleteAt{
 		Status:     "success",
 		Message:    "Successfully fetched trashed order",
 		Data:       pbOrders,

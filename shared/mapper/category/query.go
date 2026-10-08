@@ -1,24 +1,22 @@
 package categoryapimapper
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/category"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/response"
 	paginationapimapper "github.com/MamangRust/microservice-ecommerce-shared/mapper/pagination"
 )
 
 type categoryQueryResponseMapper struct {
-	CategoryStatsResponseMapper
 	CategoryCommandResponseMapper
 }
 
 func NewCategoryQueryResponseMapper() CategoryQueryResponseMapper {
 	return &categoryQueryResponseMapper{
-		CategoryStatsResponseMapper:   NewCategoryStatsResponseMapper(),
 		CategoryCommandResponseMapper: NewCategoryCommandResponseMapper(),
 	}
 }
 
-func (c *categoryQueryResponseMapper) ToResponseCategory(category *pb.CategoryResponse) *response.CategoryResponse {
+func (c *categoryQueryResponseMapper) ToResponseCategory(category *pb_category.CategoryResponse) *response.CategoryResponse {
 	return &response.CategoryResponse{
 		ID:            int(category.Id),
 		Name:          category.Name,
@@ -30,7 +28,7 @@ func (c *categoryQueryResponseMapper) ToResponseCategory(category *pb.CategoryRe
 	}
 }
 
-func (c *categoryQueryResponseMapper) ToResponsesCategory(categories []*pb.CategoryResponse) []*response.CategoryResponse {
+func (c *categoryQueryResponseMapper) ToResponsesCategory(categories []*pb_category.CategoryResponse) []*response.CategoryResponse {
 	var mappedCategories []*response.CategoryResponse
 	for _, category := range categories {
 		mappedCategories = append(mappedCategories, c.ToResponseCategory(category))
@@ -38,7 +36,7 @@ func (c *categoryQueryResponseMapper) ToResponsesCategory(categories []*pb.Categ
 	return mappedCategories
 }
 
-func (c *categoryQueryResponseMapper) ToApiResponseCategory(pbResponse *pb.ApiResponseCategory) *response.ApiResponseCategory {
+func (c *categoryQueryResponseMapper) ToApiResponseCategory(pbResponse *pb_category.ApiResponseCategory) *response.ApiResponseCategory {
 	return &response.ApiResponseCategory{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -46,7 +44,7 @@ func (c *categoryQueryResponseMapper) ToApiResponseCategory(pbResponse *pb.ApiRe
 	}
 }
 
-func (c *categoryQueryResponseMapper) ToApiResponsesCategory(pbResponse *pb.ApiResponsesCategory) *response.ApiResponsesCategory {
+func (c *categoryQueryResponseMapper) ToApiResponsesCategory(pbResponse *pb_category.ApiResponsesCategory) *response.ApiResponsesCategory {
 	return &response.ApiResponsesCategory{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -54,7 +52,7 @@ func (c *categoryQueryResponseMapper) ToApiResponsesCategory(pbResponse *pb.ApiR
 	}
 }
 
-func (c *categoryQueryResponseMapper) ToApiResponsePaginationCategory(pbResponse *pb.ApiResponsePaginationCategory) *response.ApiResponsePaginationCategory {
+func (c *categoryQueryResponseMapper) ToApiResponsePaginationCategory(pbResponse *pb_category.ApiResponsePaginationCategory) *response.ApiResponsePaginationCategory {
 	return &response.ApiResponsePaginationCategory{
 		Status:     pbResponse.Status,
 		Message:    pbResponse.Message,

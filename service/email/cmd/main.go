@@ -89,6 +89,10 @@ func main() {
 		cfg.SMTPPass,
 	)
 
+	// Phase 3 (durable idempotency): the consumer inbox lives in PostgreSQL, so
+	// the email service now requires a database connection at startup. If the
+	// database is unreachable the service refuses to start rather than silently
+	// losing the idempotency guarantee.
 	dbPool, err := database.NewClientWithPrefix(logger, "DB_EMAIL")
 	if err != nil {
 		logger.Fatal("Failed to connect to database for consumer inbox", zap.Error(err))
@@ -97,7 +101,7 @@ func main() {
 
 	// Apply the email service's own migrations (consumer inbox table) on
 	// startup, mirroring the per-service migration pattern.
-	if err := database.RunMigrations(logger, "DB_EMAIL", "./database/migration"); err != nil {
+	if err := database.RunMigrations(logger, "DB_EMAIL", "./database/migration", "email-service"); err != nil {
 		logger.Fatal("Failed to run email service migrations", zap.Error(err))
 	}
 
@@ -125,6 +129,8 @@ func main() {
 		log.Fatalf("Error starting consumer: %v", err)
 	}
 
+	// Phase 4: retry processor — drains the shared retry topic with ordered
+	// backoff, re-attempts SMTP, and escalates to the DLQ after max attempts.
 	retryH := handler.NewRetryHandler(ctx, logger, m, inbox, "email-service-group", myKafka, cfg.MaxRetries, cfg.RetryBackoff)
 	if err := myKafka.StartConsumersWithContextManualCommit(ctx, []string{emailretry.RetryTopic}, emailretry.RetryGroup, retryH); err != nil {
 		log.Fatalf("Error starting retry consumer: %v", err)
@@ -132,6 +138,8 @@ func main() {
 
 	logger.Info("Email service started", zap.String("retry_topic", emailretry.RetryTopic), zap.String("dlq_topic", emailretry.DLQTopic))
 
+	// Phase 5: graceful shutdown — consumers stop on ctx cancellation, then the
+	// producer and the DB pool are closed before the process exits.
 	<-ctx.Done()
 	logger.Info("Shutting down email service")
 	if err := myKafka.Close(); err != nil {

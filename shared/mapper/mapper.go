@@ -20,6 +20,7 @@ import (
 	role "github.com/MamangRust/microservice-ecommerce-shared/mapper/role"
 	shippingaddress "github.com/MamangRust/microservice-ecommerce-shared/mapper/shipping_address"
 	slider "github.com/MamangRust/microservice-ecommerce-shared/mapper/slider"
+	stats "github.com/MamangRust/microservice-ecommerce-shared/mapper/stats"
 	transaction "github.com/MamangRust/microservice-ecommerce-shared/mapper/transaction"
 	user "github.com/MamangRust/microservice-ecommerce-shared/mapper/user"
 )
@@ -46,6 +47,7 @@ type ResponseApiMapper struct {
 	ReviewDetailResponseMapper    ReviewDetailResponseMapper
 	MerchantDocumentProMapper     MerchantDocumentResponseMapper
 	MerchantSocialLinkProtoMapper MerchantSocialLinkMapper
+	StatsResponseMapper           StatsResponseMapper
 }
 
 func NewResponseApiMapper() *ResponseApiMapper {
@@ -71,5 +73,6 @@ func NewResponseApiMapper() *ResponseApiMapper {
 		ReviewDetailResponseMapper:    reviewdetail.NewReviewDetailResponseMapper(),
 		MerchantDocumentProMapper:     merchantdocuments.NewMerchantDocumentResponseMapper(),
 		MerchantSocialLinkProtoMapper: merchantsociallink.NewMerchantSocialLinkResponseMapper(),
+		StatsResponseMapper:           stats.NewStatsResponseMapper(),
 	}
 }

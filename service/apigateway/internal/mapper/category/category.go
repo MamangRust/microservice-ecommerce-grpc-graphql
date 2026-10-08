@@ -1,9 +1,9 @@
 package categorygraphqlmapper
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphqlmapper "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/mapper/pagination"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
+	graphqlmapper "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/mapper/pagination"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/category"
 )
 
 type categoryGraphqlMapper struct{}
@@ -12,7 +12,7 @@ func NewCategoryGraphqlMapper() *categoryGraphqlMapper {
 	return &categoryGraphqlMapper{}
 }
 
-func (m *categoryGraphqlMapper) ToGraphqlResponseCategory(res *pb.ApiResponseCategory) *model.APIResponseCategory {
+func (m *categoryGraphqlMapper) ToGraphqlResponseCategory(res *pb_category.ApiResponseCategory) *model.APIResponseCategory {
 	return &model.APIResponseCategory{
 		Status:  res.Status,
 		Message: res.Message,
@@ -20,7 +20,7 @@ func (m *categoryGraphqlMapper) ToGraphqlResponseCategory(res *pb.ApiResponseCat
 	}
 }
 
-func (m *categoryGraphqlMapper) ToGraphqlResponseCategoryDeleteAt(res *pb.ApiResponseCategoryDeleteAt) *model.APIResponseCategoryDeleteAt {
+func (m *categoryGraphqlMapper) ToGraphqlResponseCategoryDeleteAt(res *pb_category.ApiResponseCategoryDeleteAt) *model.APIResponseCategoryDeleteAt {
 	return &model.APIResponseCategoryDeleteAt{
 		Status:  res.Status,
 		Message: res.Message,
@@ -28,14 +28,14 @@ func (m *categoryGraphqlMapper) ToGraphqlResponseCategoryDeleteAt(res *pb.ApiRes
 	}
 }
 
-func (m *categoryGraphqlMapper) ToGraphqlResponseCategoryDelete(res *pb.ApiResponseCategoryDelete) *model.APIResponseCategoryDelete {
+func (m *categoryGraphqlMapper) ToGraphqlResponseCategoryDelete(res *pb_category.ApiResponseCategoryDelete) *model.APIResponseCategoryDelete {
 	return &model.APIResponseCategoryDelete{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (m *categoryGraphqlMapper) ToGraphqlResponseCategoryAll(res *pb.ApiResponseCategoryAll) *model.APIResponseCategoryAll {
+func (m *categoryGraphqlMapper) ToGraphqlResponseCategoryAll(res *pb_category.ApiResponseCategoryAll) *model.APIResponseCategoryAll {
 	return &model.APIResponseCategoryAll{
 		Status:  res.Status,
 		Message: res.Message,
@@ -43,7 +43,7 @@ func (m *categoryGraphqlMapper) ToGraphqlResponseCategoryAll(res *pb.ApiResponse
 }
 
 func (m *categoryGraphqlMapper) ToGraphqlResponsePaginationCategoryDeleteAt(
-	res *pb.ApiResponsePaginationCategoryDeleteAt,
+	res *pb_category.ApiResponsePaginationCategoryDeleteAt,
 ) *model.APIResponsePaginationCategoryDeleteAt {
 	return &model.APIResponsePaginationCategoryDeleteAt{
 		Status:     res.Status,
@@ -54,7 +54,7 @@ func (m *categoryGraphqlMapper) ToGraphqlResponsePaginationCategoryDeleteAt(
 }
 
 func (m *categoryGraphqlMapper) ToGraphqlResponsePaginationCategory(
-	res *pb.ApiResponsePaginationCategory,
+	res *pb_category.ApiResponsePaginationCategory,
 ) *model.APIResponsePaginationCategory {
 	return &model.APIResponsePaginationCategory{
 		Status:     res.Status,
@@ -64,7 +64,7 @@ func (m *categoryGraphqlMapper) ToGraphqlResponsePaginationCategory(
 	}
 }
 
-func (m *categoryGraphqlMapper) ToGraphqlCategoryMonthlyPrice(res *pb.ApiResponseCategoryMonthPrice) *model.APIResponseCategoryMonthPrice {
+func (m *categoryGraphqlMapper) ToGraphqlCategoryMonthlyPrice(res *pb_category.ApiResponseCategoryMonthPrice) *model.APIResponseCategoryMonthPrice {
 	return &model.APIResponseCategoryMonthPrice{
 		Status:  res.Status,
 		Message: res.Message,
@@ -72,7 +72,7 @@ func (m *categoryGraphqlMapper) ToGraphqlCategoryMonthlyPrice(res *pb.ApiRespons
 	}
 }
 
-func (m *categoryGraphqlMapper) ToGraphqlCategoryYearlyPrice(res *pb.ApiResponseCategoryYearPrice) *model.APIResponseCategoryYearPrice {
+func (m *categoryGraphqlMapper) ToGraphqlCategoryYearlyPrice(res *pb_category.ApiResponseCategoryYearPrice) *model.APIResponseCategoryYearPrice {
 	return &model.APIResponseCategoryYearPrice{
 		Status:  res.Status,
 		Message: res.Message,
@@ -80,7 +80,7 @@ func (m *categoryGraphqlMapper) ToGraphqlCategoryYearlyPrice(res *pb.ApiResponse
 	}
 }
 
-func (m *categoryGraphqlMapper) ToGraphqlMonthlyTotalPrice(res *pb.ApiResponseCategoryMonthlyTotalPrice) *model.APIResponseCategoryMonthlyTotalPrice {
+func (m *categoryGraphqlMapper) ToGraphqlMonthlyTotalPrice(res *pb_category.ApiResponseCategoryMonthlyTotalPrice) *model.APIResponseCategoryMonthlyTotalPrice {
 	return &model.APIResponseCategoryMonthlyTotalPrice{
 		Status:  res.Status,
 		Message: res.Message,
@@ -88,7 +88,7 @@ func (m *categoryGraphqlMapper) ToGraphqlMonthlyTotalPrice(res *pb.ApiResponseCa
 	}
 }
 
-func (m *categoryGraphqlMapper) ToGraphqlYearlyTotalPrice(res *pb.ApiResponseCategoryYearlyTotalPrice) *model.APIResponseCategoryYearlyTotalPrice {
+func (m *categoryGraphqlMapper) ToGraphqlYearlyTotalPrice(res *pb_category.ApiResponseCategoryYearlyTotalPrice) *model.APIResponseCategoryYearlyTotalPrice {
 	return &model.APIResponseCategoryYearlyTotalPrice{
 		Status:  res.Status,
 		Message: res.Message,
@@ -96,7 +96,7 @@ func (m *categoryGraphqlMapper) ToGraphqlYearlyTotalPrice(res *pb.ApiResponseCat
 	}
 }
 
-func (c *categoryGraphqlMapper) mapResponseCategory(category *pb.CategoryResponse) *model.CategoryResponse {
+func (c *categoryGraphqlMapper) mapResponseCategory(category *pb_category.CategoryResponse) *model.CategoryResponse {
 	return &model.CategoryResponse{
 		ID:            int32(category.Id),
 		Name:          category.Name,
@@ -108,7 +108,7 @@ func (c *categoryGraphqlMapper) mapResponseCategory(category *pb.CategoryRespons
 	}
 }
 
-func (c *categoryGraphqlMapper) mapResponsesCategory(categories []*pb.CategoryResponse) []*model.CategoryResponse {
+func (c *categoryGraphqlMapper) mapResponsesCategory(categories []*pb_category.CategoryResponse) []*model.CategoryResponse {
 	var responses []*model.CategoryResponse
 
 	for _, category := range categories {
@@ -118,7 +118,7 @@ func (c *categoryGraphqlMapper) mapResponsesCategory(categories []*pb.CategoryRe
 	return responses
 }
 
-func (c *categoryGraphqlMapper) mapResponseCategoryDeleteAt(category *pb.CategoryResponseDeleteAt) *model.CategoryResponseDeleteAt {
+func (c *categoryGraphqlMapper) mapResponseCategoryDeleteAt(category *pb_category.CategoryResponseDeleteAt) *model.CategoryResponseDeleteAt {
 	var deletedAt string
 
 	if category.DeletedAt != nil {
@@ -137,7 +137,7 @@ func (c *categoryGraphqlMapper) mapResponseCategoryDeleteAt(category *pb.Categor
 	}
 }
 
-func (c *categoryGraphqlMapper) mapResponsesCategoryDeleteAt(categories []*pb.CategoryResponseDeleteAt) []*model.CategoryResponseDeleteAt {
+func (c *categoryGraphqlMapper) mapResponsesCategoryDeleteAt(categories []*pb_category.CategoryResponseDeleteAt) []*model.CategoryResponseDeleteAt {
 	var responses []*model.CategoryResponseDeleteAt
 
 	for _, category := range categories {
@@ -147,7 +147,7 @@ func (c *categoryGraphqlMapper) mapResponsesCategoryDeleteAt(categories []*pb.Ca
 	return responses
 }
 
-func (m *categoryGraphqlMapper) MapResponseCategoryMonthlyPrice(category *pb.CategoryMonthPriceResponse) *model.CategoryMonthPriceResponse {
+func (m *categoryGraphqlMapper) MapResponseCategoryMonthlyPrice(category *pb_category.CategoryMonthPriceResponse) *model.CategoryMonthPriceResponse {
 	if category == nil {
 		return nil
 	}
@@ -161,7 +161,7 @@ func (m *categoryGraphqlMapper) MapResponseCategoryMonthlyPrice(category *pb.Cat
 	}
 }
 
-func (m *categoryGraphqlMapper) MapResponsesCategoryMonthlyPrices(categories []*pb.CategoryMonthPriceResponse) []*model.CategoryMonthPriceResponse {
+func (m *categoryGraphqlMapper) MapResponsesCategoryMonthlyPrices(categories []*pb_category.CategoryMonthPriceResponse) []*model.CategoryMonthPriceResponse {
 	var records []*model.CategoryMonthPriceResponse
 	for _, c := range categories {
 		records = append(records, m.MapResponseCategoryMonthlyPrice(c))
@@ -169,7 +169,7 @@ func (m *categoryGraphqlMapper) MapResponsesCategoryMonthlyPrices(categories []*
 	return records
 }
 
-func (m *categoryGraphqlMapper) MapResponseCategoryYearlyPrice(category *pb.CategoryYearPriceResponse) *model.CategoryYearPriceResponse {
+func (m *categoryGraphqlMapper) MapResponseCategoryYearlyPrice(category *pb_category.CategoryYearPriceResponse) *model.CategoryYearPriceResponse {
 	if category == nil {
 		return nil
 	}
@@ -184,7 +184,7 @@ func (m *categoryGraphqlMapper) MapResponseCategoryYearlyPrice(category *pb.Cate
 	}
 }
 
-func (m *categoryGraphqlMapper) MapResponsesCategoryYearlyPrices(categories []*pb.CategoryYearPriceResponse) []*model.CategoryYearPriceResponse {
+func (m *categoryGraphqlMapper) MapResponsesCategoryYearlyPrices(categories []*pb_category.CategoryYearPriceResponse) []*model.CategoryYearPriceResponse {
 	var records []*model.CategoryYearPriceResponse
 	for _, c := range categories {
 		records = append(records, m.MapResponseCategoryYearlyPrice(c))
@@ -192,7 +192,7 @@ func (m *categoryGraphqlMapper) MapResponsesCategoryYearlyPrices(categories []*p
 	return records
 }
 
-func (m *categoryGraphqlMapper) MapResponseCategoryMonthlyTotalPrice(c *pb.CategoriesMonthlyTotalPriceResponse) *model.CategoryMonthlyTotalPriceResponse {
+func (m *categoryGraphqlMapper) MapResponseCategoryMonthlyTotalPrice(c *pb_category.CategoriesMonthlyTotalPriceResponse) *model.CategoryMonthlyTotalPriceResponse {
 	if c == nil {
 		return nil
 	}
@@ -203,7 +203,7 @@ func (m *categoryGraphqlMapper) MapResponseCategoryMonthlyTotalPrice(c *pb.Categ
 	}
 }
 
-func (m *categoryGraphqlMapper) MapResponseCategoryMonthlyTotalPrices(categories []*pb.CategoriesMonthlyTotalPriceResponse) []*model.CategoryMonthlyTotalPriceResponse {
+func (m *categoryGraphqlMapper) MapResponseCategoryMonthlyTotalPrices(categories []*pb_category.CategoriesMonthlyTotalPriceResponse) []*model.CategoryMonthlyTotalPriceResponse {
 	var records []*model.CategoryMonthlyTotalPriceResponse
 	for _, c := range categories {
 		records = append(records, m.MapResponseCategoryMonthlyTotalPrice(c))
@@ -211,7 +211,7 @@ func (m *categoryGraphqlMapper) MapResponseCategoryMonthlyTotalPrices(categories
 	return records
 }
 
-func (m *categoryGraphqlMapper) MapResponseCategoryYearlyTotalPrice(c *pb.CategoriesYearlyTotalPriceResponse) *model.CategoryYearlyTotalPriceResponse {
+func (m *categoryGraphqlMapper) MapResponseCategoryYearlyTotalPrice(c *pb_category.CategoriesYearlyTotalPriceResponse) *model.CategoryYearlyTotalPriceResponse {
 	if c == nil {
 		return nil
 	}
@@ -221,7 +221,7 @@ func (m *categoryGraphqlMapper) MapResponseCategoryYearlyTotalPrice(c *pb.Catego
 	}
 }
 
-func (m *categoryGraphqlMapper) MapResponseCategoryYearlyTotalPrices(categories []*pb.CategoriesYearlyTotalPriceResponse) []*model.CategoryYearlyTotalPriceResponse {
+func (m *categoryGraphqlMapper) MapResponseCategoryYearlyTotalPrices(categories []*pb_category.CategoriesYearlyTotalPriceResponse) []*model.CategoryYearlyTotalPriceResponse {
 	var records []*model.CategoryYearlyTotalPriceResponse
 	for _, c := range categories {
 		records = append(records, m.MapResponseCategoryYearlyTotalPrice(c))

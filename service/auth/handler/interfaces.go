@@ -3,11 +3,11 @@ package handler
 import (
 	"context"
 
-	pb "github.com/MamangRust/microservice-ecommerce-shared/pb"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/auth"
 )
 
 type AuthHandleGrpc interface {
-	pb.AuthServiceServer
-	LoginUser(ctx context.Context, req *pb.LoginRequest) (*pb.ApiResponseLogin, error)
-	RegisterUser(ctx context.Context, req *pb.RegisterRequest) (*pb.ApiResponseRegister, error)
+	pb_auth.AuthServiceServer
+	LoginUser(ctx context.Context, req *pb_auth.LoginRequest) (*pb_auth.ApiResponseLogin, error)
+	RegisterUser(ctx context.Context, req *pb_auth.RegisterRequest) (*pb_auth.ApiResponseRegister, error)
 }

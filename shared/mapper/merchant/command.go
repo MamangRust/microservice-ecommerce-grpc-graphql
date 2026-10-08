@@ -1,7 +1,7 @@
 package merchantapimapper
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/response"
 	paginationapimapper "github.com/MamangRust/microservice-ecommerce-shared/mapper/pagination"
 )
@@ -12,7 +12,7 @@ func NewMerchantCommandResponseMapper() MerchantCommandResponseMapper {
 	return &merchantCommandResponseMapper{}
 }
 
-func (m *merchantCommandResponseMapper) ToResponseMerchant(merchant *pb.MerchantResponse) *response.MerchantResponse {
+func (m *merchantCommandResponseMapper) ToResponseMerchant(merchant *pb_merchant.MerchantResponse) *response.MerchantResponse {
 	return &response.MerchantResponse{
 		ID:           int(merchant.Id),
 		UserID:       int(merchant.UserId),
@@ -27,7 +27,7 @@ func (m *merchantCommandResponseMapper) ToResponseMerchant(merchant *pb.Merchant
 	}
 }
 
-func (m *merchantCommandResponseMapper) ToResponsesMerchant(merchants []*pb.MerchantResponse) []*response.MerchantResponse {
+func (m *merchantCommandResponseMapper) ToResponsesMerchant(merchants []*pb_merchant.MerchantResponse) []*response.MerchantResponse {
 	var mappedMerchants []*response.MerchantResponse
 	for _, merchant := range merchants {
 		mappedMerchants = append(mappedMerchants, m.ToResponseMerchant(merchant))
@@ -35,7 +35,7 @@ func (m *merchantCommandResponseMapper) ToResponsesMerchant(merchants []*pb.Merc
 	return mappedMerchants
 }
 
-func (m *merchantCommandResponseMapper) ToApiResponseMerchant(pbResponse *pb.ApiResponseMerchant) *response.ApiResponseMerchant {
+func (m *merchantCommandResponseMapper) ToApiResponseMerchant(pbResponse *pb_merchant.ApiResponseMerchant) *response.ApiResponseMerchant {
 	return &response.ApiResponseMerchant{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -43,7 +43,7 @@ func (m *merchantCommandResponseMapper) ToApiResponseMerchant(pbResponse *pb.Api
 	}
 }
 
-func (m *merchantCommandResponseMapper) ToResponseMerchantDeleteAt(merchant *pb.MerchantResponseDeleteAt) *response.MerchantResponseDeleteAt {
+func (m *merchantCommandResponseMapper) ToResponseMerchantDeleteAt(merchant *pb_merchant.MerchantResponseDeleteAt) *response.MerchantResponseDeleteAt {
 	var deletedAt string
 	if merchant.DeletedAt != nil {
 		deletedAt = merchant.DeletedAt.Value
@@ -64,7 +64,7 @@ func (m *merchantCommandResponseMapper) ToResponseMerchantDeleteAt(merchant *pb.
 	}
 }
 
-func (m *merchantCommandResponseMapper) ToResponsesMerchantDeleteAt(merchants []*pb.MerchantResponseDeleteAt) []*response.MerchantResponseDeleteAt {
+func (m *merchantCommandResponseMapper) ToResponsesMerchantDeleteAt(merchants []*pb_merchant.MerchantResponseDeleteAt) []*response.MerchantResponseDeleteAt {
 	var mappedMerchants []*response.MerchantResponseDeleteAt
 	for _, merchant := range merchants {
 		mappedMerchants = append(mappedMerchants, m.ToResponseMerchantDeleteAt(merchant))
@@ -72,7 +72,7 @@ func (m *merchantCommandResponseMapper) ToResponsesMerchantDeleteAt(merchants []
 	return mappedMerchants
 }
 
-func (m *merchantCommandResponseMapper) ToApiResponseMerchantDeleteAt(pbResponse *pb.ApiResponseMerchantDeleteAt) *response.ApiResponseMerchantDeleteAt {
+func (m *merchantCommandResponseMapper) ToApiResponseMerchantDeleteAt(pbResponse *pb_merchant.ApiResponseMerchantDeleteAt) *response.ApiResponseMerchantDeleteAt {
 	return &response.ApiResponseMerchantDeleteAt{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -80,21 +80,21 @@ func (m *merchantCommandResponseMapper) ToApiResponseMerchantDeleteAt(pbResponse
 	}
 }
 
-func (m *merchantCommandResponseMapper) ToApiResponseMerchantDelete(pbResponse *pb.ApiResponseMerchantDelete) *response.ApiResponseMerchantDelete {
+func (m *merchantCommandResponseMapper) ToApiResponseMerchantDelete(pbResponse *pb_merchant.ApiResponseMerchantDelete) *response.ApiResponseMerchantDelete {
 	return &response.ApiResponseMerchantDelete{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
 	}
 }
 
-func (m *merchantCommandResponseMapper) ToApiResponseMerchantAll(pbResponse *pb.ApiResponseMerchantAll) *response.ApiResponseMerchantAll {
+func (m *merchantCommandResponseMapper) ToApiResponseMerchantAll(pbResponse *pb_merchant.ApiResponseMerchantAll) *response.ApiResponseMerchantAll {
 	return &response.ApiResponseMerchantAll{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
 	}
 }
 
-func (m *merchantCommandResponseMapper) ToApiResponsePaginationMerchantDeleteAt(pbResponse *pb.ApiResponsePaginationMerchantDeleteAt) *response.ApiResponsePaginationMerchantDeleteAt {
+func (m *merchantCommandResponseMapper) ToApiResponsePaginationMerchantDeleteAt(pbResponse *pb_merchant.ApiResponsePaginationMerchantDeleteAt) *response.ApiResponsePaginationMerchantDeleteAt {
 	return &response.ApiResponsePaginationMerchantDeleteAt{
 		Status:     pbResponse.Status,
 		Message:    pbResponse.Message,

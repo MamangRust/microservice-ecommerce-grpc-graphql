@@ -4,14 +4,15 @@ import (
 	"context"
 
 	"github.com/MamangRust/microservice-ecommerce-grpc-merchant_policy/service"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_policy"
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	"github.com/MamangRust/microservice-ecommerce-shared/errors"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 )
 
 type merchantPolicyQueryHandler struct {
-	pb.UnimplementedMerchantPolicyQueryServiceServer
+	pb_merchant_policy.UnimplementedMerchantPolicyQueryServiceServer
 	merchantPolicyService service.MerchantPoliciesQueryService
 	logger                logger.LoggerInterface
 }
@@ -19,14 +20,14 @@ type merchantPolicyQueryHandler struct {
 func NewMerchantPolicyQueryHandler(
 	merchantPolicyService service.MerchantPoliciesQueryService,
 	logger logger.LoggerInterface,
-) pb.MerchantPolicyQueryServiceServer {
+) pb_merchant_policy.MerchantPolicyQueryServiceServer {
 	return &merchantPolicyQueryHandler{
 		merchantPolicyService: merchantPolicyService,
 		logger:                logger,
 	}
 }
 
-func (h *merchantPolicyQueryHandler) FindAll(ctx context.Context, req *pb.FindAllMerchantRequest) (*pb.ApiResponsePaginationMerchantPolicies, error) {
+func (h *merchantPolicyQueryHandler) FindAll(ctx context.Context, req *pb_merchant.FindAllMerchantRequest) (*pb_merchant_policy.ApiResponsePaginationMerchantPolicies, error) {
 	merchants, total, err := h.merchantPolicyService.FindAll(ctx, &requests.FindAllMerchant{
 		Page:     int(req.GetPage()),
 		PageSize: int(req.GetPageSize()),
@@ -40,7 +41,7 @@ func (h *merchantPolicyQueryHandler) FindAll(ctx context.Context, req *pb.FindAl
 	return mapToPaginationResponse(merchants, total), nil
 }
 
-func (h *merchantPolicyQueryHandler) FindById(ctx context.Context, req *pb.FindByIdMerchantPoliciesRequest) (*pb.ApiResponseMerchantPolicies, error) {
+func (h *merchantPolicyQueryHandler) FindById(ctx context.Context, req *pb_merchant_policy.FindByIdMerchantPoliciesRequest) (*pb_merchant_policy.ApiResponseMerchantPolicies, error) {
 	merchant, err := h.merchantPolicyService.FindByID(ctx, int(req.GetId()))
 
 	if err != nil {
@@ -50,7 +51,7 @@ func (h *merchantPolicyQueryHandler) FindById(ctx context.Context, req *pb.FindB
 	return mapToSingleResponse(merchant), nil
 }
 
-func (h *merchantPolicyQueryHandler) FindByActive(ctx context.Context, req *pb.FindAllMerchantRequest) (*pb.ApiResponsePaginationMerchantPoliciesDeleteAt, error) {
+func (h *merchantPolicyQueryHandler) FindByActive(ctx context.Context, req *pb_merchant.FindAllMerchantRequest) (*pb_merchant_policy.ApiResponsePaginationMerchantPoliciesDeleteAt, error) {
 	merchants, total, err := h.merchantPolicyService.FindActive(ctx, &requests.FindAllMerchant{
 		Page:     int(req.GetPage()),
 		PageSize: int(req.GetPageSize()),
@@ -64,7 +65,7 @@ func (h *merchantPolicyQueryHandler) FindByActive(ctx context.Context, req *pb.F
 	return mapToPaginationDeleteAtResponse(merchants, total), nil
 }
 
-func (h *merchantPolicyQueryHandler) FindByTrashed(ctx context.Context, req *pb.FindAllMerchantRequest) (*pb.ApiResponsePaginationMerchantPoliciesDeleteAt, error) {
+func (h *merchantPolicyQueryHandler) FindByTrashed(ctx context.Context, req *pb_merchant.FindAllMerchantRequest) (*pb_merchant_policy.ApiResponsePaginationMerchantPoliciesDeleteAt, error) {
 	merchants, total, err := h.merchantPolicyService.FindTrashed(ctx, &requests.FindAllMerchant{
 		Page:     int(req.GetPage()),
 		PageSize: int(req.GetPageSize()),

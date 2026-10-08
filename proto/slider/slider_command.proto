@@ -1,11 +1,11 @@
 syntax = "proto3";
 
-package pb;
+package pb.slider;
 
 import "google/protobuf/empty.proto";
 import "slider/slider_common.proto";
 
-option go_package = "github.com/MamangRust/microservice-ecommerce-shared/pb";
+option go_package = "github.com/MamangRust/microservice-ecommerce-grpc-pb/slider;pb_slider";
 
 message CreateSliderRequest {
     string name = 1;

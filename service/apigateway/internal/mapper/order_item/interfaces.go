@@ -1,15 +1,15 @@
 package order_itemgraphqlmapper
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/order_item"
 )
 
 type OrderItemGraphqlMapper interface {
-	ToGraphqlResponseOrderItem(res *pb.ApiResponseOrderItem) *model.APIResponseOrderItem
-	ToGraphqlResponsesOrderItem(res *pb.ApiResponsesOrderItem) *model.APIResponsesOrderItem
-	ToGraphqlResponseOrderItemDelete(res *pb.ApiResponseOrderItemDelete) *model.APIResponseOrderItemDelete
-	ToGraphqlResponseOrderItemAll(res *pb.ApiResponseOrderItemAll) *model.APIResponseOrderItemAll
-	ToGraphqlResponsePaginationOrderItem(res *pb.ApiResponsePaginationOrderItem) *model.APIResponsePaginationOrderItem
-	ToGraphqlResponsePaginationOrderItemDeleteAt(res *pb.ApiResponsePaginationOrderItemDeleteAt) *model.APIResponsePaginationOrderItemDeleteAt
+	ToGraphqlResponseOrderItem(res *pb_order_item.ApiResponseOrderItem) *model.APIResponseOrderItem
+	ToGraphqlResponsesOrderItem(res *pb_order_item.ApiResponsesOrderItem) *model.APIResponsesOrderItem
+	ToGraphqlResponseOrderItemDelete(res *pb_order_item.ApiResponseOrderItemDelete) *model.APIResponseOrderItemDelete
+	ToGraphqlResponseOrderItemAll(res *pb_order_item.ApiResponseOrderItemAll) *model.APIResponseOrderItemAll
+	ToGraphqlResponsePaginationOrderItem(res *pb_order_item.ApiResponsePaginationOrderItem) *model.APIResponsePaginationOrderItem
+	ToGraphqlResponsePaginationOrderItemDeleteAt(res *pb_order_item.ApiResponsePaginationOrderItemDeleteAt) *model.APIResponsePaginationOrderItemDeleteAt
 }

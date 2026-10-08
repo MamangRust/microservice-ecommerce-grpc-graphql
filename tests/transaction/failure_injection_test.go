@@ -7,16 +7,24 @@ import (
 	"testing"
 	"time"
 
+	pb_merchant "github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
+	pb_order "github.com/MamangRust/microservice-ecommerce-grpc-pb/order"
+	pb_order_item "github.com/MamangRust/microservice-ecommerce-grpc-pb/order_item"
+	pb_shipping_address "github.com/MamangRust/microservice-ecommerce-grpc-pb/shipping_address"
+	pb_user "github.com/MamangRust/microservice-ecommerce-grpc-pb/user"
 	tran_cache "github.com/MamangRust/microservice-ecommerce-grpc-transaction/cache"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-transaction/database/schema"
-	dto "github.com/MamangRust/microservice-ecommerce-grpc-transaction/dto"
 	"github.com/MamangRust/microservice-ecommerce-grpc-transaction/repository"
 	"github.com/MamangRust/microservice-ecommerce-grpc-transaction/service"
+	merchantadapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/merchant"
+	orderadapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/order"
+	orderitemadapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/order_item"
+	shippingadapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/shipping_address"
+	useradapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/user"
 	"github.com/MamangRust/microservice-ecommerce-shared/cache"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	app_errors "github.com/MamangRust/microservice-ecommerce-shared/errors"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	tests "github.com/MamangRust/microservice-ecommerce-test"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/suite"
@@ -30,23 +38,31 @@ import (
 // payment-gateway failure-injection template.
 
 type faultInjectingUserQuery struct {
-	inner repository.UserQueryRepository
+	inner useradapter.QueryRepository
 	fail  bool
 }
 
-func (f *faultInjectingUserQuery) FindByID(ctx context.Context, userID int) (*dto.GetUserByIDRow, error) {
+func (f *faultInjectingUserQuery) FindByID(ctx context.Context, userID int) (*useradapter.User, error) {
 	if f.fail {
 		return nil, status.Error(codes.Unavailable, "user service unavailable (injected)")
 	}
 	return f.inner.FindByID(ctx, userID)
 }
 
+func (f *faultInjectingUserQuery) FindByEmail(ctx context.Context, email string) (*useradapter.User, error) {
+	return f.inner.FindByEmail(ctx, email)
+}
+
+func (f *faultInjectingUserQuery) FindByVerificationCode(ctx context.Context, code string) (*useradapter.User, error) {
+	return f.inner.FindByVerificationCode(ctx, code)
+}
+
 type faultInjectingMerchantQuery struct {
-	inner repository.MerchantQueryRepository
+	inner merchantadapter.QueryRepository
 	fail  bool
 }
 
-func (f *faultInjectingMerchantQuery) FindByID(ctx context.Context, merchantID int) (*dto.GetMerchantByIDRow, error) {
+func (f *faultInjectingMerchantQuery) FindByID(ctx context.Context, merchantID int) (*merchantadapter.Merchant, error) {
 	if f.fail {
 		return nil, status.Error(codes.Unavailable, "merchant service unavailable (injected)")
 	}
@@ -54,39 +70,51 @@ func (f *faultInjectingMerchantQuery) FindByID(ctx context.Context, merchantID i
 }
 
 type faultInjectingOrderQuery struct {
-	inner repository.OrderQueryRepository
+	inner orderadapter.QueryRepository
 	fail  bool
 }
 
-func (f *faultInjectingOrderQuery) FindByID(ctx context.Context, orderID int) (*dto.GetOrderByIDRow, error) {
+func (f *faultInjectingOrderQuery) FindByID(ctx context.Context, orderID int) (*orderadapter.Order, error) {
 	if f.fail {
 		return nil, status.Error(codes.Unavailable, "order service unavailable (injected)")
 	}
 	return f.inner.FindByID(ctx, orderID)
 }
 
+func (f *faultInjectingOrderQuery) FindAll(ctx context.Context, page, pageSize int) ([]orderadapter.Order, int, error) {
+	return f.inner.FindAll(ctx, page, pageSize)
+}
+
 type faultInjectingOrderItemQuery struct {
-	inner repository.OrderItemRepository
+	inner orderitemadapter.QueryRepository
 	fail  bool
 }
 
-func (f *faultInjectingOrderItemQuery) FindOrderItemByOrder(ctx context.Context, orderID int) ([]*dto.GetOrderItemsByOrderRow, error) {
+func (f *faultInjectingOrderItemQuery) FindOrderItemByOrder(ctx context.Context, orderID int) ([]orderitemadapter.OrderItem, error) {
 	if f.fail {
 		return nil, status.Error(codes.Unavailable, "order-item service unavailable (injected)")
 	}
 	return f.inner.FindOrderItemByOrder(ctx, orderID)
 }
 
+func (f *faultInjectingOrderItemQuery) FindAll(ctx context.Context, page, pageSize int) ([]orderitemadapter.OrderItem, int, error) {
+	return f.inner.FindAll(ctx, page, pageSize)
+}
+
 type faultInjectingShippingQuery struct {
-	inner repository.ShippingAddressQueryRepository
+	inner shippingadapter.QueryRepository
 	fail  bool
 }
 
-func (f *faultInjectingShippingQuery) FindByID(ctx context.Context, shippingID int) (*dto.GetShippingAddressByOrderIDRow, error) {
+func (f *faultInjectingShippingQuery) FindByID(ctx context.Context, shippingID int) (*shippingadapter.ShippingAddress, error) {
 	if f.fail {
 		return nil, status.Error(codes.Unavailable, "shipping-address service unavailable (injected)")
 	}
 	return f.inner.FindByID(ctx, shippingID)
+}
+
+func (f *faultInjectingShippingQuery) FindByOrder(ctx context.Context, orderID int) (*shippingadapter.ShippingAddress, error) {
+	return f.inner.FindByOrder(ctx, orderID)
 }
 
 // faultInjectingTransactionCommand can fail the durable insert (CreateInTx /
@@ -222,12 +250,13 @@ func (s *TransactionFailureInjectionTestSuite) SetupSuite() {
 
 	// Real repositories, wrapped with fault injection per dependency.
 	real := repository.NewRepositories(&repository.Deps{
-		DB:             s.queries,
-		UserQuery:      pb.NewUserQueryServiceClient(s.Conns["user"]),
-		MerchantQuery:  pb.NewMerchantQueryServiceClient(s.Conns["merchant"]),
-		OrderQuery:     pb.NewOrderQueryServiceClient(s.Conns["order"]),
-		OrderItemQuery: pb.NewOrderItemQueryServiceClient(s.Conns["order-item"]),
-		ShippingQuery:  pb.NewShippingQueryServiceClient(s.Conns["shipping-address"]),
+		DB:                 s.queries,
+		UserQueryClient:      pb_user.NewUserQueryServiceClient(s.Conns["user"]),
+		MerchantQueryClient:  pb_merchant.NewMerchantQueryServiceClient(s.Conns["merchant"]),
+		OrderQueryClient:     pb_order.NewOrderQueryServiceClient(s.Conns["order"]),
+		OrderItemQueryClient: pb_order_item.NewOrderItemQueryServiceClient(s.Conns["order-item"]),
+		ShippingQueryClient:  pb_shipping_address.NewShippingQueryServiceClient(s.Conns["shipping-address"]),
+		Guards:               repository.GuardOptions{},
 	})
 
 	s.userQuery = &faultInjectingUserQuery{inner: real.UserQuery}

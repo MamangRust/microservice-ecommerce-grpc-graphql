@@ -23,8 +23,8 @@ func open(logger logger.LoggerInterface, prefix string) (*db.Queries, func(), er
 	return db.New(conn), closeFn, nil
 }
 
-// openDetail connects to the review_detail database, which the review seeder
-// seeds across the per-service database boundary (F-per-service schema).
+// openDetail connects to the review_detail tables, which live in the same
+// experience context as reviews (one PostgreSQL instance per bounded context).
 func openDetail(logger logger.LoggerInterface, prefix string) (*reviewdetaildb.Queries, func(), error) {
 	conn, err := database.NewClientWithPrefix(logger, prefix)
 	if err != nil {
@@ -46,13 +46,13 @@ func main() {
 
 	ctx := context.Background()
 
-	reviewDB, closeReview, err := open(logger, "DB_REVIEW")
+	reviewDB, closeReview, err := open(logger, database.ExperienceCluster)
 	if err != nil {
 		logger.Fatal("Failed to connect to review database", zap.Error(err))
 	}
 	defer closeReview()
 
-	reviewDetailDB, closeDetail, err := openDetail(logger, "DB_REVIEW_DETAIL")
+	reviewDetailDB, closeDetail, err := openDetail(logger, database.ExperienceCluster)
 	if err != nil {
 		logger.Fatal("Failed to connect to review_detail database", zap.Error(err))
 	}

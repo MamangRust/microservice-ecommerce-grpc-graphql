@@ -8,10 +8,10 @@ import (
 	db "github.com/MamangRust/microservice-ecommerce-grpc-merchant/database/schema"
 	"github.com/MamangRust/microservice-ecommerce-grpc-merchant/repository"
 	"github.com/MamangRust/microservice-ecommerce-grpc-merchant/service"
+	pb_user "github.com/MamangRust/microservice-ecommerce-grpc-pb/user"
 	"github.com/MamangRust/microservice-ecommerce-shared/cache"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	tests "github.com/MamangRust/microservice-ecommerce-test"
 	"github.com/stretchr/testify/suite"
 )
@@ -28,7 +28,7 @@ func (s *MerchantServiceTestSuite) SetupSuite() {
 
 	s.SetupUserService()
 	queries := db.New(s.DBPool())
-	repos := repository.NewRepositories(queries, pb.NewUserQueryServiceClient(s.Conns["user"]))
+	repos := repository.NewRepositories(queries, pb_user.NewUserQueryServiceClient(s.Conns["user"]), repository.GuardOptions{})
 
 	cacheMetrics, _ := observability.NewCacheMetrics("test")
 	cacheStore := cache.NewCacheStore(s.RedisClient(), s.Log, cacheMetrics)

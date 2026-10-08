@@ -4,7 +4,6 @@ import (
 	"context"
 
 	db "github.com/MamangRust/microservice-ecommerce-grpc-user/database/schema"
-	dto "github.com/MamangRust/microservice-ecommerce-grpc-user/dto"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 )
 
@@ -29,9 +28,4 @@ type UserCommandRepository interface {
 	DeletePermanent(ctx context.Context, user_id int) (bool, error)
 	RestoreAll(ctx context.Context) (bool, error)
 	DeleteAll(ctx context.Context) (bool, error)
-}
-
-type RoleRepository interface {
-	FindByID(ctx context.Context, role_id int) (*dto.Role, error)
-	FindByName(ctx context.Context, name string) (*dto.Role, error)
 }

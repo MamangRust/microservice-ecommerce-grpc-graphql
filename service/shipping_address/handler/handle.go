@@ -1,9 +1,9 @@
 package handler
 
 import (
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/shipping_address"
 	"github.com/MamangRust/microservice-ecommerce-grpc-shipping-address/service"
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 )
 
 type Deps struct {
@@ -12,8 +12,8 @@ type Deps struct {
 }
 
 type Handler struct {
-	ShippingQuery   pb.ShippingQueryServiceServer
-	ShippingCommand pb.ShippingCommandServiceServer
+	ShippingQuery   pb_shipping_address.ShippingQueryServiceServer
+	ShippingCommand pb_shipping_address.ShippingCommandServiceServer
 }
 
 func NewHandler(deps *Deps) *Handler {

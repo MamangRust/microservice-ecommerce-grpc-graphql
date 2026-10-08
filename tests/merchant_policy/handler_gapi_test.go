@@ -9,10 +9,11 @@ import (
 	policy_handler "github.com/MamangRust/microservice-ecommerce-grpc-merchant_policy/handler"
 	policy_repo "github.com/MamangRust/microservice-ecommerce-grpc-merchant_policy/repository"
 	policy_service "github.com/MamangRust/microservice-ecommerce-grpc-merchant_policy/service"
+	pb_merchant "github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
+	pb_merchant_policy "github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_policy"
 	"github.com/MamangRust/microservice-ecommerce-shared/cache"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	"github.com/MamangRust/microservice-ecommerce-test"
+	tests "github.com/MamangRust/microservice-ecommerce-test"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -20,8 +21,8 @@ import (
 
 type MerchantPolicyGapiTestSuite struct {
 	tests.BaseTestSuite
-	queryClient   pb.MerchantPolicyQueryServiceClient
-	commandClient pb.MerchantPolicyCommandServiceClient
+	queryClient   pb_merchant_policy.MerchantPolicyQueryServiceClient
+	commandClient pb_merchant_policy.MerchantPolicyCommandServiceClient
 }
 
 func (s *MerchantPolicyGapiTestSuite) SetupSuite() {
@@ -40,7 +41,8 @@ func (s *MerchantPolicyGapiTestSuite) SetupSuite() {
 	mencache := policy_cache.NewMencache(cacheStore)
 	repos := policy_repo.NewRepositories(
 		queries,
-		pb.NewMerchantQueryServiceClient(s.Conns["merchant"]),
+		pb_merchant.NewMerchantQueryServiceClient(s.Conns["merchant"]),
+		policy_repo.GuardOptions{},
 	)
 	svc := policy_service.NewService(&policy_service.Deps{
 		Cache:         mencache,
@@ -57,14 +59,14 @@ func (s *MerchantPolicyGapiTestSuite) SetupSuite() {
 
 	// Server
 	server := grpc.NewServer()
-	pb.RegisterMerchantPolicyQueryServiceServer(server, handler.MerchantPolicyQuery)
-	pb.RegisterMerchantPolicyCommandServiceServer(server, handler.MerchantPolicyCommand)
+	pb_merchant_policy.RegisterMerchantPolicyQueryServiceServer(server, handler.MerchantPolicyQuery)
+	pb_merchant_policy.RegisterMerchantPolicyCommandServiceServer(server, handler.MerchantPolicyCommand)
 
 	addr := s.RegisterServer(server)
 	conn := s.GetConnection(addr)
 
-	s.queryClient = pb.NewMerchantPolicyQueryServiceClient(conn)
-	s.commandClient = pb.NewMerchantPolicyCommandServiceClient(conn)
+	s.queryClient = pb_merchant_policy.NewMerchantPolicyQueryServiceClient(conn)
+	s.commandClient = pb_merchant_policy.NewMerchantPolicyCommandServiceClient(conn)
 }
 
 func (s *MerchantPolicyGapiTestSuite) TestMerchantPolicyGapiLifecycle() {
@@ -75,7 +77,7 @@ func (s *MerchantPolicyGapiTestSuite) TestMerchantPolicyGapiLifecycle() {
 	merchID := int32(s.SeedMerchant(ctx, userID))
 
 	// 2. Create
-	createRes, err := s.commandClient.Create(ctx, &pb.CreateMerchantPoliciesRequest{
+	createRes, err := s.commandClient.Create(ctx, &pb_merchant_policy.CreateMerchantPoliciesRequest{
 		MerchantId:  merchID,
 		PolicyType:  "Warranty",
 		Title:       "Warranty Policy",
@@ -86,22 +88,22 @@ func (s *MerchantPolicyGapiTestSuite) TestMerchantPolicyGapiLifecycle() {
 	policyID := createRes.Data.Id
 
 	// 3. FindById
-	getRes, err := s.queryClient.FindById(ctx, &pb.FindByIdMerchantPoliciesRequest{Id: policyID})
+	getRes, err := s.queryClient.FindById(ctx, &pb_merchant_policy.FindByIdMerchantPoliciesRequest{Id: policyID})
 	s.NoError(err)
 	s.Equal("Warranty", getRes.Data.PolicyType)
 
 	// 4. FindAll
-	allRes, err := s.queryClient.FindAll(ctx, &pb.FindAllMerchantRequest{Page: 1, PageSize: 10})
+	allRes, err := s.queryClient.FindAll(ctx, &pb_merchant.FindAllMerchantRequest{Page: 1, PageSize: 10})
 	s.NoError(err)
 	s.NotEmpty(allRes.Data)
 
 	// 5. FindByActive
-	activeRes, err := s.queryClient.FindByActive(ctx, &pb.FindAllMerchantRequest{Page: 1, PageSize: 10})
+	activeRes, err := s.queryClient.FindByActive(ctx, &pb_merchant.FindAllMerchantRequest{Page: 1, PageSize: 10})
 	s.NoError(err)
 	s.NotEmpty(activeRes.Data)
 
 	// 6. Update
-	updateRes, err := s.commandClient.Update(ctx, &pb.UpdateMerchantPoliciesRequest{
+	updateRes, err := s.commandClient.Update(ctx, &pb_merchant_policy.UpdateMerchantPoliciesRequest{
 		MerchantPolicyId: policyID,
 		PolicyType:       "Warranty Updated",
 		Title:            "Warranty Policy Updated",
@@ -111,21 +113,21 @@ func (s *MerchantPolicyGapiTestSuite) TestMerchantPolicyGapiLifecycle() {
 	s.Equal("Warranty Updated", updateRes.Data.PolicyType)
 
 	// 7. Trash
-	_, err = s.commandClient.TrashedMerchantPolicies(ctx, &pb.FindByIdMerchantPoliciesRequest{Id: policyID})
+	_, err = s.commandClient.TrashedMerchantPolicies(ctx, &pb_merchant_policy.FindByIdMerchantPoliciesRequest{Id: policyID})
 	s.NoError(err)
 
 	// 8. FindByTrashed
-	trashedRes, err := s.queryClient.FindByTrashed(ctx, &pb.FindAllMerchantRequest{Page: 1, PageSize: 10})
+	trashedRes, err := s.queryClient.FindByTrashed(ctx, &pb_merchant.FindAllMerchantRequest{Page: 1, PageSize: 10})
 	s.NoError(err)
 	s.NotEmpty(trashedRes.Data)
 
 	// 9. Restore
-	_, err = s.commandClient.RestoreMerchantPolicies(ctx, &pb.FindByIdMerchantPoliciesRequest{Id: policyID})
+	_, err = s.commandClient.RestoreMerchantPolicies(ctx, &pb_merchant_policy.FindByIdMerchantPoliciesRequest{Id: policyID})
 	s.NoError(err)
 
 	// 10. DeletePermanent
-	_, _ = s.commandClient.TrashedMerchantPolicies(ctx, &pb.FindByIdMerchantPoliciesRequest{Id: policyID})
-	_, err = s.commandClient.DeleteMerchantPoliciesPermanent(ctx, &pb.FindByIdMerchantPoliciesRequest{Id: policyID})
+	_, _ = s.commandClient.TrashedMerchantPolicies(ctx, &pb_merchant_policy.FindByIdMerchantPoliciesRequest{Id: policyID})
+	_, err = s.commandClient.DeleteMerchantPoliciesPermanent(ctx, &pb_merchant_policy.FindByIdMerchantPoliciesRequest{Id: policyID})
 	s.NoError(err)
 
 	// 11. RestoreAll

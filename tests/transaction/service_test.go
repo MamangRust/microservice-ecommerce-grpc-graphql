@@ -4,6 +4,11 @@ import (
 	"context"
 	"testing"
 
+	pb_merchant "github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
+	pb_order "github.com/MamangRust/microservice-ecommerce-grpc-pb/order"
+	pb_order_item "github.com/MamangRust/microservice-ecommerce-grpc-pb/order_item"
+	pb_shipping_address "github.com/MamangRust/microservice-ecommerce-grpc-pb/shipping_address"
+	pb_user "github.com/MamangRust/microservice-ecommerce-grpc-pb/user"
 	trans_cache "github.com/MamangRust/microservice-ecommerce-grpc-transaction/cache"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-transaction/database/schema"
 	"github.com/MamangRust/microservice-ecommerce-grpc-transaction/repository"
@@ -11,7 +16,6 @@ import (
 	"github.com/MamangRust/microservice-ecommerce-shared/cache"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	tests "github.com/MamangRust/microservice-ecommerce-test"
 	"github.com/stretchr/testify/suite"
 )
@@ -42,12 +46,13 @@ func (s *TransactionServiceTestSuite) SetupSuite() {
 	// Transaction dependencies
 	mencache := trans_cache.NewMencache(cacheStore)
 	repos := repository.NewRepositories(&repository.Deps{
-		DB:             queries,
-		UserQuery:      pb.NewUserQueryServiceClient(s.Conns["user"]),
-		MerchantQuery:  pb.NewMerchantQueryServiceClient(s.Conns["merchant"]),
-		OrderQuery:     pb.NewOrderQueryServiceClient(s.Conns["order"]),
-		OrderItemQuery: pb.NewOrderItemQueryServiceClient(s.Conns["order-item"]),
-		ShippingQuery:  pb.NewShippingQueryServiceClient(s.Conns["shipping-address"]),
+		DB:                 queries,
+		UserQueryClient:      pb_user.NewUserQueryServiceClient(s.Conns["user"]),
+		MerchantQueryClient:  pb_merchant.NewMerchantQueryServiceClient(s.Conns["merchant"]),
+		OrderQueryClient:     pb_order.NewOrderQueryServiceClient(s.Conns["order"]),
+		OrderItemQueryClient: pb_order_item.NewOrderItemQueryServiceClient(s.Conns["order-item"]),
+		ShippingQueryClient:  pb_shipping_address.NewShippingQueryServiceClient(s.Conns["shipping-address"]),
+		Guards:               repository.GuardOptions{},
 	})
 
 	s.svc = service.NewService(&service.Deps{

@@ -1,11 +1,11 @@
 package pagination
 
 import (
-	pbcommon "github.com/MamangRust/microservice-ecommerce-shared/pb"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/common"
 )
 
-func MapPaginationMeta(meta *pbcommon.PaginationMeta) *model.PaginationMeta {
+func MapPaginationMeta(meta *pb_common.PaginationMeta) *model.PaginationMeta {
 	if meta == nil {
 		return nil
 	}

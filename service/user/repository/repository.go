@@ -2,19 +2,37 @@ package repository
 
 import (
 	db "github.com/MamangRust/microservice-ecommerce-grpc-user/database/schema"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
+	"github.com/MamangRust/microservice-ecommerce-pkg/adapter"
+	pb_role "github.com/MamangRust/microservice-ecommerce-grpc-pb/role"
+	pb_user_role "github.com/MamangRust/microservice-ecommerce-grpc-pb/user_role"
+	roleadapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/role"
+	userroleadapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/user_role"
 )
+
+type GuardOptions struct {
+	Role     []adapter.GuardOption
+	UserRole []adapter.GuardOption
+}
 
 type Repositories struct {
 	UserCommand UserCommandRepository
 	UserQuery   UserQueryRepository
-	Role        RoleRepository
+	Role        roleadapter.QueryRepository
+	UserRole    userroleadapter.CommandRepository
 }
 
-func NewRepositories(DB *db.Queries, roleClient pb.RoleQueryServiceClient) *Repositories {
+type Deps struct {
+	Db       *db.Queries
+	Role     pb_role.RoleQueryServiceClient
+	UserRole pb_user_role.UserRoleCommandServiceClient
+	Guards   GuardOptions
+}
+
+func NewRepositories(deps *Deps) *Repositories {
 	return &Repositories{
-		UserCommand: NewUserCommandRepository(DB),
-		UserQuery:   NewUserQueryRepository(DB),
-		Role:        NewRoleRepository(roleClient),
+		UserCommand: NewUserCommandRepository(deps.Db),
+		UserQuery:   NewUserQueryRepository(deps.Db),
+		Role:        roleadapter.NewQueryAdapter(deps.Role, deps.Guards.Role...),
+		UserRole:    userroleadapter.NewCommandAdapter(deps.UserRole, deps.Guards.UserRole...),
 	}
 }

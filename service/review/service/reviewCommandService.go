@@ -6,6 +6,8 @@ import (
 	"github.com/MamangRust/microservice-ecommerce-grpc-review/cache"
 	"github.com/MamangRust/microservice-ecommerce-grpc-review/repository"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-review/database/schema"
+	productadapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/product"
+	useradapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/user"
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	"github.com/MamangRust/microservice-ecommerce-shared/errorhandler"
@@ -22,8 +24,8 @@ type reviewCommandService struct {
 	cache                 cache.ReviewCommandCache
 	reviewRepository      repository.ReviewCommandRepository
 	reviewQueryRepository repository.ReviewQueryRepository
-	userRepository        repository.UserQueryRepository
-	productRepository     repository.ProductQueryRepository
+	userRepository        useradapter.QueryRepository
+	productRepository     productadapter.QueryRepository
 	logger                logger.LoggerInterface
 }
 
@@ -32,8 +34,8 @@ type ReviewCommandServiceDeps struct {
 	Cache                 cache.ReviewCommandCache
 	ReviewRepository      repository.ReviewCommandRepository
 	ReviewQueryRepository repository.ReviewQueryRepository
-	UserRepository        repository.UserQueryRepository
-	ProductRepository     repository.ProductQueryRepository
+	UserRepository        useradapter.QueryRepository
+	ProductRepository     productadapter.QueryRepository
 	Logger                logger.LoggerInterface
 }
 

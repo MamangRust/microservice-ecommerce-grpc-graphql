@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"sync"
 	"time"
 
 	"github.com/IBM/sarama"
@@ -13,9 +14,9 @@ import (
 
 // Topic names for the stats pipeline (pattern stats.ecommerce.<domain>.event).
 const (
-	TopicOrder         = "stats.ecommerce.order.event"
-	TopicOrderItem     = "stats.ecommerce.order_item.event"
-	TopicTransaction   = "stats.ecommerce.transaction.event"
+	TopicOrder       = "stats.ecommerce.order.event"
+	TopicOrderItem   = "stats.ecommerce.order_item.event"
+	TopicTransaction = "stats.ecommerce.transaction.event"
 )
 
 // StatsTopics returns every topic stats-writer consumes.
@@ -32,6 +33,9 @@ type statEnvelope struct {
 type StatsHandler struct {
 	useCase usecase.UseCase
 	log     logger.LoggerInterface
+	// dedupMu guards dedup: ConsumeClaim runs one goroutine per claimed
+	// partition, so the map is accessed concurrently.
+	dedupMu sync.Mutex
 	dedup   map[string]time.Time
 }
 
@@ -117,6 +121,9 @@ func (h *StatsHandler) isDuplicate(eventID string) bool {
 	if eventID == "" {
 		return false
 	}
+	h.dedupMu.Lock()
+	defer h.dedupMu.Unlock()
+
 	now := time.Now()
 	cutoff := now.Add(-24 * time.Hour)
 	if seen, ok := h.dedup[eventID]; ok && seen.After(cutoff) {

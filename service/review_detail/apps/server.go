@@ -1,6 +1,7 @@
 package apps
 
 import (
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/review_detail"
 	"github.com/MamangRust/microservice-ecommerce-grpc-review-detail/cache"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-review-detail/database/schema"
 	"github.com/MamangRust/microservice-ecommerce-grpc-review-detail/handler"
@@ -8,7 +9,6 @@ import (
 	"github.com/MamangRust/microservice-ecommerce-grpc-review-detail/service"
 	"github.com/MamangRust/microservice-ecommerce-pkg/server"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	"google.golang.org/grpc"
 )
 
@@ -35,8 +35,8 @@ func NewServer(cfg *server.Config) (*server.GRPCServer, error) {
 	h := handler.NewHandler(&handler.Deps{Service: svc, Logger: srv.Logger})
 
 	srv.RegisterServices = func(gs *grpc.Server) {
-		pb.RegisterReviewDetailQueryServiceServer(gs, h.ReviewDetailQuery)
-		pb.RegisterReviewDetailCommandServiceServer(gs, h.ReviewDetailCommand)
+		pb_review_detail.RegisterReviewDetailQueryServiceServer(gs, h.ReviewDetailQuery)
+		pb_review_detail.RegisterReviewDetailCommandServiceServer(gs, h.ReviewDetailCommand)
 	}
 
 	return srv, nil

@@ -13,6 +13,11 @@ import (
 	"github.com/MamangRust/microservice-ecommerce-grpc-transaction/cache"
 	"github.com/MamangRust/microservice-ecommerce-grpc-transaction/repository"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-transaction/database/schema"
+	merchantadapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/merchant"
+	orderadapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/order"
+	orderitemadapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/order_item"
+	shippingadapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/shipping_address"
+	useradapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/user"
 	"github.com/MamangRust/microservice-ecommerce-pkg/email"
 	"github.com/MamangRust/microservice-ecommerce-pkg/event"
 	"github.com/MamangRust/microservice-ecommerce-pkg/kafka"
@@ -36,11 +41,11 @@ type transactionCommandService struct {
 	cache              cache.TransactionCommandCache
 	transactionQuery   repository.TransactionQueryRepository
 	transactionCommand repository.TransactionCommandRepository
-	userQuery          repository.UserQueryRepository
-	merchantQuery      repository.MerchantQueryRepository
-	orderQuery         repository.OrderQueryRepository
-	orderItem          repository.OrderItemRepository
-	shippingAddress    repository.ShippingAddressQueryRepository
+	userQuery          useradapter.QueryRepository
+	merchantQuery      merchantadapter.QueryRepository
+	orderQuery         orderadapter.QueryRepository
+	orderItem          orderitemadapter.QueryRepository
+	shippingAddress    shippingadapter.QueryRepository
 	logger             logger.LoggerInterface
 }
 
@@ -52,11 +57,11 @@ type TransactionCommandServiceDeps struct {
 	Cache              cache.TransactionCommandCache
 	TransactionQuery   repository.TransactionQueryRepository
 	TransactionCommand repository.TransactionCommandRepository
-	UserQuery          repository.UserQueryRepository
-	MerchantQuery      repository.MerchantQueryRepository
-	OrderQuery         repository.OrderQueryRepository
-	OrderItem          repository.OrderItemRepository
-	ShippingAddress    repository.ShippingAddressQueryRepository
+	UserQuery          useradapter.QueryRepository
+	MerchantQuery      merchantadapter.QueryRepository
+	OrderQuery         orderadapter.QueryRepository
+	OrderItem          orderitemadapter.QueryRepository
+	ShippingAddress    shippingadapter.QueryRepository
 	Logger             logger.LoggerInterface
 }
 

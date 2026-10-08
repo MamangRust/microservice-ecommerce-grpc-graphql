@@ -10,8 +10,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// reviewSeeder seeds reviews (review service DB) and their review details
-// (review_detail service DB), so it needs both connections.
+// reviewSeeder seeds reviews and their review details, which share the
+// experience context database, so it holds a connection per table owner.
 type reviewSeeder struct {
 	reviewDB       *db.Queries
 	reviewDetailDB *reviewdetaildb.Queries

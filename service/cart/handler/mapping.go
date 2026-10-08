@@ -4,7 +4,8 @@ import (
 	"math"
 
 	db "github.com/MamangRust/microservice-ecommerce-grpc-cart/database/schema"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/cart"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/common"
 )
 
 func normalizePage(page, pageSize int) (int, int) {
@@ -17,9 +18,9 @@ func normalizePage(page, pageSize int) (int, int) {
 	return page, pageSize
 }
 
-func createPaginationMeta(page, pageSize, totalRecords int) *pb.PaginationMeta {
+func createPaginationMeta(page, pageSize, totalRecords int) *pb_common.PaginationMeta {
 	totalPages := int(math.Ceil(float64(totalRecords) / float64(pageSize)))
-	return &pb.PaginationMeta{
+	return &pb_common.PaginationMeta{
 		CurrentPage:  int32(page),
 		PageSize:     int32(pageSize),
 		TotalPages:   int32(totalPages),
@@ -27,10 +28,10 @@ func createPaginationMeta(page, pageSize, totalRecords int) *pb.PaginationMeta {
 	}
 }
 
-func mapToProtoCartResponse(m interface{}) *pb.CartResponse {
+func mapToProtoCartResponse(m interface{}) *pb_cart.CartResponse {
 	switch v := m.(type) {
 	case *db.Cart:
-		return &pb.CartResponse{
+		return &pb_cart.CartResponse{
 			Id:        v.CartID,
 			UserId:    v.UserID,
 			ProductId: v.ProductID,
@@ -43,7 +44,7 @@ func mapToProtoCartResponse(m interface{}) *pb.CartResponse {
 			UpdatedAt: v.UpdatedAt.Time.Format("2006-01-02"),
 		}
 	case *db.GetCartsRow:
-		return &pb.CartResponse{
+		return &pb_cart.CartResponse{
 			Id:        v.CartID,
 			UserId:    v.UserID,
 			ProductId: v.ProductID,

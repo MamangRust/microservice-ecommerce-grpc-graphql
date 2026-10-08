@@ -13,9 +13,10 @@ type Config struct {
 	OtelEndpoint         string
 	OtelSamplingFraction float64
 
-	// DBCluster is the env prefix used to resolve this service's own
-	// PostgreSQL connection (e.g. "DB_ORDER" -> DB_ORDER_HOST, DB_ORDER_NAME).
-	// Empty falls back to the generic DB_* keys.
+	// DBCluster is the env prefix of the bounded context whose PostgreSQL
+	// instance owns this service's tables (e.g. "DB_SALES" -> DB_SALES_HOST,
+	// DB_SALES_NAME). Several services share one prefix; see
+	// database.ServiceCluster. Host/port/name are mandatory per context.
 	DBCluster string
 
 	// MigrationPath is the directory (relative to the service workdir) that

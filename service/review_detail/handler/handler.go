@@ -1,9 +1,9 @@
 package handler
 
 import (
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/review_detail"
 	"github.com/MamangRust/microservice-ecommerce-grpc-review-detail/service"
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 )
 
 type Deps struct {
@@ -12,9 +12,9 @@ type Deps struct {
 }
 
 type Handler struct {
-	ReviewDetail      ReviewDetailHandleGrpc
-	ReviewDetailQuery pb.ReviewDetailQueryServiceServer
-	ReviewDetailCommand pb.ReviewDetailCommandServiceServer
+	ReviewDetail        ReviewDetailHandleGrpc
+	ReviewDetailQuery   pb_review_detail.ReviewDetailQueryServiceServer
+	ReviewDetailCommand pb_review_detail.ReviewDetailCommandServiceServer
 }
 
 func NewHandler(deps *Deps) *Handler {

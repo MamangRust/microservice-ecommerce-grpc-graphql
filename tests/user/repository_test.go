@@ -4,10 +4,11 @@ import (
 	"context"
 	"testing"
 
+	pb_role "github.com/MamangRust/microservice-ecommerce-grpc-pb/role"
+	pb_user_role "github.com/MamangRust/microservice-ecommerce-grpc-pb/user_role"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-user/database/schema"
 	"github.com/MamangRust/microservice-ecommerce-grpc-user/repository"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	tests "github.com/MamangRust/microservice-ecommerce-test"
 	"github.com/stretchr/testify/suite"
 )
@@ -23,8 +24,12 @@ func (s *UserRepositoryTestSuite) SetupSuite() {
 
 	queries := db.New(s.DBPool())
 	s.SetupRoleService()
-	roleClient := pb.NewRoleQueryServiceClient(s.Conns["role"])
-	s.repo = repository.NewRepositories(queries, roleClient)
+	s.repo = repository.NewRepositories(&repository.Deps{
+		Db:       queries,
+		Role:     pb_role.NewRoleQueryServiceClient(s.Conns["role"]),
+		UserRole: pb_user_role.NewUserRoleCommandServiceClient(s.Conns["role"]),
+		Guards:   repository.GuardOptions{},
+	})
 }
 
 func (s *UserRepositoryTestSuite) TearDownSuite() {

@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	pb_role "github.com/MamangRust/microservice-ecommerce-grpc-pb/role"
+	pb_user_role "github.com/MamangRust/microservice-ecommerce-grpc-pb/user_role"
 	role_cache "github.com/MamangRust/microservice-ecommerce-grpc-role/cache"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-role/database/schema"
 	role_handler "github.com/MamangRust/microservice-ecommerce-grpc-role/handler"
@@ -11,7 +13,6 @@ import (
 	"github.com/MamangRust/microservice-ecommerce-grpc-role/service"
 	"github.com/MamangRust/microservice-ecommerce-shared/cache"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	pb "github.com/MamangRust/microservice-ecommerce-shared/pb"
 	tests "github.com/MamangRust/microservice-ecommerce-test"
 
 	"github.com/stretchr/testify/suite"
@@ -21,8 +22,8 @@ import (
 
 type RoleGapiTestSuite struct {
 	tests.BaseTestSuite
-	commandClient pb.RoleCommandServiceClient
-	queryClient   pb.RoleQueryServiceClient
+	commandClient pb_role.RoleCommandServiceClient
+	queryClient   pb_role.RoleQueryServiceClient
 }
 
 func (s *RoleGapiTestSuite) SetupSuite() {
@@ -51,21 +52,23 @@ func (s *RoleGapiTestSuite) SetupSuite() {
 
 	// Server
 	server := grpc.NewServer()
-	pb.RegisterRoleCommandServiceServer(server, handler.RoleCommand)
-	pb.RegisterRoleQueryServiceServer(server, handler.RoleQuery)
+	pb_role.RegisterRoleCommandServiceServer(server, handler.RoleCommand)
+	pb_user_role.RegisterUserRoleQueryServiceServer(server, handler.UserRoleQuery)
+	pb_user_role.RegisterUserRoleCommandServiceServer(server, handler.UserRoleCommand)
+	pb_role.RegisterRoleQueryServiceServer(server, handler.RoleQuery)
 
 	addr := s.RegisterServer(server)
 	conn := s.GetConnection(addr)
 
-	s.commandClient = pb.NewRoleCommandServiceClient(conn)
-	s.queryClient = pb.NewRoleQueryServiceClient(conn)
+	s.commandClient = pb_role.NewRoleCommandServiceClient(conn)
+	s.queryClient = pb_role.NewRoleQueryServiceClient(conn)
 }
 
 func (s *RoleGapiTestSuite) TestRoleGapiLifecycle() {
 	ctx := context.Background()
 
 	// 1. Create
-	createRes, err := s.commandClient.CreateRole(ctx, &pb.CreateRoleRequest{
+	createRes, err := s.commandClient.CreateRole(ctx, &pb_role.CreateRoleRequest{
 		Name: "Gapi Role",
 	})
 	s.Require().NoError(err)
@@ -73,22 +76,22 @@ func (s *RoleGapiTestSuite) TestRoleGapiLifecycle() {
 	roleID := createRes.Data.Id
 
 	// 2. FindById
-	getRes, err := s.queryClient.FindByIdRole(ctx, &pb.FindByIdRoleRequest{RoleId: roleID})
+	getRes, err := s.queryClient.FindByIdRole(ctx, &pb_role.FindByIdRoleRequest{RoleId: roleID})
 	s.Require().NoError(err)
 	s.Equal("Gapi Role", getRes.Data.Name)
 
 	// 3. FindAll
-	allRes, err := s.queryClient.FindAllRole(ctx, &pb.FindAllRoleRequest{Page: 1, PageSize: 10})
+	allRes, err := s.queryClient.FindAllRole(ctx, &pb_role.FindAllRoleRequest{Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.NotEmpty(allRes.Data)
 
 	// 4. FindByActive
-	activeRes, err := s.queryClient.FindByActive(ctx, &pb.FindAllRoleRequest{Page: 1, PageSize: 10})
+	activeRes, err := s.queryClient.FindByActive(ctx, &pb_role.FindAllRoleRequest{Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.NotEmpty(activeRes.Data)
 
 	// 5. Update
-	updateRes, err := s.commandClient.UpdateRole(ctx, &pb.UpdateRoleRequest{
+	updateRes, err := s.commandClient.UpdateRole(ctx, &pb_role.UpdateRoleRequest{
 		Id:   roleID,
 		Name: "Gapi Role Updated",
 	})
@@ -96,21 +99,21 @@ func (s *RoleGapiTestSuite) TestRoleGapiLifecycle() {
 	s.Equal("Gapi Role Updated", updateRes.Data.Name)
 
 	// 6. Trash
-	_, err = s.commandClient.TrashedRole(ctx, &pb.FindByIdRoleRequest{RoleId: roleID})
+	_, err = s.commandClient.TrashedRole(ctx, &pb_role.FindByIdRoleRequest{RoleId: roleID})
 	s.Require().NoError(err)
 
 	// 7. FindByTrashed
-	trashedRes, err := s.queryClient.FindByTrashed(ctx, &pb.FindAllRoleRequest{Page: 1, PageSize: 10})
+	trashedRes, err := s.queryClient.FindByTrashed(ctx, &pb_role.FindAllRoleRequest{Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.NotEmpty(trashedRes.Data)
 
 	// 8. Restore
-	_, err = s.commandClient.RestoreRole(ctx, &pb.FindByIdRoleRequest{RoleId: roleID})
+	_, err = s.commandClient.RestoreRole(ctx, &pb_role.FindByIdRoleRequest{RoleId: roleID})
 	s.Require().NoError(err)
 
 	// 9. DeletePermanent
-	_, _ = s.commandClient.TrashedRole(ctx, &pb.FindByIdRoleRequest{RoleId: roleID})
-	_, err = s.commandClient.DeleteRolePermanent(ctx, &pb.FindByIdRoleRequest{RoleId: roleID})
+	_, _ = s.commandClient.TrashedRole(ctx, &pb_role.FindByIdRoleRequest{RoleId: roleID})
+	_, err = s.commandClient.DeleteRolePermanent(ctx, &pb_role.FindByIdRoleRequest{RoleId: roleID})
 	s.Require().NoError(err)
 
 	// 10. RestoreAll

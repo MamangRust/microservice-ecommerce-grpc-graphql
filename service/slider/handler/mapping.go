@@ -1,13 +1,13 @@
 package handler
 
 import (
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/slider"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-slider/database/schema"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-func MapToSliderResponse(slider *db.Slider) *pb.SliderResponse {
-	return &pb.SliderResponse{
+func MapToSliderResponse(slider *db.Slider) *pb_slider.SliderResponse {
+	return &pb_slider.SliderResponse{
 		Id:        int32(slider.SliderID),
 		Name:      slider.Name,
 		Image:     slider.Image,
@@ -16,8 +16,8 @@ func MapToSliderResponse(slider *db.Slider) *pb.SliderResponse {
 	}
 }
 
-func MapToSliderResponseGetSlidersRow(slider *db.GetSlidersRow) *pb.SliderResponse {
-	return &pb.SliderResponse{
+func MapToSliderResponseGetSlidersRow(slider *db.GetSlidersRow) *pb_slider.SliderResponse {
+	return &pb_slider.SliderResponse{
 		Id:        int32(slider.SliderID),
 		Name:      slider.Name,
 		Image:     slider.Image,
@@ -26,8 +26,8 @@ func MapToSliderResponseGetSlidersRow(slider *db.GetSlidersRow) *pb.SliderRespon
 	}
 }
 
-func MapToSliderResponseGetSliderByIDRow(slider *db.GetSliderByIDRow) *pb.SliderResponse {
-	return &pb.SliderResponse{
+func MapToSliderResponseGetSliderByIDRow(slider *db.GetSliderByIDRow) *pb_slider.SliderResponse {
+	return &pb_slider.SliderResponse{
 		Id:        int32(slider.SliderID),
 		Name:      slider.Name,
 		Image:     slider.Image,
@@ -36,8 +36,8 @@ func MapToSliderResponseGetSliderByIDRow(slider *db.GetSliderByIDRow) *pb.Slider
 	}
 }
 
-func MapToSliderResponseCreateSliderRow(slider *db.CreateSliderRow) *pb.SliderResponse {
-	return &pb.SliderResponse{
+func MapToSliderResponseCreateSliderRow(slider *db.CreateSliderRow) *pb_slider.SliderResponse {
+	return &pb_slider.SliderResponse{
 		Id:        int32(slider.SliderID),
 		Name:      slider.Name,
 		Image:     slider.Image,
@@ -46,8 +46,8 @@ func MapToSliderResponseCreateSliderRow(slider *db.CreateSliderRow) *pb.SliderRe
 	}
 }
 
-func MapToSliderResponseUpdateSliderRow(slider *db.UpdateSliderRow) *pb.SliderResponse {
-	return &pb.SliderResponse{
+func MapToSliderResponseUpdateSliderRow(slider *db.UpdateSliderRow) *pb_slider.SliderResponse {
+	return &pb_slider.SliderResponse{
 		Id:        int32(slider.SliderID),
 		Name:      slider.Name,
 		Image:     slider.Image,
@@ -56,13 +56,13 @@ func MapToSliderResponseUpdateSliderRow(slider *db.UpdateSliderRow) *pb.SliderRe
 	}
 }
 
-func MapToSliderResponseDeleteAt(slider *db.Slider) *pb.SliderResponseDeleteAt {
+func MapToSliderResponseDeleteAt(slider *db.Slider) *pb_slider.SliderResponseDeleteAt {
 	var deletedAt *wrapperspb.StringValue
 	if slider.DeletedAt.Valid {
 		deletedAt = &wrapperspb.StringValue{Value: slider.DeletedAt.Time.Format("2006-01-02")}
 	}
 
-	return &pb.SliderResponseDeleteAt{
+	return &pb_slider.SliderResponseDeleteAt{
 		Id:        int32(slider.SliderID),
 		Name:      slider.Name,
 		Image:     slider.Image,
@@ -72,13 +72,13 @@ func MapToSliderResponseDeleteAt(slider *db.Slider) *pb.SliderResponseDeleteAt {
 	}
 }
 
-func MapToSliderResponseDeleteAtGetSlidersActiveRow(slider *db.GetSlidersActiveRow) *pb.SliderResponseDeleteAt {
+func MapToSliderResponseDeleteAtGetSlidersActiveRow(slider *db.GetSlidersActiveRow) *pb_slider.SliderResponseDeleteAt {
 	var deletedAt *wrapperspb.StringValue
 	if slider.DeletedAt.Valid {
 		deletedAt = &wrapperspb.StringValue{Value: slider.DeletedAt.Time.Format("2006-01-02")}
 	}
 
-	return &pb.SliderResponseDeleteAt{
+	return &pb_slider.SliderResponseDeleteAt{
 		Id:        int32(slider.SliderID),
 		Name:      slider.Name,
 		Image:     slider.Image,
@@ -88,13 +88,13 @@ func MapToSliderResponseDeleteAtGetSlidersActiveRow(slider *db.GetSlidersActiveR
 	}
 }
 
-func MapToSliderResponseDeleteAtGetSlidersTrashedRow(slider *db.GetSlidersTrashedRow) *pb.SliderResponseDeleteAt {
+func MapToSliderResponseDeleteAtGetSlidersTrashedRow(slider *db.GetSlidersTrashedRow) *pb_slider.SliderResponseDeleteAt {
 	var deletedAt *wrapperspb.StringValue
 	if slider.DeletedAt.Valid {
 		deletedAt = &wrapperspb.StringValue{Value: slider.DeletedAt.Time.Format("2006-01-02")}
 	}
 
-	return &pb.SliderResponseDeleteAt{
+	return &pb_slider.SliderResponseDeleteAt{
 		Id:        int32(slider.SliderID),
 		Name:      slider.Name,
 		Image:     slider.Image,

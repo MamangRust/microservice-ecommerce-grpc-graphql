@@ -1,57 +1,103 @@
 package slider_test
 
 import (
-	"bytes"
-	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/graphtest"
 	tests "github.com/MamangRust/microservice-ecommerce-test"
 	"github.com/stretchr/testify/suite"
 )
 
-type SliderGraphQLTestSuite struct {
+type SliderGraphqlTestSuite struct {
 	tests.BaseTestSuite
-	graphqlH http.Handler
+	handler  http.Handler
+	sliderID int
 }
 
-func (s *SliderGraphQLTestSuite) SetupSuite() {
+func (s *SliderGraphqlTestSuite) SetupSuite() {
 	s.BaseTestSuite.SetupSuite()
 	s.SetupSliderService()
-	cacheStore := s.GetCacheStore()
-	s.graphqlH = graphtest.NewTestHandler(s.Conns, cacheStore, s.Log)
+
+	s.handler = s.GraphQLHandler()
 }
 
-func (s *SliderGraphQLTestSuite) TearDownSuite() { s.BaseTestSuite.TearDownSuite() }
+func (s *SliderGraphqlTestSuite) TestSliderGraphqlLifecycle() {
+	// 1. Create
+	create := s.GQLMultipart(s.handler, `mutation CreateSlider($input: CreateSliderRequest!) {
+		createSlider(input: $input) { status message data { id name image } }
+	}`, map[string]interface{}{
+		"input": map[string]interface{}{
+			"name":  "Test Slider",
+			"image": nil,
+		},
+	}, []tests.UploadFile{
+		{VariablePath: "input.image", Filename: "slider.jpg", Content: []byte("dummy image content")},
+	})
+	createData := s.Obj(s.Obj(create, "createSlider"), "data")
+	s.sliderID = int(createData["id"].(float64))
+	s.Equal("Test Slider", createData["name"])
 
-func gqlSlider(h http.Handler, query string, variables map[string]interface{}) map[string]interface{} {
-	body := map[string]interface{}{"query": query, "variables": variables}
-	jsonBody, _ := json.Marshal(body)
-	req := httptest.NewRequest(http.MethodPost, "/query", bytes.NewBuffer(jsonBody))
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, req)
-	var result map[string]interface{}
-	json.Unmarshal(rec.Body.Bytes(), &result)
-	return result
+	// 2. FindAll
+	all := s.GQL(s.handler, `query FindAllSliders($input: FindAllSliderRequest!) {
+		findAllSliders(input: $input) { status message pagination { total_records } data { id name } }
+	}`, map[string]interface{}{"input": map[string]interface{}{"page": 1, "page_size": 10}})
+	s.NotEmpty(s.Arr(s.Obj(all, "findAllSliders"), "data"))
+
+	// 3. FindByActive
+	active := s.GQL(s.handler, `query FindActiveSliders($input: FindAllSliderRequest!) {
+		findActiveSliders(input: $input) { status message pagination { total_records } data { id name } }
+	}`, map[string]interface{}{"input": map[string]interface{}{"page": 1, "page_size": 10}})
+	s.NotEmpty(s.Arr(s.Obj(active, "findActiveSliders"), "data"))
+
+	// 4. Update
+	s.Require().NotZero(s.sliderID)
+	updated := s.GQLMultipart(s.handler, `mutation UpdateSlider($input: UpdateSliderRequest!) {
+		updateSlider(input: $input) { status message data { id name } }
+	}`, map[string]interface{}{
+		"input": map[string]interface{}{
+			"id":    s.sliderID,
+			"name":  "Updated Test Slider",
+			"image": nil,
+		},
+	}, []tests.UploadFile{
+		{VariablePath: "input.image", Filename: "slider_updated.jpg", Content: []byte("dummy image content")},
+	})
+	s.Equal("Updated Test Slider", s.Obj(s.Obj(updated, "updateSlider"), "data")["name"])
+
+	// 5. Trash
+	s.GQL(s.handler, `mutation TrashedSlider($input: FindByIdSliderRequest!) {
+		trashedSlider(input: $input) { status message data { id name } }
+	}`, map[string]interface{}{"input": map[string]interface{}{"id": s.sliderID}})
+
+	// 6. FindByTrashed
+	trashed := s.GQL(s.handler, `query FindTrashedSliders($input: FindAllSliderRequest!) {
+		findTrashedSliders(input: $input) { status message pagination { total_records } data { id name } }
+	}`, map[string]interface{}{"input": map[string]interface{}{"page": 1, "page_size": 10}})
+	s.NotEmpty(s.Arr(s.Obj(trashed, "findTrashedSliders"), "data"))
+
+	// 7. Restore
+	s.GQL(s.handler, `mutation RestoreSlider($input: FindByIdSliderRequest!) {
+		restoreSlider(input: $input) { status message data { id name } }
+	}`, map[string]interface{}{"input": map[string]interface{}{"id": s.sliderID}})
+
+	// 8. DeletePermanent (trash first so the row is eligible)
+	s.GQL(s.handler, `mutation TrashedSlider($input: FindByIdSliderRequest!) {
+		trashedSlider(input: $input) { status message data { id } }
+	}`, map[string]interface{}{"input": map[string]interface{}{"id": s.sliderID}})
+	s.GQL(s.handler, `mutation DeleteSliderPermanent($input: FindByIdSliderRequest!) {
+		deleteSliderPermanent(input: $input) { status message }
+	}`, map[string]interface{}{"input": map[string]interface{}{"id": s.sliderID}})
+
+	// 9. RestoreAll
+	s.GQL(s.handler, `mutation { restoreAllSliders { status message } }`, nil)
+
+	// 10. DeleteAll
+	s.GQL(s.handler, `mutation { deleteAllSlidersPermanent { status message } }`, nil)
 }
 
-func (s *SliderGraphQLTestSuite) Test1_FindAllSlider() {
-	vars := map[string]interface{}{"input": map[string]interface{}{"page": 1, "page_size": 10}}
-	result := gqlSlider(s.graphqlH, `query($input: FindAllSliderRequest) { findAllSliders(input: $input) { status message pagination { current_page } } }`, vars)
-	s.Equal("success", result["data"].(map[string]interface{})["findAllSliders"].(map[string]interface{})["status"])
-}
-
-func (s *SliderGraphQLTestSuite) Test2_RestoreAllAndDeleteAll() {
-	result := gqlSlider(s.graphqlH, `mutation { restoreAllSliders { status message } }`, nil)
-	s.Equal("success", result["data"].(map[string]interface{})["restoreAllSliders"].(map[string]interface{})["status"])
-	result = gqlSlider(s.graphqlH, `mutation { deleteAllSlidersPermanent { status message } }`, nil)
-	s.Equal("success", result["data"].(map[string]interface{})["deleteAllSlidersPermanent"].(map[string]interface{})["status"])
-}
-
-func TestSliderGraphQLSuite(t *testing.T) {
-	if testing.Short() { t.Skip("skipping integration test") }
-	suite.Run(t, new(SliderGraphQLTestSuite))
+func TestSliderGraphqlSuite(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+	suite.Run(t, new(SliderGraphqlTestSuite))
 }

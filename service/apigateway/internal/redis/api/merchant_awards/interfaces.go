@@ -3,7 +3,7 @@ package merchantawards_cache
 import (
 	"context"
 
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
 )
 
 type MerchantAwardQueryCache interface {

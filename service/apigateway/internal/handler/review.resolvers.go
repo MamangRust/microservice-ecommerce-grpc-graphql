@@ -7,10 +7,10 @@ package graph
 import (
 	"context"
 
+	graphqlerror "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/errors"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/review"
 	sharedErrors "github.com/MamangRust/microservice-ecommerce-shared/errors"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphqlerror "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/errors"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -24,7 +24,7 @@ func (r *mutationResolver) CreateReview(ctx context.Context, input model.CreateR
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: product ID cannot be zero"))
 		}
 
-		req := &pb.CreateReviewRequest{
+		req := &pb_review.CreateReviewRequest{
 			UserId:    int32(input.UserID),
 			ProductId: int32(input.ProductID),
 			Rating:    int32(input.Rating),
@@ -52,7 +52,7 @@ func (r *mutationResolver) UpdateReview(ctx context.Context, input model.UpdateR
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: review ID cannot be zero"))
 		}
 
-		req := &pb.UpdateReviewRequest{
+		req := &pb_review.UpdateReviewRequest{
 			ReviewId: id,
 			Name:     *input.Name,
 			Rating:   int32(*input.Rating),
@@ -80,7 +80,7 @@ func (r *mutationResolver) TrashedReview(ctx context.Context, input model.FindBy
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: review ID cannot be zero"))
 		}
 
-		review, err := r.ReviewGraphql.ReviewCommandClient.TrashedReview(ctx, &pb.FindByIdReviewRequest{
+		review, err := r.ReviewGraphql.ReviewCommandClient.TrashedReview(ctx, &pb_review.FindByIdReviewRequest{
 			Id: id,
 		})
 		if err != nil {
@@ -103,7 +103,7 @@ func (r *mutationResolver) RestoreReview(ctx context.Context, input model.FindBy
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: review ID cannot be zero"))
 		}
 
-		review, err := r.ReviewGraphql.ReviewCommandClient.RestoreReview(ctx, &pb.FindByIdReviewRequest{
+		review, err := r.ReviewGraphql.ReviewCommandClient.RestoreReview(ctx, &pb_review.FindByIdReviewRequest{
 			Id: id,
 		})
 		if err != nil {
@@ -126,7 +126,7 @@ func (r *mutationResolver) DeleteReviewPermanent(ctx context.Context, input mode
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: review ID cannot be zero"))
 		}
 
-		res, err := r.ReviewGraphql.ReviewCommandClient.DeleteReviewPermanent(ctx, &pb.FindByIdReviewRequest{
+		res, err := r.ReviewGraphql.ReviewCommandClient.DeleteReviewPermanent(ctx, &pb_review.FindByIdReviewRequest{
 			Id: id,
 		})
 		if err != nil {
@@ -199,7 +199,7 @@ func (r *queryResolver) FindAllReviews(ctx context.Context, input *model.FindAll
 		return data, nil
 	}
 
-	req := &pb.FindAllReviewRequest{
+	req := &pb_review.FindAllReviewRequest{
 		Page:     page,
 		PageSize: pageSize,
 		Search:   search,
@@ -252,7 +252,7 @@ func (r *queryResolver) FindReviewsByProduct(ctx context.Context, input *model.F
 		return data, nil
 	}
 
-	req := &pb.FindAllReviewProductRequest{
+	req := &pb_review.FindAllReviewProductRequest{
 		ProductId: productID,
 		Page:      page,
 		PageSize:  pageSize,
@@ -306,7 +306,7 @@ func (r *queryResolver) FindReviewsByMerchant(ctx context.Context, input *model.
 		return data, nil
 	}
 
-	req := &pb.FindAllReviewMerchantRequest{
+	req := &pb_review.FindAllReviewMerchantRequest{
 		MerchantId: merchantID,
 		Page:       page,
 		PageSize:   pageSize,
@@ -354,7 +354,7 @@ func (r *queryResolver) FindTrashedReviews(ctx context.Context, input *model.Fin
 		return data, nil
 	}
 
-	req := &pb.FindAllReviewRequest{
+	req := &pb_review.FindAllReviewRequest{
 		Page:     page,
 		PageSize: pageSize,
 		Search:   search,
@@ -401,7 +401,7 @@ func (r *queryResolver) FindActiveReviews(ctx context.Context, input *model.Find
 		return data, nil
 	}
 
-	req := &pb.FindAllReviewRequest{
+	req := &pb_review.FindAllReviewRequest{
 		Page:     page,
 		PageSize: pageSize,
 		Search:   search,

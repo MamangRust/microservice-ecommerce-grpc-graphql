@@ -1,9 +1,9 @@
 package transactiongraphqlmapper
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphqlmapper "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/mapper/pagination"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
+	graphqlmapper "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/mapper/pagination"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/transaction"
 )
 
 type transactionResponseMapper struct{}
@@ -12,7 +12,7 @@ func NewTransactionResponseMapper() *transactionResponseMapper {
 	return &transactionResponseMapper{}
 }
 
-func (t *transactionResponseMapper) ToGraphqlResponseTransaction(res *pb.ApiResponseTransaction) *model.APIResponseTransaction {
+func (t *transactionResponseMapper) ToGraphqlResponseTransaction(res *pb_transaction.ApiResponseTransaction) *model.APIResponseTransaction {
 	return &model.APIResponseTransaction{
 		Status:  res.Status,
 		Message: res.Message,
@@ -20,7 +20,7 @@ func (t *transactionResponseMapper) ToGraphqlResponseTransaction(res *pb.ApiResp
 	}
 }
 
-func (t *transactionResponseMapper) ToGraphqlResponseTransactionDeleteAt(res *pb.ApiResponseTransactionDeleteAt) *model.APIResponseTransactionDeleteAt {
+func (t *transactionResponseMapper) ToGraphqlResponseTransactionDeleteAt(res *pb_transaction.ApiResponseTransactionDeleteAt) *model.APIResponseTransactionDeleteAt {
 	return &model.APIResponseTransactionDeleteAt{
 		Status:  res.Status,
 		Message: res.Message,
@@ -28,14 +28,14 @@ func (t *transactionResponseMapper) ToGraphqlResponseTransactionDeleteAt(res *pb
 	}
 }
 
-func (t *transactionResponseMapper) ToGraphqlResponseTransactionDelete(res *pb.ApiResponseTransactionDelete) *model.APIResponseTransactionDelete {
+func (t *transactionResponseMapper) ToGraphqlResponseTransactionDelete(res *pb_transaction.ApiResponseTransactionDelete) *model.APIResponseTransactionDelete {
 	return &model.APIResponseTransactionDelete{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (t *transactionResponseMapper) ToGraphqlResponseTransactionAll(res *pb.ApiResponseTransactionAll) *model.APIResponseTransactionAll {
+func (t *transactionResponseMapper) ToGraphqlResponseTransactionAll(res *pb_transaction.ApiResponseTransactionAll) *model.APIResponseTransactionAll {
 	return &model.APIResponseTransactionAll{
 		Status:  res.Status,
 		Message: res.Message,
@@ -43,7 +43,7 @@ func (t *transactionResponseMapper) ToGraphqlResponseTransactionAll(res *pb.ApiR
 }
 
 func (t *transactionResponseMapper) ToGraphqlResponsePaginationTransactionDeleteAt(
-	res *pb.ApiResponsePaginationTransactionDeleteAt,
+	res *pb_transaction.ApiResponsePaginationTransactionDeleteAt,
 ) *model.APIResponsePaginationTransactionDeleteAt {
 	return &model.APIResponsePaginationTransactionDeleteAt{
 		Status:     res.Status,
@@ -54,7 +54,7 @@ func (t *transactionResponseMapper) ToGraphqlResponsePaginationTransactionDelete
 }
 
 func (t *transactionResponseMapper) ToGraphqlResponsePaginationTransaction(
-	res *pb.ApiResponsePaginationTransaction,
+	res *pb_transaction.ApiResponsePaginationTransaction,
 ) *model.APIResponsePaginationTransaction {
 	return &model.APIResponsePaginationTransaction{
 		Status:     res.Status,
@@ -64,7 +64,7 @@ func (t *transactionResponseMapper) ToGraphqlResponsePaginationTransaction(
 	}
 }
 
-func (t *transactionResponseMapper) ToGraphqlResponseMonthAmountSuccess(res *pb.ApiResponseTransactionMonthAmountSuccess) *model.APIResponseTransactionMonthAmountSuccess {
+func (t *transactionResponseMapper) ToGraphqlResponseMonthAmountSuccess(res *pb_transaction.ApiResponseTransactionMonthAmountSuccess) *model.APIResponseTransactionMonthAmountSuccess {
 	return &model.APIResponseTransactionMonthAmountSuccess{
 		Status:  res.Status,
 		Message: res.Message,
@@ -72,7 +72,7 @@ func (t *transactionResponseMapper) ToGraphqlResponseMonthAmountSuccess(res *pb.
 	}
 }
 
-func (t *transactionResponseMapper) ToGraphqlResponseYearAmountSuccess(res *pb.ApiResponseTransactionYearAmountSuccess) *model.APIResponseTransactionYearAmountSuccess {
+func (t *transactionResponseMapper) ToGraphqlResponseYearAmountSuccess(res *pb_transaction.ApiResponseTransactionYearAmountSuccess) *model.APIResponseTransactionYearAmountSuccess {
 	return &model.APIResponseTransactionYearAmountSuccess{
 		Status:  res.Status,
 		Message: res.Message,
@@ -80,7 +80,7 @@ func (t *transactionResponseMapper) ToGraphqlResponseYearAmountSuccess(res *pb.A
 	}
 }
 
-func (t *transactionResponseMapper) ToGraphqlResponseMonthAmountFailed(res *pb.ApiResponseTransactionMonthAmountFailed) *model.APIResponseTransactionMonthAmountFailed {
+func (t *transactionResponseMapper) ToGraphqlResponseMonthAmountFailed(res *pb_transaction.ApiResponseTransactionMonthAmountFailed) *model.APIResponseTransactionMonthAmountFailed {
 	return &model.APIResponseTransactionMonthAmountFailed{
 		Status:  res.Status,
 		Message: res.Message,
@@ -88,7 +88,7 @@ func (t *transactionResponseMapper) ToGraphqlResponseMonthAmountFailed(res *pb.A
 	}
 }
 
-func (t *transactionResponseMapper) ToGraphqlResponseYearAmountFailed(res *pb.ApiResponseTransactionYearAmountFailed) *model.APIResponseTransactionYearAmountFailed {
+func (t *transactionResponseMapper) ToGraphqlResponseYearAmountFailed(res *pb_transaction.ApiResponseTransactionYearAmountFailed) *model.APIResponseTransactionYearAmountFailed {
 	return &model.APIResponseTransactionYearAmountFailed{
 		Status:  res.Status,
 		Message: res.Message,
@@ -96,7 +96,7 @@ func (t *transactionResponseMapper) ToGraphqlResponseYearAmountFailed(res *pb.Ap
 	}
 }
 
-func (t *transactionResponseMapper) ToGraphqlResponseMonthMethod(res *pb.ApiResponseTransactionMonthPaymentMethod) *model.APIResponseTransactionMonthPaymentMethod {
+func (t *transactionResponseMapper) ToGraphqlResponseMonthMethod(res *pb_transaction.ApiResponseTransactionMonthPaymentMethod) *model.APIResponseTransactionMonthPaymentMethod {
 	return &model.APIResponseTransactionMonthPaymentMethod{
 		Status:  res.Status,
 		Message: res.Message,
@@ -104,7 +104,7 @@ func (t *transactionResponseMapper) ToGraphqlResponseMonthMethod(res *pb.ApiResp
 	}
 }
 
-func (t *transactionResponseMapper) ToGraphqlResponseYearMethod(res *pb.ApiResponseTransactionYearPaymentmethod) *model.APIResponseTransactionYearPaymentMethod {
+func (t *transactionResponseMapper) ToGraphqlResponseYearMethod(res *pb_transaction.ApiResponseTransactionYearPaymentmethod) *model.APIResponseTransactionYearPaymentMethod {
 	return &model.APIResponseTransactionYearPaymentMethod{
 		Status:  res.Status,
 		Message: res.Message,
@@ -112,7 +112,7 @@ func (t *transactionResponseMapper) ToGraphqlResponseYearMethod(res *pb.ApiRespo
 	}
 }
 
-func (t *transactionResponseMapper) mapResponseTransaction(transaction *pb.TransactionResponse) *model.TransactionResponse {
+func (t *transactionResponseMapper) mapResponseTransaction(transaction *pb_transaction.TransactionResponse) *model.TransactionResponse {
 	if transaction == nil {
 		return nil
 	}
@@ -128,7 +128,7 @@ func (t *transactionResponseMapper) mapResponseTransaction(transaction *pb.Trans
 	}
 }
 
-func (t *transactionResponseMapper) mapResponsesTransaction(transactions []*pb.TransactionResponse) []*model.TransactionResponse {
+func (t *transactionResponseMapper) mapResponsesTransaction(transactions []*pb_transaction.TransactionResponse) []*model.TransactionResponse {
 	mapped := make([]*model.TransactionResponse, 0, len(transactions))
 	for _, transaction := range transactions {
 		mapped = append(mapped, t.mapResponseTransaction(transaction))
@@ -136,7 +136,7 @@ func (t *transactionResponseMapper) mapResponsesTransaction(transactions []*pb.T
 	return mapped
 }
 
-func (t *transactionResponseMapper) mapResponseTransactionDeleteAt(transaction *pb.TransactionResponseDeleteAt) *model.TransactionResponseDeleteAt {
+func (t *transactionResponseMapper) mapResponseTransactionDeleteAt(transaction *pb_transaction.TransactionResponseDeleteAt) *model.TransactionResponseDeleteAt {
 	var deletedAt string
 
 	if transaction.DeletedAt != nil {
@@ -156,7 +156,7 @@ func (t *transactionResponseMapper) mapResponseTransactionDeleteAt(transaction *
 	}
 }
 
-func (t *transactionResponseMapper) mapResponsesTransactionDeleteAt(transactions []*pb.TransactionResponseDeleteAt) []*model.TransactionResponseDeleteAt {
+func (t *transactionResponseMapper) mapResponsesTransactionDeleteAt(transactions []*pb_transaction.TransactionResponseDeleteAt) []*model.TransactionResponseDeleteAt {
 	mapped := make([]*model.TransactionResponseDeleteAt, 0, len(transactions))
 	for _, transaction := range transactions {
 		mapped = append(mapped, t.mapResponseTransactionDeleteAt(transaction))
@@ -164,7 +164,7 @@ func (t *transactionResponseMapper) mapResponsesTransactionDeleteAt(transactions
 	return mapped
 }
 
-func (t *transactionResponseMapper) mapResponseTransactionMonthAmountSuccess(row *pb.TransactionMonthlyAmountSuccess) *model.TransactionMonthlyAmountSuccess {
+func (t *transactionResponseMapper) mapResponseTransactionMonthAmountSuccess(row *pb_transaction.TransactionMonthlyAmountSuccess) *model.TransactionMonthlyAmountSuccess {
 	return &model.TransactionMonthlyAmountSuccess{
 		Year:         row.Year,
 		Month:        row.Month,
@@ -173,7 +173,7 @@ func (t *transactionResponseMapper) mapResponseTransactionMonthAmountSuccess(row
 	}
 }
 
-func (t *transactionResponseMapper) mapResponsesTransactionMonthlyAmountSuccess(rows []*pb.TransactionMonthlyAmountSuccess) []*model.TransactionMonthlyAmountSuccess {
+func (t *transactionResponseMapper) mapResponsesTransactionMonthlyAmountSuccess(rows []*pb_transaction.TransactionMonthlyAmountSuccess) []*model.TransactionMonthlyAmountSuccess {
 	var res []*model.TransactionMonthlyAmountSuccess
 	for _, row := range rows {
 		res = append(res, t.mapResponseTransactionMonthAmountSuccess(row))
@@ -181,7 +181,7 @@ func (t *transactionResponseMapper) mapResponsesTransactionMonthlyAmountSuccess(
 	return res
 }
 
-func (t *transactionResponseMapper) mapResponseTransactionYearAmountSuccess(row *pb.TransactionYearlyAmountSuccess) *model.TransactionYearlyAmountSuccess {
+func (t *transactionResponseMapper) mapResponseTransactionYearAmountSuccess(row *pb_transaction.TransactionYearlyAmountSuccess) *model.TransactionYearlyAmountSuccess {
 	return &model.TransactionYearlyAmountSuccess{
 		Year:         row.Year,
 		TotalSuccess: int32(row.TotalSuccess),
@@ -189,7 +189,7 @@ func (t *transactionResponseMapper) mapResponseTransactionYearAmountSuccess(row 
 	}
 }
 
-func (t *transactionResponseMapper) mapResponsesTransactionYearlyAmountSuccess(rows []*pb.TransactionYearlyAmountSuccess) []*model.TransactionYearlyAmountSuccess {
+func (t *transactionResponseMapper) mapResponsesTransactionYearlyAmountSuccess(rows []*pb_transaction.TransactionYearlyAmountSuccess) []*model.TransactionYearlyAmountSuccess {
 	var res []*model.TransactionYearlyAmountSuccess
 	for _, row := range rows {
 		res = append(res, t.mapResponseTransactionYearAmountSuccess(row))
@@ -197,7 +197,7 @@ func (t *transactionResponseMapper) mapResponsesTransactionYearlyAmountSuccess(r
 	return res
 }
 
-func (t *transactionResponseMapper) mapResponseTransactionMonthAmountFailed(row *pb.TransactionMonthlyAmountFailed) *model.TransactionMonthlyAmountFailed {
+func (t *transactionResponseMapper) mapResponseTransactionMonthAmountFailed(row *pb_transaction.TransactionMonthlyAmountFailed) *model.TransactionMonthlyAmountFailed {
 	return &model.TransactionMonthlyAmountFailed{
 		Year:        row.Year,
 		Month:       row.Month,
@@ -206,7 +206,7 @@ func (t *transactionResponseMapper) mapResponseTransactionMonthAmountFailed(row 
 	}
 }
 
-func (t *transactionResponseMapper) mapResponsesTransactionMonthlyAmountFailed(rows []*pb.TransactionMonthlyAmountFailed) []*model.TransactionMonthlyAmountFailed {
+func (t *transactionResponseMapper) mapResponsesTransactionMonthlyAmountFailed(rows []*pb_transaction.TransactionMonthlyAmountFailed) []*model.TransactionMonthlyAmountFailed {
 	var res []*model.TransactionMonthlyAmountFailed
 	for _, row := range rows {
 		res = append(res, t.mapResponseTransactionMonthAmountFailed(row))
@@ -214,7 +214,7 @@ func (t *transactionResponseMapper) mapResponsesTransactionMonthlyAmountFailed(r
 	return res
 }
 
-func (t *transactionResponseMapper) mapResponseTransactionYearAmountFailed(row *pb.TransactionYearlyAmountFailed) *model.TransactionYearlyAmountFailed {
+func (t *transactionResponseMapper) mapResponseTransactionYearAmountFailed(row *pb_transaction.TransactionYearlyAmountFailed) *model.TransactionYearlyAmountFailed {
 	return &model.TransactionYearlyAmountFailed{
 		Year:        row.Year,
 		TotalFailed: int32(row.TotalFailed),
@@ -222,7 +222,7 @@ func (t *transactionResponseMapper) mapResponseTransactionYearAmountFailed(row *
 	}
 }
 
-func (t *transactionResponseMapper) mapResponsesTransactionYearlyAmountFailed(rows []*pb.TransactionYearlyAmountFailed) []*model.TransactionYearlyAmountFailed {
+func (t *transactionResponseMapper) mapResponsesTransactionYearlyAmountFailed(rows []*pb_transaction.TransactionYearlyAmountFailed) []*model.TransactionYearlyAmountFailed {
 	var res []*model.TransactionYearlyAmountFailed
 	for _, row := range rows {
 		res = append(res, t.mapResponseTransactionYearAmountFailed(row))
@@ -230,7 +230,7 @@ func (t *transactionResponseMapper) mapResponsesTransactionYearlyAmountFailed(ro
 	return res
 }
 
-func (t *transactionResponseMapper) mapResponseTransactionMonthMethod(row *pb.TransactionMonthlyMethod) *model.TransactionMonthlyMethod {
+func (t *transactionResponseMapper) mapResponseTransactionMonthMethod(row *pb_transaction.TransactionMonthlyMethod) *model.TransactionMonthlyMethod {
 	return &model.TransactionMonthlyMethod{
 		Month:             row.Month,
 		PaymentMethod:     row.PaymentMethod,
@@ -239,7 +239,7 @@ func (t *transactionResponseMapper) mapResponseTransactionMonthMethod(row *pb.Tr
 	}
 }
 
-func (t *transactionResponseMapper) mapResponsesTransactionMonthlyMethod(rows []*pb.TransactionMonthlyMethod) []*model.TransactionMonthlyMethod {
+func (t *transactionResponseMapper) mapResponsesTransactionMonthlyMethod(rows []*pb_transaction.TransactionMonthlyMethod) []*model.TransactionMonthlyMethod {
 	var res []*model.TransactionMonthlyMethod
 	for _, row := range rows {
 		res = append(res, t.mapResponseTransactionMonthMethod(row))
@@ -247,7 +247,7 @@ func (t *transactionResponseMapper) mapResponsesTransactionMonthlyMethod(rows []
 	return res
 }
 
-func (t *transactionResponseMapper) mapResponseTransactionYearMethod(row *pb.TransactionYearlyMethod) *model.TransactionYearlyMethod {
+func (t *transactionResponseMapper) mapResponseTransactionYearMethod(row *pb_transaction.TransactionYearlyMethod) *model.TransactionYearlyMethod {
 	return &model.TransactionYearlyMethod{
 		Year:              row.Year,
 		PaymentMethod:     row.PaymentMethod,
@@ -256,7 +256,7 @@ func (t *transactionResponseMapper) mapResponseTransactionYearMethod(row *pb.Tra
 	}
 }
 
-func (t *transactionResponseMapper) mapResponsesTransactionYearlyMethod(rows []*pb.TransactionYearlyMethod) []*model.TransactionYearlyMethod {
+func (t *transactionResponseMapper) mapResponsesTransactionYearlyMethod(rows []*pb_transaction.TransactionYearlyMethod) []*model.TransactionYearlyMethod {
 	var res []*model.TransactionYearlyMethod
 	for _, row := range rows {
 		res = append(res, t.mapResponseTransactionYearMethod(row))

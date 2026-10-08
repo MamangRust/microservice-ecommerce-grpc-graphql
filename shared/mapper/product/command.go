@@ -1,7 +1,7 @@
 package productapimapper
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/product"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/response"
 )
 
@@ -11,8 +11,10 @@ func NewProductCommandResponseMapper() ProductCommandResponseMapper {
 	return &productCommandResponseMapper{}
 }
 
-func (p *productCommandResponseMapper) ToResponseProduct(product *pb.ProductResponse) *response.ProductResponse {
-	if product == nil { return nil }
+func (p *productCommandResponseMapper) ToResponseProduct(product *pb_product.ProductResponse) *response.ProductResponse {
+	if product == nil {
+		return nil
+	}
 	return &response.ProductResponse{
 		ID:           int(product.Id),
 		MerchantID:   int(product.MerchantId),
@@ -31,7 +33,7 @@ func (p *productCommandResponseMapper) ToResponseProduct(product *pb.ProductResp
 	}
 }
 
-func (p *productCommandResponseMapper) ToResponsesProduct(products []*pb.ProductResponse) []*response.ProductResponse {
+func (p *productCommandResponseMapper) ToResponsesProduct(products []*pb_product.ProductResponse) []*response.ProductResponse {
 	var mappedProducts []*response.ProductResponse
 	for _, product := range products {
 		mappedProducts = append(mappedProducts, p.ToResponseProduct(product))
@@ -39,8 +41,10 @@ func (p *productCommandResponseMapper) ToResponsesProduct(products []*pb.Product
 	return mappedProducts
 }
 
-func (p *productCommandResponseMapper) ToResponseProductDeleteAt(product *pb.ProductResponseDeleteAt) *response.ProductResponseDeleteAt {
-	if product == nil { return nil }
+func (p *productCommandResponseMapper) ToResponseProductDeleteAt(product *pb_product.ProductResponseDeleteAt) *response.ProductResponseDeleteAt {
+	if product == nil {
+		return nil
+	}
 	var deletedAt string
 	if product.DeletedAt != nil {
 		deletedAt = product.DeletedAt.Value
@@ -65,7 +69,7 @@ func (p *productCommandResponseMapper) ToResponseProductDeleteAt(product *pb.Pro
 	}
 }
 
-func (p *productCommandResponseMapper) ToResponsesProductDeleteAt(products []*pb.ProductResponseDeleteAt) []*response.ProductResponseDeleteAt {
+func (p *productCommandResponseMapper) ToResponsesProductDeleteAt(products []*pb_product.ProductResponseDeleteAt) []*response.ProductResponseDeleteAt {
 	var mappedProducts []*response.ProductResponseDeleteAt
 	for _, product := range products {
 		mappedProducts = append(mappedProducts, p.ToResponseProductDeleteAt(product))
@@ -73,7 +77,7 @@ func (p *productCommandResponseMapper) ToResponsesProductDeleteAt(products []*pb
 	return mappedProducts
 }
 
-func (p *productCommandResponseMapper) ToApiResponseProduct(pbResponse *pb.ApiResponseProduct) *response.ApiResponseProduct {
+func (p *productCommandResponseMapper) ToApiResponseProduct(pbResponse *pb_product.ApiResponseProduct) *response.ApiResponseProduct {
 	return &response.ApiResponseProduct{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -81,7 +85,7 @@ func (p *productCommandResponseMapper) ToApiResponseProduct(pbResponse *pb.ApiRe
 	}
 }
 
-func (p *productCommandResponseMapper) ToApiResponsesProductDeleteAt(pbResponse *pb.ApiResponseProductDeleteAt) *response.ApiResponseProductDeleteAt {
+func (p *productCommandResponseMapper) ToApiResponsesProductDeleteAt(pbResponse *pb_product.ApiResponseProductDeleteAt) *response.ApiResponseProductDeleteAt {
 	return &response.ApiResponseProductDeleteAt{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
@@ -89,20 +93,20 @@ func (p *productCommandResponseMapper) ToApiResponsesProductDeleteAt(pbResponse 
 	}
 }
 
-func (p *productCommandResponseMapper) ToApiResponseProductDelete(pbResponse *pb.ApiResponseProductDelete) *response.ApiResponseProductDelete {
+func (p *productCommandResponseMapper) ToApiResponseProductDelete(pbResponse *pb_product.ApiResponseProductDelete) *response.ApiResponseProductDelete {
 	return &response.ApiResponseProductDelete{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
 	}
 }
 
-func (p *productCommandResponseMapper) ToApiResponseProductAll(pbResponse *pb.ApiResponseProductAll) *response.ApiResponseProductAll {
+func (p *productCommandResponseMapper) ToApiResponseProductAll(pbResponse *pb_product.ApiResponseProductAll) *response.ApiResponseProductAll {
 	return &response.ApiResponseProductAll{
 		Status:  pbResponse.Status,
 		Message: pbResponse.Message,
 	}
 }
 
-func (p *productCommandResponseMapper) ToApiResponsePaginationProductDeleteAt(pbResponse *pb.ApiResponsePaginationProductDeleteAt) *response.ApiResponsePaginationProductDeleteAt {
+func (p *productCommandResponseMapper) ToApiResponsePaginationProductDeleteAt(pbResponse *pb_product.ApiResponsePaginationProductDeleteAt) *response.ApiResponsePaginationProductDeleteAt {
 	return nil // Not strictly needed in Command but to satisfy interface if we keep it there
 }

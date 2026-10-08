@@ -3,13 +3,36 @@ package tests
 import (
 	"bytes"
 	"mime/multipart"
+	"time"
 
 	"github.com/MamangRust/microservice-ecommerce-pkg/auth"
 
+	pb_auth "github.com/MamangRust/microservice-ecommerce-grpc-pb/auth"
+	pb_banner "github.com/MamangRust/microservice-ecommerce-grpc-pb/banner"
+	pb_cart "github.com/MamangRust/microservice-ecommerce-grpc-pb/cart"
+	pb_category "github.com/MamangRust/microservice-ecommerce-grpc-pb/category"
+	pb_merchant "github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
+	pb_merchant_award "github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_award"
+	pb_merchant_business "github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_business"
+	pb_merchant_detail "github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_detail"
+	pb_merchant_policy "github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_policy"
+	pb_order "github.com/MamangRust/microservice-ecommerce-grpc-pb/order"
+	pb_order_item "github.com/MamangRust/microservice-ecommerce-grpc-pb/order_item"
+	pb_product "github.com/MamangRust/microservice-ecommerce-grpc-pb/product"
+	pb_review "github.com/MamangRust/microservice-ecommerce-grpc-pb/review"
+	pb_review_detail "github.com/MamangRust/microservice-ecommerce-grpc-pb/review_detail"
+	pb_role "github.com/MamangRust/microservice-ecommerce-grpc-pb/role"
+	pb_user_role "github.com/MamangRust/microservice-ecommerce-grpc-pb/user_role"
+	pb_shipping_address "github.com/MamangRust/microservice-ecommerce-grpc-pb/shipping_address"
+	pb_slider "github.com/MamangRust/microservice-ecommerce-grpc-pb/slider"
+	pb_transaction "github.com/MamangRust/microservice-ecommerce-grpc-pb/transaction"
+	pb_user "github.com/MamangRust/microservice-ecommerce-grpc-pb/user"
+	"github.com/MamangRust/microservice-ecommerce-pkg/adapter"
+
+	"github.com/MamangRust/microservice-ecommerce-pkg/resilience"
 	"github.com/MamangRust/microservice-ecommerce-pkg/hash"
 	"github.com/MamangRust/microservice-ecommerce-shared/cache"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 
 	// Per-service generated schemas (test database holds every table)
 	authdb "github.com/MamangRust/microservice-ecommerce-auth/database/schema"
@@ -166,8 +189,10 @@ func (s *BaseTestSuite) SetupRoleService() {
 		Logger:  s.Log,
 	})
 	server := grpc.NewServer()
-	pb.RegisterRoleQueryServiceServer(server, roleGapi.RoleQuery)
-	pb.RegisterRoleCommandServiceServer(server, roleGapi.RoleCommand)
+	pb_role.RegisterRoleQueryServiceServer(server, roleGapi.RoleQuery)
+	pb_role.RegisterRoleCommandServiceServer(server, roleGapi.RoleCommand)
+	pb_user_role.RegisterUserRoleQueryServiceServer(server, roleGapi.UserRoleQuery)
+	pb_user_role.RegisterUserRoleCommandServiceServer(server, roleGapi.UserRoleCommand)
 	addr, err := RunGRPCServer(server)
 	s.Require().NoError(err)
 
@@ -183,8 +208,15 @@ func (s *BaseTestSuite) SetupUserService() {
 	hasher := hash.NewHashingPassword()
 
 	userMencache := user_cache.NewMencache(cacheStore)
-	roleQueryClient := pb.NewRoleQueryServiceClient(s.Conns["role"])
-	userRepos := user_repo.NewRepositories(queries, roleQueryClient)
+	userRepos := user_repo.NewRepositories(&user_repo.Deps{
+		Db:       queries,
+		Role:     pb_role.NewRoleQueryServiceClient(s.Conns["role"]),
+		UserRole: pb_user_role.NewUserRoleCommandServiceClient(s.Conns["role"]),
+		Guards: user_repo.GuardOptions{
+			Role:     s.dependencyGuard("role"),
+			UserRole: s.dependencyGuard("user_role"),
+		},
+	})
 	userSvc := user_service.NewService(&user_service.Deps{
 		Repositories:  userRepos,
 		Logger:        s.Log,
@@ -197,8 +229,8 @@ func (s *BaseTestSuite) SetupUserService() {
 		Logger:  s.Log,
 	})
 	server := grpc.NewServer()
-	pb.RegisterUserQueryServiceServer(server, userGapi.UserQuery)
-	pb.RegisterUserCommandServiceServer(server, userGapi.UserCommand)
+	pb_user.RegisterUserQueryServiceServer(server, userGapi.UserQuery)
+	pb_user.RegisterUserCommandServiceServer(server, userGapi.UserCommand)
 	addr, err := RunGRPCServer(server)
 	s.Require().NoError(err)
 
@@ -214,12 +246,18 @@ func (s *BaseTestSuite) SetupAuthService() {
 	hasher := hash.NewHashingPassword()
 	tokenManager, _ := auth.NewManager("mysecret")
 
-	userQueryClient := pb.NewUserQueryServiceClient(s.Conns["user"])
-	userCommandClient := pb.NewUserCommandServiceClient(s.Conns["user"])
-	roleQueryClient := pb.NewRoleQueryServiceClient(s.Conns["role"])
-	roleCommandClient := pb.NewRoleCommandServiceClient(s.Conns["role"])
-
-	authRepos := auth_repo.NewRepositories(queries, userQueryClient, userCommandClient, roleQueryClient, roleCommandClient)
+	authRepos := auth_repo.NewRepositories(&auth_repo.Deps{
+		Db:              queries,
+		User:            pb_user.NewUserQueryServiceClient(s.Conns["user"]),
+		UserCommand:     pb_user.NewUserCommandServiceClient(s.Conns["user"]),
+		Role:            pb_role.NewRoleQueryServiceClient(s.Conns["role"]),
+		UserRoleCommand: pb_user_role.NewUserRoleCommandServiceClient(s.Conns["role"]),
+		Guards: auth_repo.GuardOptions{
+			User:     s.dependencyGuard("user"),
+			UserRole: s.dependencyGuard("user_role"),
+			Role:     s.dependencyGuard("role"),
+		},
+	})
 	authMencache := auth_cache.NewMencache(cacheStore)
 	authSvc := auth_service.NewService(&auth_service.Deps{
 		Repositories:  authRepos,
@@ -232,7 +270,7 @@ func (s *BaseTestSuite) SetupAuthService() {
 	})
 	authGapi := auth_handler.NewAuthHandleGrpc(authSvc, s.Log)
 	server := grpc.NewServer()
-	pb.RegisterAuthServiceServer(server, authGapi)
+	pb_auth.RegisterAuthServiceServer(server, authGapi)
 	addr, err := RunGRPCServer(server)
 	s.Require().NoError(err)
 
@@ -259,8 +297,8 @@ func (s *BaseTestSuite) SetupBannerService() {
 		Logger:  s.Log,
 	})
 	server := grpc.NewServer()
-	pb.RegisterBannerQueryServiceServer(server, bannerGapi.BannerQuery)
-	pb.RegisterBannerCommandServiceServer(server, bannerGapi.BannerCommand)
+	pb_banner.RegisterBannerQueryServiceServer(server, bannerGapi.BannerQuery)
+	pb_banner.RegisterBannerCommandServiceServer(server, bannerGapi.BannerCommand)
 	addr, err := RunGRPCServer(server)
 	s.Require().NoError(err)
 
@@ -287,8 +325,8 @@ func (s *BaseTestSuite) SetupSliderService() {
 		Logger:  s.Log,
 	})
 	server := grpc.NewServer()
-	pb.RegisterSliderQueryServiceServer(server, sliderGapi.SliderQuery)
-	pb.RegisterSliderCommandServiceServer(server, sliderGapi.SliderCommand)
+	pb_slider.RegisterSliderQueryServiceServer(server, sliderGapi.SliderQuery)
+	pb_slider.RegisterSliderCommandServiceServer(server, sliderGapi.SliderCommand)
 	addr, err := RunGRPCServer(server)
 	s.Require().NoError(err)
 
@@ -315,8 +353,8 @@ func (s *BaseTestSuite) SetupCategoryService() {
 		Logger:  s.Log,
 	})
 	server := grpc.NewServer()
-	pb.RegisterCategoryQueryServiceServer(server, catGapi.CategoryQuery)
-	pb.RegisterCategoryCommandServiceServer(server, catGapi.CategoryCommand)
+	pb_category.RegisterCategoryQueryServiceServer(server, catGapi.CategoryQuery)
+	pb_category.RegisterCategoryCommandServiceServer(server, catGapi.CategoryCommand)
 	addr, err := RunGRPCServer(server)
 	s.Require().NoError(err)
 	s.Conns["category"] = s.dial(addr)
@@ -328,9 +366,12 @@ func (s *BaseTestSuite) SetupProductService() {
 	queries := productdb.New(s.ts.DBPool())
 
 	prodMencache := product_cache.NewMencache(cacheStore)
-	catQueryClient := pb.NewCategoryQueryServiceClient(s.Conns["category"])
-	merchantQueryClient := pb.NewMerchantQueryServiceClient(s.Conns["merchant"])
-	prodRepos := product_repo.NewRepositories(queries, catQueryClient, merchantQueryClient)
+	catQueryClient := pb_category.NewCategoryQueryServiceClient(s.Conns["category"])
+	merchantQueryClient := pb_merchant.NewMerchantQueryServiceClient(s.Conns["merchant"])
+	prodRepos := product_repo.NewRepositories(queries, catQueryClient, merchantQueryClient, product_repo.GuardOptions{
+		Category: s.dependencyGuard("category"),
+		Merchant: s.dependencyGuard("merchant"),
+	})
 	prodSvc := product_service.NewService(&product_service.Deps{
 		Cache:         prodMencache,
 		Repository:    prodRepos,
@@ -342,8 +383,8 @@ func (s *BaseTestSuite) SetupProductService() {
 		Logger:  s.Log,
 	})
 	server := grpc.NewServer()
-	pb.RegisterProductQueryServiceServer(server, prodGapi.ProductQuery)
-	pb.RegisterProductCommandServiceServer(server, prodGapi.ProductCommand)
+	pb_product.RegisterProductQueryServiceServer(server, prodGapi.ProductQuery)
+	pb_product.RegisterProductCommandServiceServer(server, prodGapi.ProductCommand)
 	addr, err := RunGRPCServer(server)
 	s.Require().NoError(err)
 	s.Conns["product"] = s.dial(addr)
@@ -355,9 +396,12 @@ func (s *BaseTestSuite) SetupCartService() {
 	queries := cartdb.New(s.ts.DBPool())
 
 	cartMencache := cart_cache.NewMencache(cacheStore)
-	userQueryClient := pb.NewUserQueryServiceClient(s.Conns["user"])
-	productQueryClient := pb.NewProductQueryServiceClient(s.Conns["product"])
-	cartRepos := cart_repo.NewRepositories(queries, userQueryClient, productQueryClient)
+	userQueryClient := pb_user.NewUserQueryServiceClient(s.Conns["user"])
+	productQueryClient := pb_product.NewProductQueryServiceClient(s.Conns["product"])
+	cartRepos := cart_repo.NewRepositories(queries, userQueryClient, productQueryClient, cart_repo.GuardOptions{
+		User:    s.dependencyGuard("user"),
+		Product: s.dependencyGuard("product"),
+	})
 	cartSvc := cart_service.NewService(&cart_service.Deps{
 		Cache:         cartMencache,
 		Repositories:  cartRepos,
@@ -369,8 +413,8 @@ func (s *BaseTestSuite) SetupCartService() {
 		Logger:  s.Log,
 	})
 	server := grpc.NewServer()
-	pb.RegisterCartQueryServiceServer(server, cartGapi.CartQuery)
-	pb.RegisterCartCommandServiceServer(server, cartGapi.CartCommand)
+	pb_cart.RegisterCartQueryServiceServer(server, cartGapi.CartQuery)
+	pb_cart.RegisterCartCommandServiceServer(server, cartGapi.CartCommand)
 	addr, err := RunGRPCServer(server)
 	s.Require().NoError(err)
 	s.Conns["cart"] = s.dial(addr)
@@ -382,8 +426,10 @@ func (s *BaseTestSuite) SetupMerchantService() {
 	queries := merchantdb.New(s.ts.DBPool())
 
 	merchantMencache := merchant_cache.NewMencache(cacheStore)
-	userQueryClient := pb.NewUserQueryServiceClient(s.Conns["user"])
-	merchantRepos := merchant_repo.NewRepositories(queries, userQueryClient)
+	userQueryClient := pb_user.NewUserQueryServiceClient(s.Conns["user"])
+	merchantRepos := merchant_repo.NewRepositories(queries, userQueryClient, merchant_repo.GuardOptions{
+		User: s.dependencyGuard("user"),
+	})
 	merchantSvc := merchant_service.NewService(&merchant_service.Deps{
 		Mencache:      merchantMencache,
 		Repositories:  merchantRepos,
@@ -396,8 +442,8 @@ func (s *BaseTestSuite) SetupMerchantService() {
 		Logger:  s.Log,
 	})
 	server := grpc.NewServer()
-	pb.RegisterMerchantQueryServiceServer(server, merchantGapi.MerchantQuery)
-	pb.RegisterMerchantCommandServiceServer(server, merchantGapi.MerchantCommandHandler)
+	pb_merchant.RegisterMerchantQueryServiceServer(server, merchantGapi.MerchantQuery)
+	pb_merchant.RegisterMerchantCommandServiceServer(server, merchantGapi.MerchantCommandHandler)
 	addr, err := RunGRPCServer(server)
 	s.Require().NoError(err)
 	s.Conns["merchant"] = s.dial(addr)
@@ -410,16 +456,24 @@ func (s *BaseTestSuite) SetupOrderService() {
 
 	orderMencache := order_cache.NewMencache(cacheStore)
 	orderRepos := order_repo.NewRepositories(&order_repo.Deps{
-		DB:                 queries,
-		MerchantQuery:      pb.NewMerchantQueryServiceClient(s.Conns["merchant"]),
-		ProductQuery:       pb.NewProductQueryServiceClient(s.Conns["product"]),
-		ProductCommand:     pb.NewProductCommandServiceClient(s.Conns["product"]),
-		OrderItemQuery:     pb.NewOrderItemQueryServiceClient(s.Conns["order-item"]),
-		OrderItemCommand:   pb.NewOrderItemCommandServiceClient(s.Conns["order-item"]),
-		UserQuery:          pb.NewUserQueryServiceClient(s.Conns["user"]),
-		ShippingCommand:    pb.NewShippingCommandServiceClient(s.Conns["shipping-address"]),
-		ShippingQuery:      pb.NewShippingQueryServiceClient(s.Conns["shipping-address"]),
-		TransactionCommand: pb.NewTransactionCommandServiceClient(s.Conns["transaction"]),
+		DB:                      queries,
+		UserQueryClient:         pb_user.NewUserQueryServiceClient(s.Conns["user"]),
+		ProductQueryClient:      pb_product.NewProductQueryServiceClient(s.Conns["product"]),
+		ProductCommandClient:    pb_product.NewProductCommandServiceClient(s.Conns["product"]),
+		MerchantQueryClient:     pb_merchant.NewMerchantQueryServiceClient(s.Conns["merchant"]),
+		OrderItemQueryClient:    pb_order_item.NewOrderItemQueryServiceClient(s.Conns["order-item"]),
+		OrderItemCommandClient:  pb_order_item.NewOrderItemCommandServiceClient(s.Conns["order-item"]),
+		ShippingCommandClient:   pb_shipping_address.NewShippingCommandServiceClient(s.Conns["shipping-address"]),
+		ShippingQueryClient:     pb_shipping_address.NewShippingQueryServiceClient(s.Conns["shipping-address"]),
+		TransactionCommandClient: pb_transaction.NewTransactionCommandServiceClient(s.Conns["transaction"]),
+		Guards: order_repo.GuardOptions{
+			User:        s.dependencyGuard("user"),
+			Product:     s.dependencyGuard("product"),
+			Merchant:    s.dependencyGuard("merchant"),
+			OrderItem:   s.dependencyGuard("order_item"),
+			Shipping:    s.dependencyGuard("shipping_address"),
+			Transaction: s.dependencyGuard("transaction"),
+		},
 	})
 	orderSvc := order_service.NewService(&order_service.Deps{
 		Cache:         orderMencache,
@@ -432,8 +486,8 @@ func (s *BaseTestSuite) SetupOrderService() {
 		Logger:  s.Log,
 	})
 	server := grpc.NewServer()
-	pb.RegisterOrderQueryServiceServer(server, orderGapi.OrderQuery)
-	pb.RegisterOrderCommandServiceServer(server, orderGapi.OrderCommand)
+	pb_order.RegisterOrderQueryServiceServer(server, orderGapi.OrderQuery)
+	pb_order.RegisterOrderCommandServiceServer(server, orderGapi.OrderCommand)
 	addr, err := RunGRPCServer(server)
 	s.Require().NoError(err)
 	s.Conns["order"] = s.dial(addr)
@@ -445,7 +499,9 @@ func (s *BaseTestSuite) SetupMerchantAwardService() {
 	queries := merchant_awarddb.New(s.ts.DBPool())
 
 	awardMencache := merchant_award_cache.NewMencache(cacheStore)
-	awardRepos := merchant_award_repo.NewRepositories(queries, pb.NewMerchantQueryServiceClient(s.Conns["merchant"]))
+	awardRepos := merchant_award_repo.NewRepositories(queries,
+		pb_merchant.NewMerchantQueryServiceClient(s.Conns["merchant"]),
+		merchant_award_repo.GuardOptions{Merchant: s.dependencyGuard("merchant")})
 	awardSvc := merchant_award_service.NewService(&merchant_award_service.Deps{
 		Cache:         awardMencache,
 		Repository:    awardRepos,
@@ -457,8 +513,8 @@ func (s *BaseTestSuite) SetupMerchantAwardService() {
 		Logger:  s.Log,
 	})
 	server := grpc.NewServer()
-	pb.RegisterMerchantAwardQueryServiceServer(server, awardGapi.MerchantAwardQuery)
-	pb.RegisterMerchantAwardCommandServiceServer(server, awardGapi.MerchantAwardCommand)
+	pb_merchant_award.RegisterMerchantAwardQueryServiceServer(server, awardGapi.MerchantAwardQuery)
+	pb_merchant_award.RegisterMerchantAwardCommandServiceServer(server, awardGapi.MerchantAwardCommand)
 	addr, err := RunGRPCServer(server)
 	s.Require().NoError(err)
 	s.Conns["merchant_award"] = s.dial(addr)
@@ -470,7 +526,9 @@ func (s *BaseTestSuite) SetupMerchantBusinessService() {
 	queries := merchant_businessdb.New(s.ts.DBPool())
 
 	businessMencache := merchant_business_cache.NewMencache(cacheStore)
-	businessRepos := merchant_business_repo.NewRepositories(queries, pb.NewMerchantQueryServiceClient(s.Conns["merchant"]))
+	businessRepos := merchant_business_repo.NewRepositories(queries,
+		pb_merchant.NewMerchantQueryServiceClient(s.Conns["merchant"]),
+		merchant_business_repo.GuardOptions{Merchant: s.dependencyGuard("merchant")})
 	businessSvc := merchant_business_service.NewService(&merchant_business_service.Deps{
 		Cache:         businessMencache,
 		Repository:    businessRepos,
@@ -482,8 +540,8 @@ func (s *BaseTestSuite) SetupMerchantBusinessService() {
 		Logger:  s.Log,
 	})
 	server := grpc.NewServer()
-	pb.RegisterMerchantBusinessQueryServiceServer(server, businessGapi.MerchantBusinessQuery)
-	pb.RegisterMerchantBusinessCommandServiceServer(server, businessGapi.MerchantBusinessCommand)
+	pb_merchant_business.RegisterMerchantBusinessQueryServiceServer(server, businessGapi.MerchantBusinessQuery)
+	pb_merchant_business.RegisterMerchantBusinessCommandServiceServer(server, businessGapi.MerchantBusinessCommand)
 	addr, err := RunGRPCServer(server)
 	s.Require().NoError(err)
 	s.Conns["merchant_business"] = s.dial(addr)
@@ -496,12 +554,19 @@ func (s *BaseTestSuite) SetupTransactionService() {
 
 	transactionMencache := transaction_cache.NewMencache(cacheStore)
 	transactionRepos := transaction_repo.NewRepositories(&transaction_repo.Deps{
-		DB:             queries,
-		UserQuery:      pb.NewUserQueryServiceClient(s.Conns["user"]),
-		MerchantQuery:  pb.NewMerchantQueryServiceClient(s.Conns["merchant"]),
-		OrderQuery:     pb.NewOrderQueryServiceClient(s.Conns["order"]),
-		OrderItemQuery: pb.NewOrderItemQueryServiceClient(s.Conns["order-item"]),
-		ShippingQuery:  pb.NewShippingQueryServiceClient(s.Conns["shipping-address"]),
+		DB:                  queries,
+		UserQueryClient:     pb_user.NewUserQueryServiceClient(s.Conns["user"]),
+		MerchantQueryClient: pb_merchant.NewMerchantQueryServiceClient(s.Conns["merchant"]),
+		OrderQueryClient:    pb_order.NewOrderQueryServiceClient(s.Conns["order"]),
+		OrderItemQueryClient: pb_order_item.NewOrderItemQueryServiceClient(s.Conns["order-item"]),
+		ShippingQueryClient: pb_shipping_address.NewShippingQueryServiceClient(s.Conns["shipping-address"]),
+		Guards: transaction_repo.GuardOptions{
+			User:      s.dependencyGuard("user"),
+			Merchant:  s.dependencyGuard("merchant"),
+			Order:     s.dependencyGuard("order"),
+			OrderItem: s.dependencyGuard("order_item"),
+			Shipping:  s.dependencyGuard("shipping_address"),
+		},
 	})
 	transactionSvc := transaction_service.NewService(&transaction_service.Deps{
 		Cache:         transactionMencache,
@@ -514,8 +579,8 @@ func (s *BaseTestSuite) SetupTransactionService() {
 		Logger:  s.Log,
 	})
 	server := grpc.NewServer()
-	pb.RegisterTransactionQueryServiceServer(server, transactionGapi.TransactionQuery)
-	pb.RegisterTransactionCommandServiceServer(server, transactionGapi.TransactionCommand)
+	pb_transaction.RegisterTransactionQueryServiceServer(server, transactionGapi.TransactionQuery)
+	pb_transaction.RegisterTransactionCommandServiceServer(server, transactionGapi.TransactionCommand)
 	addr, err := RunGRPCServer(server)
 	s.Require().NoError(err)
 	s.Conns["transaction"] = s.dial(addr)
@@ -527,7 +592,9 @@ func (s *BaseTestSuite) SetupMerchantDetailService() {
 	queries := merchant_detaildb.New(s.ts.DBPool())
 
 	detailMencache := merchant_detail_cache.NewMencache(cacheStore)
-	detailRepos := merchant_detail_repo.NewRepositories(queries, pb.NewMerchantQueryServiceClient(s.Conns["merchant"]))
+	detailRepos := merchant_detail_repo.NewRepositories(queries,
+		pb_merchant.NewMerchantQueryServiceClient(s.Conns["merchant"]),
+		merchant_detail_repo.GuardOptions{Merchant: s.dependencyGuard("merchant")})
 	detailSvc := merchant_detail_service.NewService(&merchant_detail_service.Deps{
 		Cache:         detailMencache,
 		Repository:    detailRepos,
@@ -539,8 +606,8 @@ func (s *BaseTestSuite) SetupMerchantDetailService() {
 		Logger:  s.Log,
 	})
 	server := grpc.NewServer()
-	pb.RegisterMerchantDetailQueryServiceServer(server, detailGapi.MerchantDetailQuery)
-	pb.RegisterMerchantDetailCommandServiceServer(server, detailGapi.MerchantDetailCommand)
+	pb_merchant_detail.RegisterMerchantDetailQueryServiceServer(server, detailGapi.MerchantDetailQuery)
+	pb_merchant_detail.RegisterMerchantDetailCommandServiceServer(server, detailGapi.MerchantDetailCommand)
 	addr, err := RunGRPCServer(server)
 	s.Require().NoError(err)
 	s.Conns["merchant_detail"] = s.dial(addr)
@@ -552,7 +619,9 @@ func (s *BaseTestSuite) SetupMerchantPolicyService() {
 	queries := merchant_policydb.New(s.ts.DBPool())
 
 	policyMencache := merchant_policy_cache.NewMencache(cacheStore)
-	policyRepos := merchant_policy_repo.NewRepositories(queries, pb.NewMerchantQueryServiceClient(s.Conns["merchant"]))
+	policyRepos := merchant_policy_repo.NewRepositories(queries,
+		pb_merchant.NewMerchantQueryServiceClient(s.Conns["merchant"]),
+		merchant_policy_repo.GuardOptions{Merchant: s.dependencyGuard("merchant")})
 	policySvc := merchant_policy_service.NewService(&merchant_policy_service.Deps{
 		Cache:         policyMencache,
 		Repository:    policyRepos,
@@ -564,8 +633,8 @@ func (s *BaseTestSuite) SetupMerchantPolicyService() {
 		Logger:  s.Log,
 	})
 	server := grpc.NewServer()
-	pb.RegisterMerchantPolicyQueryServiceServer(server, policyGapi.MerchantPolicyQuery)
-	pb.RegisterMerchantPolicyCommandServiceServer(server, policyGapi.MerchantPolicyCommand)
+	pb_merchant_policy.RegisterMerchantPolicyQueryServiceServer(server, policyGapi.MerchantPolicyQuery)
+	pb_merchant_policy.RegisterMerchantPolicyCommandServiceServer(server, policyGapi.MerchantPolicyCommand)
 	addr, err := RunGRPCServer(server)
 	s.Require().NoError(err)
 	s.Conns["merchant_policy"] = s.dial(addr)
@@ -589,8 +658,8 @@ func (s *BaseTestSuite) SetupShippingAddressService() {
 		Logger:  s.Log,
 	})
 	server := grpc.NewServer()
-	pb.RegisterShippingQueryServiceServer(server, addrGapi.ShippingQuery)
-	pb.RegisterShippingCommandServiceServer(server, addrGapi.ShippingCommand)
+	pb_shipping_address.RegisterShippingQueryServiceServer(server, addrGapi.ShippingQuery)
+	pb_shipping_address.RegisterShippingCommandServiceServer(server, addrGapi.ShippingCommand)
 	addr, err := RunGRPCServer(server)
 	s.Require().NoError(err)
 	s.Conns["shipping-address"] = s.dial(addr)
@@ -614,8 +683,8 @@ func (s *BaseTestSuite) SetupOrderItemService() {
 		Logger:  s.Log,
 	})
 	server := grpc.NewServer()
-	pb.RegisterOrderItemQueryServiceServer(server, itemGapi.OrderItemQuery)
-	pb.RegisterOrderItemCommandServiceServer(server, itemGapi.OrderItemCommand)
+	pb_order_item.RegisterOrderItemQueryServiceServer(server, itemGapi.OrderItemQuery)
+	pb_order_item.RegisterOrderItemCommandServiceServer(server, itemGapi.OrderItemCommand)
 	addr, err := RunGRPCServer(server)
 	s.Require().NoError(err)
 	s.Conns["order-item"] = s.dial(addr)
@@ -627,9 +696,12 @@ func (s *BaseTestSuite) SetupReviewService() {
 	queries := reviewdb.New(s.ts.DBPool())
 
 	reviewMencache := review_cache.NewMencache(cacheStore)
-	userQueryClient := pb.NewUserQueryServiceClient(s.Conns["user"])
-	productQueryClient := pb.NewProductQueryServiceClient(s.Conns["product"])
-	reviewRepos := review_repo.NewRepositories(queries, userQueryClient, productQueryClient)
+	userQueryClient := pb_user.NewUserQueryServiceClient(s.Conns["user"])
+	productQueryClient := pb_product.NewProductQueryServiceClient(s.Conns["product"])
+	reviewRepos := review_repo.NewRepositories(queries, userQueryClient, productQueryClient, review_repo.GuardOptions{
+		User:    s.dependencyGuard("user"),
+		Product: s.dependencyGuard("product"),
+	})
 	reviewSvc := review_service.NewService(&review_service.Deps{
 		Cache:         reviewMencache,
 		Repositories:  reviewRepos,
@@ -641,8 +713,8 @@ func (s *BaseTestSuite) SetupReviewService() {
 		Logger:  s.Log,
 	})
 	server := grpc.NewServer()
-	pb.RegisterReviewQueryServiceServer(server, reviewGapi.ReviewQuery)
-	pb.RegisterReviewCommandServiceServer(server, reviewGapi.ReviewCommand)
+	pb_review.RegisterReviewQueryServiceServer(server, reviewGapi.ReviewQuery)
+	pb_review.RegisterReviewCommandServiceServer(server, reviewGapi.ReviewCommand)
 	addr, err := RunGRPCServer(server)
 	s.Require().NoError(err)
 	s.Conns["review"] = s.dial(addr)
@@ -666,8 +738,8 @@ func (s *BaseTestSuite) SetupReviewDetailService() {
 		Logger:  s.Log,
 	})
 	server := grpc.NewServer()
-	pb.RegisterReviewDetailQueryServiceServer(server, detailGapi.ReviewDetailQuery)
-	pb.RegisterReviewDetailCommandServiceServer(server, detailGapi.ReviewDetailCommand)
+	pb_review_detail.RegisterReviewDetailQueryServiceServer(server, detailGapi.ReviewDetailQuery)
+	pb_review_detail.RegisterReviewDetailCommandServiceServer(server, detailGapi.ReviewDetailCommand)
 	addr, err := RunGRPCServer(server)
 	s.Require().NoError(err)
 	s.Conns["review-detail"] = s.dial(addr)
@@ -678,6 +750,16 @@ func (s *BaseTestSuite) dial(addr string) *grpc.ClientConn {
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	s.Require().NoError(err)
 	return conn
+}
+
+// dependencyGuard builds the resilience guard options used by a repository's
+// outbound adapters, mirroring the wiring done in each service's server.go.
+func (s *BaseTestSuite) dependencyGuard(name string) []adapter.GuardOption {
+	return []adapter.GuardOption{
+		adapter.WithDependencyGuard(
+			resilience.NewDependencyGuard(name, 5, 30, 100, 3*time.Second, s.Log),
+		),
+	}
 }
 
 func (s *BaseTestSuite) GetCacheStore() *cache.CacheStore {

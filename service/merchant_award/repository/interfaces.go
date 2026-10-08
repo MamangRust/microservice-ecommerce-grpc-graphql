@@ -4,7 +4,6 @@ import (
 	"context"
 
 	db "github.com/MamangRust/microservice-ecommerce-grpc-merchant_award/database/schema"
-	dto "github.com/MamangRust/microservice-ecommerce-grpc-merchant_award/dto"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 )
 
@@ -55,8 +54,4 @@ type MerchantAwardCommandRepository interface {
 
 	RestoreAll(ctx context.Context) (bool, error)
 	DeleteAll(ctx context.Context) (bool, error)
-}
-
-type MerchantQueryRepository interface {
-	FindByID(ctx context.Context, user_id int) (*dto.GetMerchantByIDRow, error)
 }

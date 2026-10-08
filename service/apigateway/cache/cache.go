@@ -1,10 +1,10 @@
 package cache
 
 import (
+	category_cache "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/cache/category"
+	user_cache "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/cache/user"
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
 	"github.com/MamangRust/microservice-ecommerce-shared/cache"
-	category_cache "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/cache/category"
-	user_cache "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/cache/user"
 	"github.com/redis/go-redis/v9"
 )
 

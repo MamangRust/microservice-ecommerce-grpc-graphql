@@ -1,12 +1,11 @@
 package handler
 
-import "github.com/MamangRust/microservice-ecommerce-shared/pb"
+import "github.com/MamangRust/microservice-ecommerce-grpc-pb/banner"
 
 type BannerQueryHandler interface {
-	pb.BannerQueryServiceServer
+	pb_banner.BannerQueryServiceServer
 }
 
 type BannerCommandHandler interface {
-	pb.BannerCommandServiceServer
+	pb_banner.BannerCommandServiceServer
 }
-

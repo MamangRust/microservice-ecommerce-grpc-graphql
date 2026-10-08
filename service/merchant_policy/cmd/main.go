@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-pkg/server"
 	"github.com/MamangRust/microservice-ecommerce-grpc-merchant_policy/apps"
+	"github.com/MamangRust/microservice-ecommerce-pkg/database"
+	"github.com/MamangRust/microservice-ecommerce-pkg/server"
 )
 
 func main() {
@@ -12,7 +13,7 @@ func main() {
 		Environment:    "production",
 		OtelEndpoint:   "otel-collector:4317",
 		Port:           50068,
-		DBCluster:      "DB_MERCHANT_POLICY",
+		DBCluster:      database.MerchantCluster,
 		MigrationPath:  "./database/migration",
 	})
 

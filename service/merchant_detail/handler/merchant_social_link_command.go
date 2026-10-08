@@ -4,15 +4,15 @@ import (
 	"context"
 
 	"github.com/MamangRust/microservice-ecommerce-grpc-merchant_detail/service"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_social_link"
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	"github.com/MamangRust/microservice-ecommerce-shared/errors"
 	merchantdetail_errors "github.com/MamangRust/microservice-ecommerce-shared/errors/merchant_detail"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 )
 
 type merchantSocialLinkCommandHandler struct {
-	pb.UnimplementedMerchantSocialCommandServiceServer
+	pb_merchant_social_link.UnimplementedMerchantSocialCommandServiceServer
 	MerchantSocialLinkCommand service.MerchantSocialLinkCommandService
 	logger                    logger.LoggerInterface
 }
@@ -24,7 +24,7 @@ func NewMerchantSocialLinkCommandHandler(svc service.MerchantSocialLinkCommandSe
 	}
 }
 
-func (s *merchantSocialLinkCommandHandler) Create(ctx context.Context, request *pb.CreateMerchantSocialRequest) (*pb.ApiResponseMerchantSocial, error) {
+func (s *merchantSocialLinkCommandHandler) Create(ctx context.Context, request *pb_merchant_social_link.CreateMerchantSocialRequest) (*pb_merchant_social_link.ApiResponseMerchantSocial, error) {
 	merchantDetailID := int(request.GetMerchantDetailId())
 	req := &requests.CreateMerchantSocialRequest{
 		MerchantDetailID: &merchantDetailID,
@@ -41,14 +41,14 @@ func (s *merchantSocialLinkCommandHandler) Create(ctx context.Context, request *
 		return nil, errors.ToGrpcError(err)
 	}
 
-	return &pb.ApiResponseMerchantSocial{
+	return &pb_merchant_social_link.ApiResponseMerchantSocial{
 		Status:  "success",
 		Message: "Successfully created merchant social link",
 		Data:    mapToProtoMerchantSocialLinkResponse(link),
 	}, nil
 }
 
-func (s *merchantSocialLinkCommandHandler) Update(ctx context.Context, request *pb.UpdateMerchantSocialRequest) (*pb.ApiResponseMerchantSocial, error) {
+func (s *merchantSocialLinkCommandHandler) Update(ctx context.Context, request *pb_merchant_social_link.UpdateMerchantSocialRequest) (*pb_merchant_social_link.ApiResponseMerchantSocial, error) {
 	id := int(request.GetId())
 	if id == 0 {
 		return nil, merchantdetail_errors.ErrGrpcInvalidMerchantDetailId
@@ -71,7 +71,7 @@ func (s *merchantSocialLinkCommandHandler) Update(ctx context.Context, request *
 		return nil, errors.ToGrpcError(err)
 	}
 
-	return &pb.ApiResponseMerchantSocial{
+	return &pb_merchant_social_link.ApiResponseMerchantSocial{
 		Status:  "success",
 		Message: "Successfully updated merchant social link",
 		Data:    mapToProtoMerchantSocialLinkResponse(link),

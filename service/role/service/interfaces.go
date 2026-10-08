@@ -13,7 +13,6 @@ type RoleQueryService interface {
 	FindTrashed(ctx context.Context, req *requests.FindAllRole) ([]*db.GetTrashedRolesRow, *int, error)
 	FindByID(ctx context.Context, role_id int) (*db.Role, error)
 	FindByName(ctx context.Context, name string) (*db.Role, error)
-	FindByUserId(ctx context.Context, id int) ([]*db.Role, error)
 }
 
 type RoleCommandService interface {
@@ -25,7 +24,13 @@ type RoleCommandService interface {
 
 	RestoreAll(ctx context.Context) (bool, error)
 	DeleteAll(ctx context.Context) (bool, error)
+}
 
+type UserRoleCommandService interface {
 	AssignRoleToUser(ctx context.Context, request *requests.CreateUserRoleRequest) (*db.UserRole, error)
 	RemoveRoleFromUser(ctx context.Context, request *requests.RemoveUserRoleRequest) error
+}
+
+type UserRoleQueryService interface {
+	FindByUserId(ctx context.Context, id int) ([]*db.Role, error)
 }

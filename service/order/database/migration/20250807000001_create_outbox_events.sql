@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS "outbox_events" (
     "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX "idx_outbox_events_status_next_attempt" ON "outbox_events"("status", "next_attempt_at");
+CREATE INDEX IF NOT EXISTS "idx_outbox_events_status_next_attempt" ON "outbox_events"("status", "next_attempt_at");
 -- +goose StatementEnd
 
 -- +goose Down

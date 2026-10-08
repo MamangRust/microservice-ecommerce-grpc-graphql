@@ -1,8 +1,9 @@
 package authgraphqlmapper
 
 import (
-	pb "github.com/MamangRust/microservice-ecommerce-shared/pb"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/auth"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/user"
 )
 
 type authGraphqlMapper struct {
@@ -12,28 +13,28 @@ func NewAuthGraphqlMapper() *authGraphqlMapper {
 	return &authGraphqlMapper{}
 }
 
-func (s *authGraphqlMapper) ToGraphqlVerifyCode(res *pb.ApiResponseVerifyCode) *model.APIResponseVerifyCode {
+func (s *authGraphqlMapper) ToGraphqlVerifyCode(res *pb_auth.ApiResponseVerifyCode) *model.APIResponseVerifyCode {
 	return &model.APIResponseVerifyCode{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (s *authGraphqlMapper) ToGraphqlForgotPassword(res *pb.ApiResponseForgotPassword) *model.APIResponseForgotPassword {
+func (s *authGraphqlMapper) ToGraphqlForgotPassword(res *pb_auth.ApiResponseForgotPassword) *model.APIResponseForgotPassword {
 	return &model.APIResponseForgotPassword{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (s *authGraphqlMapper) ToGraphqlResetPassword(res *pb.ApiResponseResetPassword) *model.APIResponseResetPassword {
+func (s *authGraphqlMapper) ToGraphqlResetPassword(res *pb_auth.ApiResponseResetPassword) *model.APIResponseResetPassword {
 	return &model.APIResponseResetPassword{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (s *authGraphqlMapper) ToGraphqlResponseLogin(res *pb.ApiResponseLogin) *model.APIResponseLogin {
+func (s *authGraphqlMapper) ToGraphqlResponseLogin(res *pb_auth.ApiResponseLogin) *model.APIResponseLogin {
 	return &model.APIResponseLogin{
 		Status:  res.Status,
 		Message: res.Message,
@@ -41,7 +42,7 @@ func (s *authGraphqlMapper) ToGraphqlResponseLogin(res *pb.ApiResponseLogin) *mo
 	}
 }
 
-func (s *authGraphqlMapper) ToGraphqlResponseRegister(res *pb.ApiResponseRegister) *model.APIResponseRegister {
+func (s *authGraphqlMapper) ToGraphqlResponseRegister(res *pb_auth.ApiResponseRegister) *model.APIResponseRegister {
 	return &model.APIResponseRegister{
 		Status:  res.Status,
 		Message: res.Message,
@@ -49,7 +50,7 @@ func (s *authGraphqlMapper) ToGraphqlResponseRegister(res *pb.ApiResponseRegiste
 	}
 }
 
-func (s *authGraphqlMapper) ToGraphqlResponseRefreshToken(res *pb.ApiResponseRefreshToken) *model.APIResponseRefreshToken {
+func (s *authGraphqlMapper) ToGraphqlResponseRefreshToken(res *pb_auth.ApiResponseRefreshToken) *model.APIResponseRefreshToken {
 	return &model.APIResponseRefreshToken{
 		Status:  res.Status,
 		Message: res.Message,
@@ -57,7 +58,7 @@ func (s *authGraphqlMapper) ToGraphqlResponseRefreshToken(res *pb.ApiResponseRef
 	}
 }
 
-func (s *authGraphqlMapper) ToGraphqlResponseGetMe(res *pb.ApiResponseGetMe) *model.APIResponseGetMe {
+func (s *authGraphqlMapper) ToGraphqlResponseGetMe(res *pb_auth.ApiResponseGetMe) *model.APIResponseGetMe {
 	return &model.APIResponseGetMe{
 		Status:  res.Status,
 		Message: res.Message,
@@ -65,7 +66,7 @@ func (s *authGraphqlMapper) ToGraphqlResponseGetMe(res *pb.ApiResponseGetMe) *mo
 	}
 }
 
-func (s *authGraphqlMapper) mapResponseUser(res *pb.UserResponse) *model.UserResponse {
+func (s *authGraphqlMapper) mapResponseUser(res *pb_user.UserResponse) *model.UserResponse {
 	return &model.UserResponse{
 		ID:        res.Id,
 		Firstname: res.Firstname,
@@ -76,7 +77,7 @@ func (s *authGraphqlMapper) mapResponseUser(res *pb.UserResponse) *model.UserRes
 	}
 }
 
-func (s *authGraphqlMapper) mapResponseToken(res *pb.TokenResponse) *model.TokenResponse {
+func (s *authGraphqlMapper) mapResponseToken(res *pb_auth.TokenResponse) *model.TokenResponse {
 	return &model.TokenResponse{
 		AccessToken:  res.AccessToken,
 		RefreshToken: res.RefreshToken,

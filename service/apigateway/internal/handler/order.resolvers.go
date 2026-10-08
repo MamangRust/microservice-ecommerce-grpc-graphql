@@ -7,10 +7,11 @@ package graph
 import (
 	"context"
 
+	graphqlerror "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/errors"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/order"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/shipping_address"
 	sharedErrors "github.com/MamangRust/microservice-ecommerce-shared/errors"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphqlerror "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/errors"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -24,14 +25,14 @@ func (r *mutationResolver) CreateOrder(ctx context.Context, input model.CreateOr
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: user ID cannot be zero"))
 		}
 
-		req := &pb.CreateOrderRequest{
+		req := &pb_order.CreateOrderRequest{
 			MerchantId: int32(input.MerchantID),
 			UserId:     int32(input.UserID),
 			TotalPrice: int32(input.TotalPrice),
 		}
 
 		for _, item := range input.Items {
-			req.Items = append(req.Items, &pb.CreateOrderItemRequest{
+			req.Items = append(req.Items, &pb_order.CreateOrderItemRequest{
 				ProductId: int32(item.ProductID),
 				Quantity:  int32(item.Quantity),
 				Price:     int32(item.Price),
@@ -39,7 +40,7 @@ func (r *mutationResolver) CreateOrder(ctx context.Context, input model.CreateOr
 		}
 
 		if input.Shipping != nil {
-			req.Shipping = &pb.CreateShippingAddressRequest{
+			req.Shipping = &pb_shipping_address.CreateShippingAddressRequest{
 				Alamat:         input.Shipping.Alamat,
 				Provinsi:       input.Shipping.Provinsi,
 				Kota:           input.Shipping.Kota,
@@ -76,14 +77,14 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, input model.UpdateOr
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: order ID cannot be zero"))
 		}
 
-		req := &pb.UpdateOrderRequest{
+		req := &pb_order.UpdateOrderRequest{
 			OrderId:    id,
 			UserId:     int32(input.UserID),
 			TotalPrice: int32(input.TotalPrice),
 		}
 
 		for _, item := range input.Items {
-			req.Items = append(req.Items, &pb.UpdateOrderItemRequest{
+			req.Items = append(req.Items, &pb_order.UpdateOrderItemRequest{
 				OrderItemId: int32(item.OrderItemID),
 				ProductId:   int32(item.ProductID),
 				Quantity:    int32(item.Quantity),
@@ -92,7 +93,7 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, input model.UpdateOr
 		}
 
 		if input.Shipping != nil {
-			req.Shipping = &pb.UpdateShippingAddressRequest{
+			req.Shipping = &pb_shipping_address.UpdateShippingAddressRequest{
 				ShippingId:     int32(idShipping),
 				Alamat:         *input.Shipping.Alamat,
 				Provinsi:       *input.Shipping.Provinsi,
@@ -125,7 +126,7 @@ func (r *mutationResolver) TrashOrder(ctx context.Context, input model.FindByIDO
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: order ID cannot be zero"))
 		}
 
-		order, err := r.OrderGraphql.OrderCommandClient.TrashedOrder(ctx, &pb.FindByIdOrderRequest{
+		order, err := r.OrderGraphql.OrderCommandClient.TrashedOrder(ctx, &pb_order.FindByIdOrderRequest{
 			Id: id,
 		})
 		if err != nil {
@@ -148,7 +149,7 @@ func (r *mutationResolver) RestoreOrder(ctx context.Context, input model.FindByI
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: order ID cannot be zero"))
 		}
 
-		order, err := r.OrderGraphql.OrderCommandClient.RestoreOrder(ctx, &pb.FindByIdOrderRequest{
+		order, err := r.OrderGraphql.OrderCommandClient.RestoreOrder(ctx, &pb_order.FindByIdOrderRequest{
 			Id: id,
 		})
 		if err != nil {
@@ -171,7 +172,7 @@ func (r *mutationResolver) DeleteOrderPermanent(ctx context.Context, input model
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: order ID cannot be zero"))
 		}
 
-		res, err := r.OrderGraphql.OrderCommandClient.DeleteOrderPermanent(ctx, &pb.FindByIdOrderRequest{
+		res, err := r.OrderGraphql.OrderCommandClient.DeleteOrderPermanent(ctx, &pb_order.FindByIdOrderRequest{
 			Id: id,
 		})
 		if err != nil {
@@ -244,7 +245,7 @@ func (r *queryResolver) FindAllOrders(ctx context.Context, input model.FindAllOr
 			return data, nil
 		}
 
-		req := &pb.FindAllOrderRequest{
+		req := &pb_order.FindAllOrderRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,
@@ -275,7 +276,7 @@ func (r *queryResolver) FindOrderByID(ctx context.Context, input model.FindByIDO
 			return data, nil
 		}
 
-		order, err := r.OrderGraphql.OrderQueryClient.FindById(ctx, &pb.FindByIdOrderRequest{
+		order, err := r.OrderGraphql.OrderQueryClient.FindById(ctx, &pb_order.FindByIdOrderRequest{
 			Id: int32(id),
 		})
 		if err != nil {
@@ -319,7 +320,7 @@ func (r *queryResolver) FindActiveOrders(ctx context.Context, input model.FindAl
 			return data, nil
 		}
 
-		req := &pb.FindAllOrderRequest{
+		req := &pb_order.FindAllOrderRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,
@@ -367,7 +368,7 @@ func (r *queryResolver) FindTrashedOrders(ctx context.Context, input model.FindA
 			return data, nil
 		}
 
-		req := &pb.FindAllOrderRequest{
+		req := &pb_order.FindAllOrderRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,
@@ -383,263 +384,5 @@ func (r *queryResolver) FindTrashedOrders(ctx context.Context, input model.FindA
 		r.OrderGraphql.Cache.SetOrderTrashedCache(ctx, &input, res)
 
 		return res, nil
-	})
-}
-
-// FindMonthlyRevenue is the resolver for the findMonthlyRevenue field.
-func (r *queryResolver) FindMonthlyRevenue(ctx context.Context, input model.FindMonthYearOrderInput) (*model.APIResponseOrderMonthly, error) {
-	return ResolverHandle(r.ResolverHandle, "FindMonthlyRevenue", ctx, func(ctx context.Context) (*model.APIResponseOrderMonthly, error) {
-		year := int(input.Year)
-		if year <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: year cannot be zero"))
-		}
-
-		if data, found := r.OrderGraphql.Cache.GetMonthlyOrderCache(ctx, year); found {
-			return data, nil
-		}
-
-		res, err := r.OrderGraphql.OrderStatsClient.FindMonthlyRevenue(ctx, &pb.FindYearOrder{
-			Year: int32(year),
-		})
-		if err != nil {
-			return nil, r.handleGraphQLError(err, "FindMonthlyRevenue")
-		}
-
-		so := r.OrderGraphql.Mapping.ToGraphqlResponseOrderMonthlyRevenue(res)
-
-		r.OrderGraphql.Cache.SetMonthlyOrderCache(ctx, year, so)
-
-		return so, nil
-	})
-}
-
-// FindYearlyRevenue is the resolver for the findYearlyRevenue field.
-func (r *queryResolver) FindYearlyRevenue(ctx context.Context, input model.FindYearOrderInput) (*model.APIResponseOrderYearly, error) {
-	return ResolverHandle(r.ResolverHandle, "FindYearlyRevenue", ctx, func(ctx context.Context) (*model.APIResponseOrderYearly, error) {
-		year := int(input.Year)
-		if year <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: year cannot be zero"))
-		}
-
-		if data, found := r.OrderGraphql.Cache.GetYearlyOrderCache(ctx, year); found {
-			return data, nil
-		}
-
-		res, err := r.OrderGraphql.OrderStatsClient.FindYearlyRevenue(ctx, &pb.FindYearOrder{
-			Year: int32(year),
-		})
-		if err != nil {
-			return nil, r.handleGraphQLError(err, "FindYearlyRevenue")
-		}
-
-		so := r.OrderGraphql.Mapping.ToGraphqlResponseOrderYearlyRevenue(res)
-
-		r.OrderGraphql.Cache.SetYearlyOrderCache(ctx, year, so)
-
-		return so, nil
-	})
-}
-
-// FindMonthlyRevenueByMerchant is the resolver for the findMonthlyRevenueByMerchant field.
-func (r *queryResolver) FindMonthlyRevenueByMerchant(ctx context.Context, input model.FindYearOrderByMerchantInput) (*model.APIResponseOrderMonthly, error) {
-	return ResolverHandle(r.ResolverHandle, "FindMonthlyRevenueByMerchant", ctx, func(ctx context.Context) (*model.APIResponseOrderMonthly, error) {
-		year := int(input.Year)
-		merchantId := int(input.MerchantID)
-
-		if year <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: year cannot be zero"))
-		}
-		if merchantId <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: merchant ID cannot be zero"))
-		}
-
-		if data, found := r.OrderGraphql.Cache.GetMonthlyOrderByMerchantCache(ctx, &input); found {
-			return data, nil
-		}
-
-		res, err := r.OrderGraphql.OrderStatsClient.FindMonthlyRevenueByMerchant(ctx, &pb.FindYearOrderByMerchant{
-			Year:       int32(year),
-			MerchantId: int32(merchantId),
-		})
-		if err != nil {
-			return nil, r.handleGraphQLError(err, "FindMonthlyRevenueByMerchant")
-		}
-
-		so := r.OrderGraphql.Mapping.ToGraphqlResponseOrderMonthlyRevenue(res)
-
-		r.OrderGraphql.Cache.SetMonthlyOrderByMerchantCache(ctx, &input, so)
-
-		return so, nil
-	})
-}
-
-// FindYearlyRevenueByMerchant is the resolver for the findYearlyRevenueByMerchant field.
-func (r *queryResolver) FindYearlyRevenueByMerchant(ctx context.Context, input model.FindYearOrderByMerchantInput) (*model.APIResponseOrderYearly, error) {
-	return ResolverHandle(r.ResolverHandle, "FindYearlyRevenueByMerchant", ctx, func(ctx context.Context) (*model.APIResponseOrderYearly, error) {
-		year := int(input.Year)
-		merchantId := int(input.MerchantID)
-
-		if year <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: year cannot be zero"))
-		}
-		if merchantId <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: merchant ID cannot be zero"))
-		}
-
-		if data, found := r.OrderGraphql.Cache.GetYearlyOrderByMerchantCache(ctx, &input); found {
-			return data, nil
-		}
-
-		res, err := r.OrderGraphql.OrderStatsClient.FindYearlyRevenueByMerchant(ctx, &pb.FindYearOrderByMerchant{
-			Year:       int32(year),
-			MerchantId: int32(merchantId),
-		})
-
-		if err != nil {
-			return nil, r.handleGraphQLError(err, "FindYearlyRevenueByMerchant")
-		}
-
-		so := r.OrderGraphql.Mapping.ToGraphqlResponseOrderYearlyRevenue(res)
-
-		r.OrderGraphql.Cache.SetYearlyOrderByMerchantCache(ctx, &input, so)
-
-		return so, nil
-	})
-}
-
-// FindMonthlyTotalRevenue is the resolver for the findMonthlyTotalRevenue field.
-func (r *queryResolver) FindMonthlyTotalRevenue(ctx context.Context, input model.FindYearMonthTotalRevenue) (*model.APIResponseOrderMonthlyTotalRevenue, error) {
-	return ResolverHandle(r.ResolverHandle, "FindMonthlyTotalRevenue", ctx, func(ctx context.Context) (*model.APIResponseOrderMonthlyTotalRevenue, error) {
-		year := int(input.Year)
-		month := int(input.Month)
-
-		if year <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: year cannot be zero"))
-		}
-		if month < 1 || month > 12 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: month must be between 1 and 12"))
-		}
-
-		if data, found := r.OrderGraphql.Cache.GetMonthlyTotalRevenueCache(ctx, &input); found {
-			return data, nil
-		}
-
-		req := &pb.FindYearMonthTotalRevenue{
-			Year:  int32(year),
-			Month: int32(month),
-		}
-
-		monthRevenue, err := r.OrderGraphql.OrderStatsClient.FindMonthlyTotalRevenue(ctx, req)
-		if err != nil {
-			return nil, r.handleGraphQLError(err, "FindMonthlyTotalRevenue")
-		}
-
-		so := r.OrderGraphql.Mapping.ToGraphqlResponseOrderMonthlyTotalRevenue(monthRevenue)
-
-		r.OrderGraphql.Cache.SetMonthlyTotalRevenueCache(ctx, &input, so)
-
-		return so, nil
-	})
-}
-
-// FindYearlyTotalRevenue is the resolver for the findYearlyTotalRevenue field.
-func (r *queryResolver) FindYearlyTotalRevenue(ctx context.Context, input model.FindYearTotalRevenue) (*model.APIResponseOrderYearlyTotalRevenue, error) {
-	return ResolverHandle(r.ResolverHandle, "FindYearlyTotalRevenue", ctx, func(ctx context.Context) (*model.APIResponseOrderYearlyTotalRevenue, error) {
-		year := int(input.Year)
-		if year <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: year cannot be zero"))
-		}
-
-		if data, found := r.OrderGraphql.Cache.GetYearlyTotalRevenueCache(ctx, year); found {
-			return data, nil
-		}
-
-		yearRevenue, err := r.OrderGraphql.OrderStatsClient.FindYearlyTotalRevenue(ctx, &pb.FindYearTotalRevenue{
-			Year: int32(year),
-		})
-		if err != nil {
-			return nil, r.handleGraphQLError(err, "FindYearlyTotalRevenue")
-		}
-
-		so := r.OrderGraphql.Mapping.ToGraphqlResponseOrderYearlyTotalRevenue(yearRevenue)
-
-		r.OrderGraphql.Cache.SetYearlyTotalRevenueCache(ctx, year, so)
-
-		return so, nil
-	})
-}
-
-// FindMonthlyTotalRevenueByMerchant is the resolver for the findMonthlyTotalRevenueByMerchant field.
-func (r *queryResolver) FindMonthlyTotalRevenueByMerchant(ctx context.Context, input model.FindYearMonthTotalRevenueByMerchant) (*model.APIResponseOrderMonthlyTotalRevenue, error) {
-	return ResolverHandle(r.ResolverHandle, "FindMonthlyTotalRevenueByMerchant", ctx, func(ctx context.Context) (*model.APIResponseOrderMonthlyTotalRevenue, error) {
-		year := int(input.Year)
-		month := int(input.Month)
-		merchantID := int(input.MerchantID)
-
-		if year <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: year cannot be zero"))
-		}
-		if month < 1 || month > 12 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: month must be between 1 and 12"))
-		}
-		if merchantID <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: merchant ID cannot be zero"))
-		}
-
-		if data, found := r.OrderGraphql.Cache.GetMonthlyTotalRevenueByMerchantCache(ctx, &input); found {
-			return data, nil
-		}
-
-		req := &pb.FindYearMonthTotalRevenueByMerchant{
-			Year:       int32(year),
-			Month:      int32(month),
-			MerchantId: int32(merchantID),
-		}
-
-		monthRevenue, err := r.OrderGraphql.OrderStatsClient.FindMonthlyTotalRevenueByMerchant(ctx, req)
-		if err != nil {
-			return nil, r.handleGraphQLError(err, "FindMonthlyTotalRevenueByMerchant")
-		}
-
-		so := r.OrderGraphql.Mapping.ToGraphqlResponseOrderMonthlyTotalRevenue(monthRevenue)
-
-		r.OrderGraphql.Cache.SetMonthlyTotalRevenueByMerchantCache(ctx, &input, so)
-
-		return so, nil
-	})
-}
-
-// FindYearlyTotalRevenueByMerchant is the resolver for the findYearlyTotalRevenueByMerchant field.
-func (r *queryResolver) FindYearlyTotalRevenueByMerchant(ctx context.Context, input model.FindYearTotalRevenueByMerchant) (*model.APIResponseOrderYearlyTotalRevenue, error) {
-	return ResolverHandle(r.ResolverHandle, "FindYearlyTotalRevenueByMerchant", ctx, func(ctx context.Context) (*model.APIResponseOrderYearlyTotalRevenue, error) {
-		year := int(input.Year)
-		merchantID := int(input.MerchantID)
-
-		if year <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: year cannot be zero"))
-		}
-		if merchantID <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: merchant ID cannot be zero"))
-		}
-
-		if data, found := r.OrderGraphql.Cache.GetYearlyTotalRevenueByMerchantCache(ctx, &input); found {
-			return data, nil
-		}
-
-		req := &pb.FindYearTotalRevenueByMerchant{
-			Year:       int32(year),
-			MerchantId: int32(merchantID),
-		}
-
-		yearRevenue, err := r.OrderGraphql.OrderStatsClient.FindYearlyTotalRevenueByMerchant(ctx, req)
-		if err != nil {
-			return nil, r.handleGraphQLError(err, "FindYearlyTotalRevenueByMerchant")
-		}
-
-		so := r.OrderGraphql.Mapping.ToGraphqlResponseOrderYearlyTotalRevenue(yearRevenue)
-
-		r.OrderGraphql.Cache.SetYearlyTotalRevenueByMerchantCache(ctx, &input, so)
-
-		return so, nil
 	})
 }

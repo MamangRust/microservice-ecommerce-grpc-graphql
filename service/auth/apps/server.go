@@ -3,23 +3,27 @@ package apps
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/MamangRust/microservice-ecommerce-auth/cache"
 	db "github.com/MamangRust/microservice-ecommerce-auth/database/schema"
 	"github.com/MamangRust/microservice-ecommerce-auth/handler"
 	"github.com/MamangRust/microservice-ecommerce-auth/repository"
 	"github.com/MamangRust/microservice-ecommerce-auth/service"
+	pb_auth "github.com/MamangRust/microservice-ecommerce-grpc-pb/auth"
+	pb_role "github.com/MamangRust/microservice-ecommerce-grpc-pb/role"
+	pb_user "github.com/MamangRust/microservice-ecommerce-grpc-pb/user"
+	pb_user_role "github.com/MamangRust/microservice-ecommerce-grpc-pb/user_role"
+	"github.com/MamangRust/microservice-ecommerce-pkg/adapter"
 	"github.com/MamangRust/microservice-ecommerce-pkg/auth"
 	"github.com/MamangRust/microservice-ecommerce-pkg/hash"
 	"github.com/MamangRust/microservice-ecommerce-pkg/kafka"
 	"github.com/MamangRust/microservice-ecommerce-pkg/outbox"
+	"github.com/MamangRust/microservice-ecommerce-pkg/resilience"
 	"github.com/MamangRust/microservice-ecommerce-pkg/server"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
-
-	pkgresilience "github.com/MamangRust/microservice-ecommerce-pkg/resilience"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
@@ -53,7 +57,6 @@ func NewServer(cfg *server.Config) (*server.GRPCServer, error) {
 	roleConn, err := grpc.NewClient(
 		roleAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithChainUnaryInterceptor(pkgresilience.NewDependencyGuardInterceptor(srv.Logger).UnaryInterceptor()),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to role service: %w", err)
@@ -62,19 +65,29 @@ func NewServer(cfg *server.Config) (*server.GRPCServer, error) {
 	userConn, err := grpc.NewClient(
 		userAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithChainUnaryInterceptor(pkgresilience.NewDependencyGuardInterceptor(srv.Logger).UnaryInterceptor()),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to user service: %w", err)
 	}
 
-	roleQueryClient := pb.NewRoleQueryServiceClient(roleConn)
-	roleCommandClient := pb.NewRoleCommandServiceClient(roleConn)
-	userQueryClient := pb.NewUserQueryServiceClient(userConn)
-	userCommandClient := pb.NewUserCommandServiceClient(userConn)
+	guardUser := resilience.NewDependencyGuard("user", 5, 30, 100, 3*time.Second, srv.Logger)
+	guardRole := resilience.NewDependencyGuard("role", 5, 30, 100, 3*time.Second, srv.Logger)
+	guardUserRole := resilience.NewDependencyGuard("role", 5, 30, 100, 3*time.Second, srv.Logger)
 
 	hasher := hash.NewHashingPassword()
-	repositories := repository.NewRepositories(queries, userQueryClient, userCommandClient, roleQueryClient, roleCommandClient)
+	repositories := repository.NewRepositories(&repository.Deps{
+		Db:              queries,
+		User:            pb_user.NewUserQueryServiceClient(userConn),
+		UserCommand:     pb_user.NewUserCommandServiceClient(userConn),
+		Role:            pb_role.NewRoleQueryServiceClient(roleConn),
+		UserRoleCommand: pb_user_role.NewUserRoleCommandServiceClient(roleConn),
+		Guards: repository.GuardOptions{
+			User:     []adapter.GuardOption{adapter.WithDependencyGuard(guardUser)},
+			Role:     []adapter.GuardOption{adapter.WithDependencyGuard(guardRole)},
+			UserRole: []adapter.GuardOption{adapter.WithDependencyGuard(guardUserRole)},
+		},
+	})
+
 	myKafka := kafka.NewKafka(srv.Logger, []string{viper.GetString("KAFKA_BROKERS")})
 
 	observability, _ := observability.NewObservability("auth-server", srv.Logger)
@@ -98,7 +111,7 @@ func NewServer(cfg *server.Config) (*server.GRPCServer, error) {
 	handlers := handler.NewHandler(&handler.Deps{Service: services, Logger: srv.Logger})
 
 	srv.RegisterServices = func(gs *grpc.Server) {
-		pb.RegisterAuthServiceServer(gs, handlers.Auth)
+		pb_auth.RegisterAuthServiceServer(gs, handlers.Auth)
 	}
 
 	// Start the outbox relay so enqueued events are published to Kafka with

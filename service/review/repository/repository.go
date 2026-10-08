@@ -2,21 +2,42 @@ package repository
 
 import (
 	db "github.com/MamangRust/microservice-ecommerce-grpc-review/database/schema"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
+	"github.com/MamangRust/microservice-ecommerce-pkg/adapter"
+	pb_product "github.com/MamangRust/microservice-ecommerce-grpc-pb/product"
+	pb_user "github.com/MamangRust/microservice-ecommerce-grpc-pb/user"
+	productadapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/product"
+	useradapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/user"
 )
 
-type Repositories struct {
-	ProductQuery  ProductQueryRepository
-	ReviewQuery   ReviewQueryRepository
-	UserQuery     UserQueryRepository
-	ReviewCommand ReviewCommandRepository
+type GuardOptions struct {
+	User    []adapter.GuardOption
+	Product []adapter.GuardOption
 }
 
-func NewRepositories(DB *db.Queries, userQueryClient pb.UserQueryServiceClient, productQueryClient pb.ProductQueryServiceClient) *Repositories {
+type Repositories struct {
+	ReviewQuery   ReviewQueryRepository
+	ReviewCommand ReviewCommandRepository
+	UserQuery     useradapter.QueryRepository
+	ProductQuery  productadapter.QueryRepository
+}
+
+func NewRepositories(db *db.Queries,
+	userQueryClient pb_user.UserQueryServiceClient,
+	productQueryClient pb_product.ProductQueryServiceClient,
+	guards ...GuardOptions,
+) *Repositories {
+	var g GuardOptions
+	if len(guards) > 0 {
+		g = guards[0]
+	}
+
+	userAdapter := useradapter.NewQueryAdapter(userQueryClient, g.User...)
+	productAdapter := productadapter.NewQueryAdapter(productQueryClient, g.Product...)
+
 	return &Repositories{
-		ProductQuery:  NewProductQueryRepository(productQueryClient),
-		ReviewQuery:   NewReviewQueryRepository(DB, productQueryClient),
-		UserQuery:     NewUserQueryRepository(userQueryClient),
-		ReviewCommand: NewReviewCommandRepository(DB),
+		ReviewQuery:   NewReviewQueryRepository(db, productAdapter),
+		ReviewCommand: NewReviewCommandRepository(db),
+		UserQuery:     userAdapter,
+		ProductQuery:  productAdapter,
 	}
 }

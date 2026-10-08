@@ -1,9 +1,9 @@
 package bannergraphqlmapper
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphqlmapper "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/mapper/pagination"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
+	graphqlmapper "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/mapper/pagination"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/banner"
 )
 
 type bannerResponseMapper struct {
@@ -13,21 +13,21 @@ func NewBannerResponseMapper() *bannerResponseMapper {
 	return &bannerResponseMapper{}
 }
 
-func (s *bannerResponseMapper) ToGraphqlResponseAll(res *pb.ApiResponseBannerAll) *model.APIResponseBannerAll {
+func (s *bannerResponseMapper) ToGraphqlResponseAll(res *pb_banner.ApiResponseBannerAll) *model.APIResponseBannerAll {
 	return &model.APIResponseBannerAll{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (s *bannerResponseMapper) ToGraphqlResponseDelete(res *pb.ApiResponseBannerDelete) *model.APIResponseBannerDelete {
+func (s *bannerResponseMapper) ToGraphqlResponseDelete(res *pb_banner.ApiResponseBannerDelete) *model.APIResponseBannerDelete {
 	return &model.APIResponseBannerDelete{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (s *bannerResponseMapper) ToGraphqlResponseBanner(res *pb.ApiResponseBanner) *model.APIResponseBanner {
+func (s *bannerResponseMapper) ToGraphqlResponseBanner(res *pb_banner.ApiResponseBanner) *model.APIResponseBanner {
 	return &model.APIResponseBanner{
 		Status:  res.Status,
 		Message: res.Message,
@@ -35,7 +35,7 @@ func (s *bannerResponseMapper) ToGraphqlResponseBanner(res *pb.ApiResponseBanner
 	}
 }
 
-func (s *bannerResponseMapper) ToGraphqlResponseBannerDeleteAt(res *pb.ApiResponseBannerDeleteAt) *model.APIResponseBannerDeleteAt {
+func (s *bannerResponseMapper) ToGraphqlResponseBannerDeleteAt(res *pb_banner.ApiResponseBannerDeleteAt) *model.APIResponseBannerDeleteAt {
 	return &model.APIResponseBannerDeleteAt{
 		Status:  res.Status,
 		Message: res.Message,
@@ -43,7 +43,7 @@ func (s *bannerResponseMapper) ToGraphqlResponseBannerDeleteAt(res *pb.ApiRespon
 	}
 }
 
-func (s *bannerResponseMapper) ToGraphqlResponsesBanner(res *pb.ApiResponsesBanner) *model.APIResponsesBanner {
+func (s *bannerResponseMapper) ToGraphqlResponsesBanner(res *pb_banner.ApiResponsesBanner) *model.APIResponsesBanner {
 	return &model.APIResponsesBanner{
 		Status:  res.Status,
 		Message: res.Message,
@@ -51,7 +51,7 @@ func (s *bannerResponseMapper) ToGraphqlResponsesBanner(res *pb.ApiResponsesBann
 	}
 }
 
-func (s *bannerResponseMapper) ToGraphqlResponsePaginationBanner(res *pb.ApiResponsePaginationBanner) *model.APIResponsePaginationBanner {
+func (s *bannerResponseMapper) ToGraphqlResponsePaginationBanner(res *pb_banner.ApiResponsePaginationBanner) *model.APIResponsePaginationBanner {
 	return &model.APIResponsePaginationBanner{
 		Status:     res.Status,
 		Message:    res.Message,
@@ -60,7 +60,7 @@ func (s *bannerResponseMapper) ToGraphqlResponsePaginationBanner(res *pb.ApiResp
 	}
 }
 
-func (s *bannerResponseMapper) ToGraphqlResponsePaginationBannerDeleteAt(res *pb.ApiResponsePaginationBannerDeleteAt) *model.APIResponsePaginationBannerDeleteAt {
+func (s *bannerResponseMapper) ToGraphqlResponsePaginationBannerDeleteAt(res *pb_banner.ApiResponsePaginationBannerDeleteAt) *model.APIResponsePaginationBannerDeleteAt {
 	return &model.APIResponsePaginationBannerDeleteAt{
 		Status:     res.Status,
 		Message:    res.Message,
@@ -69,7 +69,7 @@ func (s *bannerResponseMapper) ToGraphqlResponsePaginationBannerDeleteAt(res *pb
 	}
 }
 
-func (s *bannerResponseMapper) mapResponseBanner(banner *pb.BannerResponse) *model.BannerResponse {
+func (s *bannerResponseMapper) mapResponseBanner(banner *pb_banner.BannerResponse) *model.BannerResponse {
 	return &model.BannerResponse{
 		BannerID:  banner.BannerId,
 		Name:      banner.Name,
@@ -83,7 +83,7 @@ func (s *bannerResponseMapper) mapResponseBanner(banner *pb.BannerResponse) *mod
 	}
 }
 
-func (s *bannerResponseMapper) mapResponsesBanner(banners []*pb.BannerResponse) []*model.BannerResponse {
+func (s *bannerResponseMapper) mapResponsesBanner(banners []*pb_banner.BannerResponse) []*model.BannerResponse {
 	var responses []*model.BannerResponse
 
 	for _, banner := range banners {
@@ -93,7 +93,7 @@ func (s *bannerResponseMapper) mapResponsesBanner(banners []*pb.BannerResponse) 
 	return responses
 }
 
-func (s *bannerResponseMapper) mapResponseBannerDeleteAt(banner *pb.BannerResponseDeleteAt) *model.BannerResponseDeleteAt {
+func (s *bannerResponseMapper) mapResponseBannerDeleteAt(banner *pb_banner.BannerResponseDeleteAt) *model.BannerResponseDeleteAt {
 	var deletedAt string
 
 	if banner.DeletedAt != nil {
@@ -114,7 +114,7 @@ func (s *bannerResponseMapper) mapResponseBannerDeleteAt(banner *pb.BannerRespon
 	}
 }
 
-func (s *bannerResponseMapper) mapResponsesBannerDeleteAt(banners []*pb.BannerResponseDeleteAt) []*model.BannerResponseDeleteAt {
+func (s *bannerResponseMapper) mapResponsesBannerDeleteAt(banners []*pb_banner.BannerResponseDeleteAt) []*model.BannerResponseDeleteAt {
 	var responses []*model.BannerResponseDeleteAt
 
 	for _, banner := range banners {

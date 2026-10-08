@@ -1,7 +1,7 @@
 package authapimapper
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/auth"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/response"
 )
 
@@ -11,28 +11,28 @@ func NewAuthCommandResponseMapper() AuthCommandResponseMapper {
 	return &authCommandResponseMapper{}
 }
 
-func (s *authCommandResponseMapper) ToResponseVerifyCode(res *pb.ApiResponseVerifyCode) *response.ApiResponseVerifyCode {
+func (s *authCommandResponseMapper) ToResponseVerifyCode(res *pb_auth.ApiResponseVerifyCode) *response.ApiResponseVerifyCode {
 	return &response.ApiResponseVerifyCode{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (s *authCommandResponseMapper) ToResponseForgotPassword(res *pb.ApiResponseForgotPassword) *response.ApiResponseForgotPassword {
+func (s *authCommandResponseMapper) ToResponseForgotPassword(res *pb_auth.ApiResponseForgotPassword) *response.ApiResponseForgotPassword {
 	return &response.ApiResponseForgotPassword{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (s *authCommandResponseMapper) ToResponseResetPassword(res *pb.ApiResponseResetPassword) *response.ApiResponseResetPassword {
+func (s *authCommandResponseMapper) ToResponseResetPassword(res *pb_auth.ApiResponseResetPassword) *response.ApiResponseResetPassword {
 	return &response.ApiResponseResetPassword{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (s *authCommandResponseMapper) ToResponseLogin(res *pb.ApiResponseLogin) *response.ApiResponseLogin {
+func (s *authCommandResponseMapper) ToResponseLogin(res *pb_auth.ApiResponseLogin) *response.ApiResponseLogin {
 	if res == nil {
 		return &response.ApiResponseLogin{
 			Status:  "error",
@@ -56,7 +56,7 @@ func (s *authCommandResponseMapper) ToResponseLogin(res *pb.ApiResponseLogin) *r
 	}
 }
 
-func (s *authCommandResponseMapper) ToResponseRegister(res *pb.ApiResponseRegister) *response.ApiResponseRegister {
+func (s *authCommandResponseMapper) ToResponseRegister(res *pb_auth.ApiResponseRegister) *response.ApiResponseRegister {
 	if res == nil {
 		return &response.ApiResponseRegister{
 			Status:  "error",
@@ -84,7 +84,7 @@ func (s *authCommandResponseMapper) ToResponseRegister(res *pb.ApiResponseRegist
 	}
 }
 
-func (s *authCommandResponseMapper) ToResponseRefreshToken(res *pb.ApiResponseRefreshToken) *response.ApiResponseRefreshToken {
+func (s *authCommandResponseMapper) ToResponseRefreshToken(res *pb_auth.ApiResponseRefreshToken) *response.ApiResponseRefreshToken {
 	if res == nil {
 		return &response.ApiResponseRefreshToken{
 			Status:  "error",

@@ -75,20 +75,6 @@ func (r *roleQueryRepository) FindByName(ctx context.Context, name string) (*db.
 }
 
 
-func (r *roleQueryRepository) FindByUserId(ctx context.Context, user_id int) ([]*db.Role, error) {
-	res, err := r.db.GetUserRoles(ctx, int32(user_id))
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, role_errors.ErrRoleNotFound.WithInternal(err)
-		}
-
-		return nil, sharedErrors.ErrInternal.WithInternal(err)
-	}
-
-	return res, nil
-}
-
-
 func (r *roleQueryRepository) FindActive(ctx context.Context, req *requests.FindAllRole) ([]*db.GetActiveRolesRow, error) {
 	offset := (req.Page - 1) * req.PageSize
 

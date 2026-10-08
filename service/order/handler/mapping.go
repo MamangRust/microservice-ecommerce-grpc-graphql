@@ -4,7 +4,8 @@ import (
 	"math"
 
 	db "github.com/MamangRust/microservice-ecommerce-grpc-order/database/schema"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/common"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/order"
 	"github.com/jackc/pgx/v5/pgtype"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
@@ -19,9 +20,9 @@ func normalizePage(page, pageSize int) (int, int) {
 	return page, pageSize
 }
 
-func createPaginationMeta(page, pageSize, totalRecords int) *pb.PaginationMeta {
+func createPaginationMeta(page, pageSize, totalRecords int) *pb_common.PaginationMeta {
 	totalPages := int(math.Ceil(float64(totalRecords) / float64(pageSize)))
-	return &pb.PaginationMeta{
+	return &pb_common.PaginationMeta{
 		CurrentPage:  int32(page),
 		PageSize:     int32(pageSize),
 		TotalPages:   int32(totalPages),
@@ -43,10 +44,10 @@ func formatTimestamp(v interface{}) string {
 	return ""
 }
 
-func mapToProtoOrderResponse(m interface{}) *pb.OrderResponse {
+func mapToProtoOrderResponse(m interface{}) *pb_order.OrderResponse {
 	switch v := m.(type) {
 	case *db.Order:
-		return &pb.OrderResponse{
+		return &pb_order.OrderResponse{
 			Id:         v.OrderID,
 			MerchantId: v.MerchantID,
 			UserId:     v.UserID,
@@ -55,7 +56,7 @@ func mapToProtoOrderResponse(m interface{}) *pb.OrderResponse {
 			UpdatedAt:  formatTimestamp(v.UpdatedAt),
 		}
 	case *db.GetOrdersRow:
-		return &pb.OrderResponse{
+		return &pb_order.OrderResponse{
 			Id:         v.OrderID,
 			MerchantId: v.MerchantID,
 			UserId:     v.UserID,
@@ -64,7 +65,7 @@ func mapToProtoOrderResponse(m interface{}) *pb.OrderResponse {
 			UpdatedAt:  formatTimestamp(v.UpdatedAt),
 		}
 	case *db.GetOrderByIDRow:
-		return &pb.OrderResponse{
+		return &pb_order.OrderResponse{
 			Id:         v.OrderID,
 			MerchantId: v.MerchantID,
 			UserId:     v.UserID,
@@ -73,7 +74,7 @@ func mapToProtoOrderResponse(m interface{}) *pb.OrderResponse {
 			UpdatedAt:  formatTimestamp(v.UpdatedAt),
 		}
 	case *db.CreateOrderRow:
-		return &pb.OrderResponse{
+		return &pb_order.OrderResponse{
 			Id:         v.OrderID,
 			MerchantId: v.MerchantID,
 			UserId:     v.UserID,
@@ -82,7 +83,7 @@ func mapToProtoOrderResponse(m interface{}) *pb.OrderResponse {
 			UpdatedAt:  formatTimestamp(v.UpdatedAt),
 		}
 	case *db.UpdateOrderRow:
-		return &pb.OrderResponse{
+		return &pb_order.OrderResponse{
 			Id:         v.OrderID,
 			MerchantId: v.MerchantID,
 			UserId:     v.UserID,
@@ -95,13 +96,13 @@ func mapToProtoOrderResponse(m interface{}) *pb.OrderResponse {
 	}
 }
 
-func mapToProtoOrderResponseDeleteAt(m interface{}) *pb.OrderResponseDeleteAt {
-	var res *pb.OrderResponseDeleteAt
+func mapToProtoOrderResponseDeleteAt(m interface{}) *pb_order.OrderResponseDeleteAt {
+	var res *pb_order.OrderResponseDeleteAt
 	var deletedAt interface{}
 
 	switch v := m.(type) {
 	case *db.Order:
-		res = &pb.OrderResponseDeleteAt{
+		res = &pb_order.OrderResponseDeleteAt{
 			Id:         v.OrderID,
 			MerchantId: v.MerchantID,
 			UserId:     v.UserID,
@@ -111,7 +112,7 @@ func mapToProtoOrderResponseDeleteAt(m interface{}) *pb.OrderResponseDeleteAt {
 		}
 		deletedAt = v.DeletedAt
 	case *db.GetOrdersActiveRow:
-		res = &pb.OrderResponseDeleteAt{
+		res = &pb_order.OrderResponseDeleteAt{
 			Id:         v.OrderID,
 			MerchantId: v.MerchantID,
 			UserId:     v.UserID,
@@ -121,7 +122,7 @@ func mapToProtoOrderResponseDeleteAt(m interface{}) *pb.OrderResponseDeleteAt {
 		}
 		deletedAt = v.DeletedAt
 	case *db.GetOrdersTrashedRow:
-		res = &pb.OrderResponseDeleteAt{
+		res = &pb_order.OrderResponseDeleteAt{
 			Id:         v.OrderID,
 			MerchantId: v.MerchantID,
 			UserId:     v.UserID,
@@ -140,4 +141,3 @@ func mapToProtoOrderResponseDeleteAt(m interface{}) *pb.OrderResponseDeleteAt {
 
 	return res
 }
-

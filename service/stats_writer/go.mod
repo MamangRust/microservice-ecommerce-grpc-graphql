@@ -7,7 +7,6 @@ require (
 	github.com/IBM/sarama v1.46.3
 	github.com/MamangRust/microservice-ecommerce-pkg v1.0.18
 	github.com/google/uuid v1.6.0
-	github.com/jackc/pgx/v5 v5.9.1
 	github.com/spf13/viper v1.21.0
 	go.uber.org/zap v1.27.1
 )

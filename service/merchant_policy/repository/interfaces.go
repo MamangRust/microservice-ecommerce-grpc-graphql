@@ -4,7 +4,6 @@ import (
 	"context"
 
 	db "github.com/MamangRust/microservice-ecommerce-grpc-merchant_policy/database/schema"
-	dto "github.com/MamangRust/microservice-ecommerce-grpc-merchant_policy/dto"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 )
 
@@ -43,8 +42,4 @@ type MerchantPoliciesCommandRepository interface {
 
 	RestoreAll(ctx context.Context) (bool, error)
 	DeleteAll(ctx context.Context) (bool, error)
-}
-
-type MerchantQueryRepository interface {
-	FindByID(ctx context.Context, user_id int) (*dto.GetMerchantByIDRow, error)
 }

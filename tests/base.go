@@ -2,14 +2,27 @@ package tests
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"net/url"
 	"reflect"
+	"strings"
 	"time"
 
+	chDriver "github.com/ClickHouse/clickhouse-go/v2"
+	pb_category "github.com/MamangRust/microservice-ecommerce-grpc-pb/category"
+	pb_merchant "github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
+	pb_order "github.com/MamangRust/microservice-ecommerce-grpc-pb/order"
+	pb_order_item "github.com/MamangRust/microservice-ecommerce-grpc-pb/order_item"
+	pb_product "github.com/MamangRust/microservice-ecommerce-grpc-pb/product"
+	pb_review "github.com/MamangRust/microservice-ecommerce-grpc-pb/review"
+	pb_shipping_address "github.com/MamangRust/microservice-ecommerce-grpc-pb/shipping_address"
+	pb_user "github.com/MamangRust/microservice-ecommerce-grpc-pb/user"
+	pkgclickhouse "github.com/MamangRust/microservice-ecommerce-pkg/clickhouse"
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	pb "github.com/MamangRust/microservice-ecommerce-shared/pb"
 	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	goredis "github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/suite"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
@@ -79,8 +92,41 @@ func (s *BaseTestSuite) DBPool() *pgxpool.Pool {
 	return s.ts.DBPool()
 }
 
+// SQLxDB opens a database/sql handle onto the same test database so suites can
+// run plain SQL fixtures with QueryRowContext/ExecContext. It is closed when the
+// suite ends.
+func (s *BaseTestSuite) SQLxDB() *sql.DB {
+	db, err := sql.Open("pgx", s.ts.DBURL)
+	s.Require().NoError(err)
+	s.T().Cleanup(func() { _ = db.Close() })
+	return db
+}
+
 func (s *BaseTestSuite) RedisClient() *goredis.Client {
 	return s.ts.RedisClient()
+}
+
+// OpenStatsConn opens a ClickHouse connection to the shared testcontainer and
+// applies the stats schema. Suites use this instead of pkgclickhouse.NewClient
+// so they never depend on viper's CLICKHOUSE_HOST default, which does not
+// resolve inside the test environment.
+func (s *BaseTestSuite) OpenStatsConn() chDriver.Conn {
+	u, err := url.Parse(s.ts.CHURL)
+	s.Require().NoError(err)
+
+	auth := chDriver.Auth{Database: strings.TrimPrefix(u.Path, "/")}
+	if u.User != nil {
+		auth.Username = u.User.Username()
+		auth.Password, _ = u.User.Password()
+	}
+
+	conn, err := chDriver.Open(&chDriver.Options{Addr: []string{u.Host}, Auth: auth})
+	s.Require().NoError(err)
+	s.Require().NoError(conn.Ping(s.Ctx))
+	s.Require().NoError(pkgclickhouse.ApplySchema(s.Ctx, conn, s.Log))
+
+	s.T().Cleanup(func() { _ = conn.Close() })
+	return conn
 }
 
 func (s *BaseTestSuite) RegisterServer(server *grpc.Server) string {
@@ -100,7 +146,7 @@ func (s *BaseTestSuite) SeedUser(ctx context.Context) int {
 	// Each call seeds a unique email so suites with multiple test methods can
 	// share one database without colliding on a fixed address.
 	email := fmt.Sprintf("seed.user.%s@example.com", uniqueSuffix())
-	res, err := pb.NewUserCommandServiceClient(s.Conns["user"]).Create(ctx, &pb.CreateUserRequest{
+	res, err := pb_user.NewUserCommandServiceClient(s.Conns["user"]).Create(ctx, &pb_user.CreateUserRequest{
 		Firstname:       "Seed",
 		Lastname:        "User",
 		Email:           email,
@@ -113,7 +159,7 @@ func (s *BaseTestSuite) SeedUser(ctx context.Context) int {
 
 func (s *BaseTestSuite) SeedCategory(ctx context.Context) int {
 	seedSuffix := uniqueSuffix()
-	res, err := pb.NewCategoryCommandServiceClient(s.Conns["category"]).Create(ctx, &pb.CreateCategoryRequest{
+	res, err := pb_category.NewCategoryCommandServiceClient(s.Conns["category"]).Create(ctx, &pb_category.CreateCategoryRequest{
 		Name:          "Seed Category " + seedSuffix,
 		Description:   "Seed Description",
 		SlugCategory:  "seed-category-" + seedSuffix,
@@ -124,7 +170,7 @@ func (s *BaseTestSuite) SeedCategory(ctx context.Context) int {
 }
 
 func (s *BaseTestSuite) SeedMerchant(ctx context.Context, userID int) int {
-	res, err := pb.NewMerchantCommandServiceClient(s.Conns["merchant"]).Create(ctx, &pb.CreateMerchantRequest{
+	res, err := pb_merchant.NewMerchantCommandServiceClient(s.Conns["merchant"]).Create(ctx, &pb_merchant.CreateMerchantRequest{
 		UserId:       int32(userID),
 		Name:         "Seed Merchant",
 		Description:  "Seed Description",
@@ -139,7 +185,7 @@ func (s *BaseTestSuite) SeedMerchant(ctx context.Context, userID int) int {
 
 func (s *BaseTestSuite) SeedProduct(ctx context.Context, merchantID int, categoryID int) int {
 	seedSuffix := uniqueSuffix()
-	res, err := pb.NewProductCommandServiceClient(s.Conns["product"]).Create(ctx, &pb.CreateProductRequest{
+	res, err := pb_product.NewProductCommandServiceClient(s.Conns["product"]).Create(ctx, &pb_product.CreateProductRequest{
 		MerchantId:   int32(merchantID),
 		CategoryId:   int32(categoryID),
 		Name:         "Seed Product " + seedSuffix,
@@ -158,7 +204,7 @@ func (s *BaseTestSuite) SeedProduct(ctx context.Context, merchantID int, categor
 }
 
 func (s *BaseTestSuite) SeedShippingAddress(ctx context.Context, orderID int) int {
-	res, err := pb.NewShippingCommandServiceClient(s.Conns["shipping-address"]).CreateShipping(ctx, &pb.CreateShippingAddressRequest{
+	res, err := pb_shipping_address.NewShippingCommandServiceClient(s.Conns["shipping-address"]).CreateShipping(ctx, &pb_shipping_address.CreateShippingAddressRequest{
 		OrderId:        int32(orderID),
 		Alamat:         "Seed Address",
 		Provinsi:       "Seed Province",
@@ -173,18 +219,18 @@ func (s *BaseTestSuite) SeedShippingAddress(ctx context.Context, orderID int) in
 }
 
 func (s *BaseTestSuite) SeedOrder(ctx context.Context, userID int, merchID int, prodID int) int {
-	res, err := pb.NewOrderCommandServiceClient(s.Conns["order"]).Create(ctx, &pb.CreateOrderRequest{
+	res, err := pb_order.NewOrderCommandServiceClient(s.Conns["order"]).Create(ctx, &pb_order.CreateOrderRequest{
 		UserId:     int32(userID),
 		MerchantId: int32(merchID),
 		TotalPrice: 10000,
-		Items: []*pb.CreateOrderItemRequest{
+		Items: []*pb_order.CreateOrderItemRequest{
 			{
 				ProductId: int32(prodID),
 				Quantity:  1,
 				Price:     10000,
 			},
 		},
-		Shipping: &pb.CreateShippingAddressRequest{
+		Shipping: &pb_shipping_address.CreateShippingAddressRequest{
 			Alamat:         "Seed Address",
 			Provinsi:       "Seed Province",
 			Kota:           "Seed City",
@@ -199,7 +245,7 @@ func (s *BaseTestSuite) SeedOrder(ctx context.Context, userID int, merchID int, 
 }
 
 func (s *BaseTestSuite) SeedReview(ctx context.Context, userID int, productID int) int {
-	res, err := pb.NewReviewCommandServiceClient(s.Conns["review"]).Create(ctx, &pb.CreateReviewRequest{
+	res, err := pb_review.NewReviewCommandServiceClient(s.Conns["review"]).Create(ctx, &pb_review.CreateReviewRequest{
 		UserId:    int32(userID),
 		ProductId: int32(productID),
 		Rating:    5,
@@ -210,7 +256,7 @@ func (s *BaseTestSuite) SeedReview(ctx context.Context, userID int, productID in
 }
 
 func (s *BaseTestSuite) SeedOrderItem(ctx context.Context, orderID int, productID int) int {
-	res, err := pb.NewOrderItemCommandServiceClient(s.Conns["order-item"]).CreateOrderItem(ctx, &pb.CreateOrderItemRecordRequest{
+	res, err := pb_order_item.NewOrderItemCommandServiceClient(s.Conns["order-item"]).CreateOrderItem(ctx, &pb_order_item.CreateOrderItemRecordRequest{
 		OrderId:   int32(orderID),
 		ProductId: int32(productID),
 		Quantity:  1,

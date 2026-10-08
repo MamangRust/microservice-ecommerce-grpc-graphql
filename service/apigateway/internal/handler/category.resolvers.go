@@ -12,11 +12,11 @@ import (
 	"path/filepath"
 	"time"
 
+	graphqlerror "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/errors"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/category"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	sharedErrors "github.com/MamangRust/microservice-ecommerce-shared/errors"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphqlerror "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/errors"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -60,7 +60,7 @@ func (r *mutationResolver) CreateCategory(ctx context.Context, input model.Creat
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewValidationError(validations))
 		}
 
-		reqPb := &pb.CreateCategoryRequest{
+		reqPb := &pb_category.CreateCategoryRequest{
 			Name:          req.Name,
 			Description:   req.Description,
 			ImageCategory: req.ImageCategory,
@@ -127,7 +127,7 @@ func (r *mutationResolver) UpdateCategory(ctx context.Context, input model.Updat
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewValidationError(validations))
 		}
 
-		reqPb := &pb.UpdateCategoryRequest{
+		reqPb := &pb_category.UpdateCategoryRequest{
 			CategoryId:    int32(id),
 			Name:          req.Name,
 			Description:   req.Description,
@@ -156,7 +156,7 @@ func (r *mutationResolver) TrashCategory(ctx context.Context, input model.FindBy
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("id is required"))
 		}
 
-		reqPb := &pb.FindByIdCategoryRequest{
+		reqPb := &pb_category.FindByIdCategoryRequest{
 			Id: int32(id),
 		}
 
@@ -182,7 +182,7 @@ func (r *mutationResolver) RestoreCategory(ctx context.Context, input model.Find
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("id is required"))
 		}
 
-		reqPb := &pb.FindByIdCategoryRequest{
+		reqPb := &pb_category.FindByIdCategoryRequest{
 			Id: int32(id),
 		}
 
@@ -208,7 +208,7 @@ func (r *mutationResolver) DeleteCategoryPermanent(ctx context.Context, input mo
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("id is required"))
 		}
 
-		reqPb := &pb.FindByIdCategoryRequest{
+		reqPb := &pb_category.FindByIdCategoryRequest{
 			Id: int32(id),
 		}
 
@@ -289,7 +289,7 @@ func (r *queryResolver) FindAllCategories(ctx context.Context, input model.FindA
 			return data, nil
 		}
 
-		req := &pb.FindAllCategoryRequest{
+		req := &pb_category.FindAllCategoryRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,
@@ -320,7 +320,7 @@ func (r *queryResolver) FindCategoryByID(ctx context.Context, input model.FindBy
 			return data, nil
 		}
 
-		category, err := r.CategoryGraphql.CategoryQueryClient.FindById(ctx, &pb.FindByIdCategoryRequest{
+		category, err := r.CategoryGraphql.CategoryQueryClient.FindById(ctx, &pb_category.FindByIdCategoryRequest{
 			Id: int32(id),
 		})
 		if err != nil {
@@ -371,7 +371,7 @@ func (r *queryResolver) FindActiveCategories(ctx context.Context, input model.Fi
 			return data, nil
 		}
 
-		req := &pb.FindAllCategoryRequest{
+		req := &pb_category.FindAllCategoryRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,
@@ -426,7 +426,7 @@ func (r *queryResolver) FindTrashedCategories(ctx context.Context, input model.F
 			return data, nil
 		}
 
-		req := &pb.FindAllCategoryRequest{
+		req := &pb_category.FindAllCategoryRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,
@@ -445,414 +445,4 @@ func (r *queryResolver) FindTrashedCategories(ctx context.Context, input model.F
 	})
 }
 
-// FindMonthPrice is the resolver for the findMonthPrice field.
-func (r *queryResolver) FindMonthPrice(ctx context.Context, input model.FindYearInput) (*model.APIResponseCategoryMonthPrice, error) {
-	return ResolverHandle(r.ResolverHandle, "FindMonthPrice", ctx, func(ctx context.Context) (*model.APIResponseCategoryMonthPrice, error) {
-		year := int(input.Year)
-		if year <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: year cannot be zero"))
-		}
-
-		if data, found := r.CategoryGraphql.Cache.GetCachedMonthPriceCache(ctx, year); found {
-			return data, nil
-		}
-
-		res, err := r.CategoryGraphql.CategoryStatsClient.FindMonthPrice(ctx, &pb.FindYearCategory{
-			Year: int32(year),
-		})
-		if err != nil {
-			return nil, r.handleGraphQLError(err, "FindMonthPrice")
-		}
-
-		so := r.CategoryGraphql.Mapping.ToGraphqlCategoryMonthlyPrice(res)
-
-		r.CategoryGraphql.Cache.SetCachedMonthPriceCache(ctx, year, so)
-
-		return so, nil
-	})
-}
-
-// FindYearPrice is the resolver for the findYearPrice field.
-func (r *queryResolver) FindYearPrice(ctx context.Context, input model.FindYearInput) (*model.APIResponseCategoryYearPrice, error) {
-	return ResolverHandle(r.ResolverHandle, "FindYearPrice", ctx, func(ctx context.Context) (*model.APIResponseCategoryYearPrice, error) {
-		year := int(input.Year)
-		if year <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: year cannot be zero"))
-		}
-
-		if data, found := r.CategoryGraphql.Cache.GetCachedYearPriceCache(ctx, year); found {
-			return data, nil
-		}
-
-		res, err := r.CategoryGraphql.CategoryStatsClient.FindYearPrice(ctx, &pb.FindYearCategory{
-			Year: int32(year),
-		})
-		if err != nil {
-			return nil, r.handleGraphQLError(err, "FindYearPrice")
-		}
-
-		so := r.CategoryGraphql.Mapping.ToGraphqlCategoryYearlyPrice(res)
-
-		r.CategoryGraphql.Cache.SetCachedYearPriceCache(ctx, year, so)
-
-		return so, nil
-	})
-}
-
-// FindMonthPriceByID is the resolver for the findMonthPriceById field.
-func (r *queryResolver) FindMonthPriceByID(ctx context.Context, input model.FindYearCategoryByIDInput) (*model.APIResponseCategoryMonthPrice, error) {
-	return ResolverHandle(r.ResolverHandle, "FindMonthPriceByID", ctx, func(ctx context.Context) (*model.APIResponseCategoryMonthPrice, error) {
-		year := int(input.Year)
-		id := int(input.CategoryID)
-
-		if year <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: year cannot be zero"))
-		}
-		if id <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: category ID cannot be zero"))
-		}
-
-		if data, found := r.CategoryGraphql.Cache.GetCachedMonthPriceByIdCache(ctx, &input); found {
-			return data, nil
-		}
-
-		req := &pb.FindYearCategoryById{
-			Year:       int32(year),
-			CategoryId: int32(id),
-		}
-
-		res, err := r.CategoryGraphql.CategoryStatsByIdClient.FindMonthPriceById(ctx, req)
-		if err != nil {
-			return nil, r.handleGraphQLError(err, "FindMonthPriceByID")
-		}
-
-		so := r.CategoryGraphql.Mapping.ToGraphqlCategoryMonthlyPrice(res)
-
-		r.CategoryGraphql.Cache.SetCachedMonthPriceByIdCache(ctx, &input, so)
-
-		return so, nil
-	})
-}
-
-// FindYearPriceByID is the resolver for the findYearPriceById field.
-func (r *queryResolver) FindYearPriceByID(ctx context.Context, input model.FindYearCategoryByIDInput) (*model.APIResponseCategoryYearPrice, error) {
-	return ResolverHandle(r.ResolverHandle, "FindYearPriceByID", ctx, func(ctx context.Context) (*model.APIResponseCategoryYearPrice, error) {
-		year := int(input.Year)
-		id := int(input.CategoryID)
-
-		if year <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: year cannot be zero"))
-		}
-		if id <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: category ID cannot be zero"))
-		}
-
-		if data, found := r.CategoryGraphql.Cache.GetCachedYearPriceByIdCache(ctx, &input); found {
-			return data, nil
-		}
-
-		req := &pb.FindYearCategoryById{
-			Year:       int32(year),
-			CategoryId: int32(id),
-		}
-
-		res, err := r.CategoryGraphql.CategoryStatsByIdClient.FindYearPriceById(ctx, req)
-		if err != nil {
-			return nil, r.handleGraphQLError(err, "FindYearPriceByID")
-		}
-
-		so := r.CategoryGraphql.Mapping.ToGraphqlCategoryYearlyPrice(res)
-
-		r.CategoryGraphql.Cache.SetCachedYearPriceByIdCache(ctx, &input, so)
-
-		return so, nil
-	})
-}
-
-// FindMonthPriceByMerchant is the resolver for the findMonthPriceByMerchant field.
-func (r *queryResolver) FindMonthPriceByMerchant(ctx context.Context, input model.FindYearCategoryByMerchantInput) (*model.APIResponseCategoryMonthPrice, error) {
-	return ResolverHandle(r.ResolverHandle, "FindMonthPriceByMerchant", ctx, func(ctx context.Context) (*model.APIResponseCategoryMonthPrice, error) {
-		year := int(input.Year)
-		merchantId := int(input.MerchantID)
-
-		if year <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: year cannot be zero"))
-		}
-		if merchantId <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: merchant ID cannot be zero"))
-		}
-
-		if data, found := r.CategoryGraphql.Cache.GetCachedMonthPriceByMerchantCache(ctx, &input); found {
-			return data, nil
-		}
-
-		req := &pb.FindYearCategoryByMerchant{
-			Year:       int32(year),
-			MerchantId: int32(merchantId),
-		}
-
-		res, err := r.CategoryGraphql.CategoryStatsByMerchantClient.FindMonthPriceByMerchant(ctx, req)
-		if err != nil {
-			return nil, r.handleGraphQLError(err, "FindMonthPriceByMerchant")
-		}
-
-		so := r.CategoryGraphql.Mapping.ToGraphqlCategoryMonthlyPrice(res)
-
-		r.CategoryGraphql.Cache.SetCachedMonthPriceByMerchantCache(ctx, &input, so)
-
-		return so, nil
-	})
-}
-
-// FindYearPriceByMerchant is the resolver for the findYearPriceByMerchant field.
-func (r *queryResolver) FindYearPriceByMerchant(ctx context.Context, input model.FindYearCategoryByMerchantInput) (*model.APIResponseCategoryYearPrice, error) {
-	return ResolverHandle(r.ResolverHandle, "FindYearPriceByMerchant", ctx, func(ctx context.Context) (*model.APIResponseCategoryYearPrice, error) {
-		year := int(input.Year)
-		merchantId := int(input.MerchantID)
-
-		if year <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: year cannot be zero"))
-		}
-		if merchantId <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: merchant ID cannot be zero"))
-		}
-
-		if data, found := r.CategoryGraphql.Cache.GetCachedYearPriceByMerchantCache(ctx, &input); found {
-			return data, nil
-		}
-
-		req := &pb.FindYearCategoryByMerchant{
-			Year:       int32(year),
-			MerchantId: int32(merchantId),
-		}
-
-		res, err := r.CategoryGraphql.CategoryStatsByMerchantClient.FindYearPriceByMerchant(ctx, req)
-		if err != nil {
-			return nil, r.handleGraphQLError(err, "FindYearPriceByMerchant")
-		}
-
-		so := r.CategoryGraphql.Mapping.ToGraphqlCategoryYearlyPrice(res)
-
-		r.CategoryGraphql.Cache.SetCachedYearPriceByMerchantCache(ctx, &input, so)
-
-		return so, nil
-	})
-}
-
-// FindMonthlyTotalPrices is the resolver for the findMonthlyTotalPrices field.
-func (r *queryResolver) FindMonthlyTotalPrices(ctx context.Context, input model.FindYearMonthTotalPricesInput) (*model.APIResponseCategoryMonthlyTotalPrice, error) {
-	return ResolverHandle(r.ResolverHandle, "FindMonthlyTotalPrices", ctx, func(ctx context.Context) (*model.APIResponseCategoryMonthlyTotalPrice, error) {
-		year := int(input.Year)
-		month := int(input.Month)
-
-		if year <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: year cannot be zero"))
-		}
-		if month < 1 || month > 12 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: month must be between 1 and 12"))
-		}
-
-		if data, found := r.CategoryGraphql.Cache.GetCachedMonthTotalPriceCache(ctx, &input); found {
-			return data, nil
-		}
-
-		req := &pb.FindYearMonthTotalPrices{
-			Year:  int32(year),
-			Month: int32(month),
-		}
-
-		res, err := r.CategoryGraphql.CategoryStatsClient.FindMonthlyTotalPrices(ctx, req)
-		if err != nil {
-			return nil, r.handleGraphQLError(err, "FindMonthlyTotalPrices")
-		}
-
-		so := r.CategoryGraphql.Mapping.ToGraphqlMonthlyTotalPrice(res)
-
-		r.CategoryGraphql.Cache.SetCachedMonthTotalPriceCache(ctx, &input, so)
-
-		return so, nil
-	})
-}
-
-// FindYearlyTotalPrices is the resolver for the findYearlyTotalPrices field.
-func (r *queryResolver) FindYearlyTotalPrices(ctx context.Context, input model.FindYearTotalPricesInput) (*model.APIResponseCategoryYearlyTotalPrice, error) {
-	return ResolverHandle(r.ResolverHandle, "FindYearlyTotalPrices", ctx, func(ctx context.Context) (*model.APIResponseCategoryYearlyTotalPrice, error) {
-		year := int(input.Year)
-		if year <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: year cannot be zero"))
-		}
-
-		if data, found := r.CategoryGraphql.Cache.GetCachedYearTotalPriceCache(ctx, year); found {
-			return data, nil
-		}
-
-		res, err := r.CategoryGraphql.CategoryStatsClient.FindYearlyTotalPrices(ctx, &pb.FindYearTotalPrices{
-			Year: int32(year),
-		})
-		if err != nil {
-			return nil, r.handleGraphQLError(err, "FindYearlyTotalPrices")
-		}
-
-		so := r.CategoryGraphql.Mapping.ToGraphqlYearlyTotalPrice(res)
-
-		r.CategoryGraphql.Cache.SetCachedYearTotalPriceCache(ctx, year, so)
-
-		return so, nil
-	})
-}
-
-// FindMonthlyTotalPricesByID is the resolver for the findMonthlyTotalPricesById field.
-func (r *queryResolver) FindMonthlyTotalPricesByID(ctx context.Context, input model.FindYearMonthTotalPriceByIDInput) (*model.APIResponseCategoryMonthlyTotalPrice, error) {
-	return ResolverHandle(r.ResolverHandle, "FindMonthlyTotalPricesByID", ctx, func(ctx context.Context) (*model.APIResponseCategoryMonthlyTotalPrice, error) {
-		year := int(input.Year)
-		month := int(input.Month)
-		categoryID := int(input.CategoryID)
-
-		if year <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: year cannot be zero"))
-		}
-
-		if month <= 0 || month > 12 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: month must be between 1 and 12"))
-		}
-
-		if categoryID <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: category ID cannot be zero"))
-		}
-
-		if data, found := r.CategoryGraphql.Cache.GetCachedMonthTotalPriceByIdCache(ctx, &input); found {
-			return data, nil
-		}
-
-		req := &pb.FindYearMonthTotalPriceById{
-			Year:       int32(year),
-			Month:      int32(month),
-			CategoryId: int32(categoryID),
-		}
-
-		res, err := r.CategoryGraphql.CategoryStatsByIdClient.FindMonthlyTotalPricesById(ctx, req)
-		if err != nil {
-			return nil, r.handleGraphQLError(err, "FindMonthlyTotalPricesByID")
-		}
-
-		so := r.CategoryGraphql.Mapping.ToGraphqlMonthlyTotalPrice(res)
-
-		r.CategoryGraphql.Cache.SetCachedMonthTotalPriceByIdCache(ctx, &input, so)
-
-		return so, nil
-	})
-}
-
-// FindYearlyTotalPricesByID is the resolver for the findYearlyTotalPricesById field.
-func (r *queryResolver) FindYearlyTotalPricesByID(ctx context.Context, input model.FindYearCategoryByIDInput) (*model.APIResponseCategoryYearlyTotalPrice, error) {
-	return ResolverHandle(r.ResolverHandle, "FindYearlyTotalPricesByID", ctx, func(ctx context.Context) (*model.APIResponseCategoryYearlyTotalPrice, error) {
-		year := int(input.Year)
-		categoryID := int(input.CategoryID)
-
-		if year <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: year cannot be zero"))
-		}
-
-		if categoryID <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: category ID cannot be zero"))
-		}
-
-		if data, found := r.CategoryGraphql.Cache.GetCachedYearTotalPriceByIdCache(ctx, &input); found {
-			return data, nil
-		}
-
-		req := &pb.FindYearTotalPriceById{
-			Year:       int32(year),
-			CategoryId: int32(categoryID),
-		}
-
-		res, err := r.CategoryGraphql.CategoryStatsByIdClient.FindYearlyTotalPricesById(ctx, req)
-		if err != nil {
-			return nil, r.handleGraphQLError(err, "FindYearlyTotalPricesByID")
-		}
-
-		so := r.CategoryGraphql.Mapping.ToGraphqlYearlyTotalPrice(res)
-
-		r.CategoryGraphql.Cache.SetCachedYearTotalPriceByIdCache(ctx, &input, so)
-
-		return so, nil
-	})
-}
-
-// FindMonthlyTotalPricesByMerchant is the resolver for the findMonthlyTotalPricesByMerchant field.
-func (r *queryResolver) FindMonthlyTotalPricesByMerchant(ctx context.Context, input model.FindYearMonthTotalPriceByMerchantInput) (*model.APIResponseCategoryMonthlyTotalPrice, error) {
-	return ResolverHandle(r.ResolverHandle, "FindMonthlyTotalPricesByMerchant", ctx, func(ctx context.Context) (*model.APIResponseCategoryMonthlyTotalPrice, error) {
-		year := int(input.Year)
-		month := int(input.Month)
-		merchantID := int(input.MerchantID)
-
-		if year <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: year cannot be zero"))
-		}
-
-		if month < 1 || month > 12 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: month must be between 1 and 12"))
-		}
-
-		if merchantID <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: merchant ID cannot be zero"))
-		}
-
-		if data, found := r.CategoryGraphql.Cache.GetCachedMonthTotalPriceByMerchantCache(ctx, &input); found {
-			return data, nil
-		}
-
-		req := &pb.FindYearMonthTotalPriceByMerchant{
-			Year:       int32(year),
-			Month:      int32(month),
-			MerchantId: int32(merchantID),
-		}
-
-		res, err := r.CategoryGraphql.CategoryStatsByMerchantClient.FindMonthlyTotalPricesByMerchant(ctx, req)
-		if err != nil {
-			return nil, r.handleGraphQLError(err, "FindMonthlyTotalPricesByMerchant")
-		}
-
-		so := r.CategoryGraphql.Mapping.ToGraphqlMonthlyTotalPrice(res)
-
-		r.CategoryGraphql.Cache.SetCachedMonthTotalPriceByMerchantCache(ctx, &input, so)
-
-		return so, nil
-	})
-}
-
-// FindYearlyTotalPricesByMerchant is the resolver for the findYearlyTotalPricesByMerchant field.
-func (r *queryResolver) FindYearlyTotalPricesByMerchant(ctx context.Context, input model.FindYearTotalPriceByMerchantInput) (*model.APIResponseCategoryYearlyTotalPrice, error) {
-	return ResolverHandle(r.ResolverHandle, "FindYearlyTotalPricesByMerchant", ctx, func(ctx context.Context) (*model.APIResponseCategoryYearlyTotalPrice, error) {
-		year := int(input.Year)
-		merchantID := int(input.MerchantID)
-
-		if year <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: year cannot be zero"))
-		}
-
-		if merchantID <= 0 {
-			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: merchant ID cannot be zero"))
-		}
-
-		if data, found := r.CategoryGraphql.Cache.GetCachedYearTotalPriceByMerchantCache(ctx, &input); found {
-			return data, nil
-		}
-
-		req := &pb.FindYearTotalPriceByMerchant{
-			Year:       int32(year),
-			MerchantId: int32(merchantID),
-		}
-
-		res, err := r.CategoryGraphql.CategoryStatsByMerchantClient.FindYearlyTotalPricesByMerchant(ctx, req)
-		if err != nil {
-			return nil, r.handleGraphQLError(err, "FindYearlyTotalPricesByMerchant")
-		}
-
-		so := r.CategoryGraphql.Mapping.ToGraphqlYearlyTotalPrice(res)
-
-		r.CategoryGraphql.Cache.SetCachedYearTotalPriceByMerchantCache(ctx, &input, so)
-
-		return so, nil
-	})
-}
+// Stats resolvers moved to stats.resolvers.go

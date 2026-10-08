@@ -8,10 +8,11 @@ import (
 	db "github.com/MamangRust/microservice-ecommerce-grpc-cart/database/schema"
 	"github.com/MamangRust/microservice-ecommerce-grpc-cart/repository"
 	"github.com/MamangRust/microservice-ecommerce-grpc-cart/service"
+	pb_product "github.com/MamangRust/microservice-ecommerce-grpc-pb/product"
+	pb_user "github.com/MamangRust/microservice-ecommerce-grpc-pb/user"
 	"github.com/MamangRust/microservice-ecommerce-shared/cache"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	tests "github.com/MamangRust/microservice-ecommerce-test"
 	"github.com/stretchr/testify/suite"
 )
@@ -39,8 +40,9 @@ func (s *CartServiceTestSuite) SetupSuite() {
 	mencache := cart_cache.NewMencache(cacheStore)
 	repos := repository.NewRepositories(
 		queries,
-		pb.NewUserQueryServiceClient(s.Conns["user"]),
-		pb.NewProductQueryServiceClient(s.Conns["product"]),
+		pb_user.NewUserQueryServiceClient(s.Conns["user"]),
+		pb_product.NewProductQueryServiceClient(s.Conns["product"]),
+		repository.GuardOptions{},
 	)
 
 	s.svc = service.NewService(&service.Deps{

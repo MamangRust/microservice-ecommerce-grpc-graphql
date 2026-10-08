@@ -1,9 +1,9 @@
 package handler
 
 import (
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/slider"
 	"github.com/MamangRust/microservice-ecommerce-grpc-slider/service"
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 )
 
 type Deps struct {
@@ -12,8 +12,8 @@ type Deps struct {
 }
 
 type Handler struct {
-	SliderQuery   pb.SliderQueryServiceServer
-	SliderCommand pb.SliderCommandServiceServer
+	SliderQuery   pb_slider.SliderQueryServiceServer
+	SliderCommand pb_slider.SliderCommandServiceServer
 }
 
 func NewHandler(deps *Deps) *Handler {

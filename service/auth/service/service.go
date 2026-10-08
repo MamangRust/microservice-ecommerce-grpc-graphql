@@ -57,7 +57,7 @@ func newLogin(deps *Deps, tokenService *tokenService, observability observabilit
 		Cache:          cache,
 		Logger:         deps.Logger,
 		Hash:           deps.Hash,
-		UserRepository: deps.Repositories.User,
+		User:           deps.Repositories.User,
 		RefreshToken:   deps.Repositories.RefreshToken,
 		Token:          deps.Token,
 		TokenService:   tokenService,
@@ -70,6 +70,7 @@ func newRegister(deps *Deps, observability observability.TraceLoggerObservabilit
 	return NewRegisterService(&RegisterServiceDeps{
 		Cache:         cache,
 		User:          deps.Repositories.User,
+		UserCommand:   deps.Repositories.UserCommand,
 		Role:          deps.Repositories.Role,
 		UserRole:      deps.Repositories.UserRole,
 		Hash:          deps.Hash,
@@ -90,6 +91,7 @@ func newPasswordReset(deps *Deps, observability observability.TraceLoggerObserva
 		Outbox:        deps.Outbox,
 		Logger:        deps.Logger,
 		User:          deps.Repositories.User,
+		UserCommand:   deps.Repositories.UserCommand,
 		ResetToken:    deps.Repositories.ResetToken,
 		Observability: observability,
 	})

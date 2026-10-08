@@ -78,23 +78,25 @@ type ApiResponsePaginationRoleDeleteAt {
   pagination: PaginationMeta
 }
 
+# Role administration is admin-only, mirroring the REST gateway policy
+# (RequireRoles("Admin", "ROLE_ADMIN") on /api/role-query and /api/role-command).
 extend type Query {
-  findAllRole(input: FindAllRoleInput): ApiResponsePaginationRole
-  findByIdRole(input: FindByIdRoleInput!): ApiResponseRole
+  findAllRole(input: FindAllRoleInput): ApiResponsePaginationRole @hasRole(roles: ["Admin", "ROLE_ADMIN"])
+  findByIdRole(input: FindByIdRoleInput!): ApiResponseRole @hasRole(roles: ["Admin", "ROLE_ADMIN"])
 
-  findByActiveRole(input: FindAllRoleInput): ApiResponsePaginationRoleDeleteAt
-  findByTrashedRole(input: FindAllRoleInput): ApiResponsePaginationRoleDeleteAt
+  findByActiveRole(input: FindAllRoleInput): ApiResponsePaginationRoleDeleteAt @hasRole(roles: ["Admin", "ROLE_ADMIN"])
+  findByTrashedRole(input: FindAllRoleInput): ApiResponsePaginationRoleDeleteAt @hasRole(roles: ["Admin", "ROLE_ADMIN"])
 
-  findByUserIdRole(input: FindByIdUserRoleInput!): ApiResponsesRole
+  findByUserIdRole(input: FindByIdUserRoleInput!): ApiResponsesRole @hasRole(roles: ["Admin", "ROLE_ADMIN"])
 }
 
 extend type Mutation {
-  createRole(input: CreateRoleInput!): ApiResponseRole
-  updateRole(input: UpdateRoleInput!): ApiResponseRole
-  trashedRole(input: FindByIdRoleInput!): ApiResponseRoleDeleteAt
-  restoreRole(input: FindByIdRoleInput!): ApiResponseRoleDeleteAt
-  deleteRolePermanent(input: FindByIdRoleInput!): ApiResponseRoleDelete
+  createRole(input: CreateRoleInput!): ApiResponseRole @hasRole(roles: ["Admin", "ROLE_ADMIN"])
+  updateRole(input: UpdateRoleInput!): ApiResponseRole @hasRole(roles: ["Admin", "ROLE_ADMIN"])
+  trashedRole(input: FindByIdRoleInput!): ApiResponseRoleDeleteAt @hasRole(roles: ["Admin", "ROLE_ADMIN"])
+  restoreRole(input: FindByIdRoleInput!): ApiResponseRoleDeleteAt @hasRole(roles: ["Admin", "ROLE_ADMIN"])
+  deleteRolePermanent(input: FindByIdRoleInput!): ApiResponseRoleDelete @hasRole(roles: ["Admin", "ROLE_ADMIN"])
 
-  restoreAllRole: ApiResponseRoleAll
-  deleteAllRolePermanent: ApiResponseRoleAll
+  restoreAllRole: ApiResponseRoleAll @hasRole(roles: ["Admin", "ROLE_ADMIN"])
+  deleteAllRolePermanent: ApiResponseRoleAll @hasRole(roles: ["Admin", "ROLE_ADMIN"])
 }

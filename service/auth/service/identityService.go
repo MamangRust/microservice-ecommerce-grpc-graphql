@@ -8,8 +8,8 @@ import (
 	"time"
 
 	mencache "github.com/MamangRust/microservice-ecommerce-auth/cache"
-	dto "github.com/MamangRust/microservice-ecommerce-auth/dto"
 	"github.com/MamangRust/microservice-ecommerce-auth/repository"
+	useradapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/user"
 	"github.com/MamangRust/microservice-ecommerce-pkg/auth"
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
@@ -27,7 +27,7 @@ type IdentityServiceDeps struct {
 	Cache         mencache.IdentityCache
 	Token         auth.TokenManager
 	RefreshToken  repository.RefreshTokenRepository
-	User          repository.UserRepository
+	User          useradapter.QueryRepository
 	Logger        logger.LoggerInterface
 	TokenService  *tokenService
 	Observability observability.TraceLoggerObservability
@@ -39,7 +39,7 @@ type identityService struct {
 	logger        logger.LoggerInterface
 	token         auth.TokenManager
 	refreshToken  repository.RefreshTokenRepository
-	user          repository.UserRepository
+	user          useradapter.QueryRepository
 	tokenService  *tokenService
 	observability observability.TraceLoggerObservability
 }
@@ -167,7 +167,7 @@ func (s *identityService) RefreshToken(ctx context.Context, token string) (*resp
 	}, nil
 }
 
-func (s *identityService) GetMe(ctx context.Context, userId int) (*dto.GetUserByIDRow, error) {
+func (s *identityService) GetMe(ctx context.Context, userId int) (*useradapter.User, error) {
 	const method = "GetMe"
 
 	ctx, span, end, status, logSuccess :=
@@ -185,10 +185,10 @@ func (s *identityService) GetMe(ctx context.Context, userId int) (*dto.GetUserBy
 		return cachedUser, nil
 	}
 
-	user, err := s.user.FindById(ctx, userId)
+	user, err := s.user.FindByID(ctx, userId)
 	if err != nil {
 		status = "error"
-		return sharederrorhandler.HandleError[*dto.GetUserByIDRow](
+		return sharederrorhandler.HandleError[*useradapter.User](
 			s.logger,
 			err,
 			method,

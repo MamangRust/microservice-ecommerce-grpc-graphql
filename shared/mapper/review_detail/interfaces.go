@@ -1,27 +1,27 @@
 package reviewdetailapimapper
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/review_detail"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/response"
 )
 
 type ReviewDetailBaseResponseMapper interface {
-	ToResponseReviewDetail(reviewDetail *pb.ReviewDetailsResponse) *response.ReviewDetailsResponse
-	ToResponsesReviewDetail(ReviewDetails []*pb.ReviewDetailsResponse) []*response.ReviewDetailsResponse
+	ToResponseReviewDetail(reviewDetail *pb_review_detail.ReviewDetailsResponse) *response.ReviewDetailsResponse
+	ToResponsesReviewDetail(ReviewDetails []*pb_review_detail.ReviewDetailsResponse) []*response.ReviewDetailsResponse
 }
 
 type ReviewDetailQueryResponseMapper interface {
 	ReviewDetailBaseResponseMapper
-	ToApiResponseReviewDetail(pbResponse *pb.ApiResponseReviewDetail) *response.ApiResponseReviewDetail
-	ToApiResponsesReviewDetail(pbResponse *pb.ApiResponsesReviewDetails) *response.ApiResponsesReviewDetails
-	ToApiResponsePaginationReviewDetail(pbResponse *pb.ApiResponsePaginationReviewDetails) *response.ApiResponsePaginationReviewDetails
-	ToApiResponsePaginationReviewDetailDeleteAt(pbResponse *pb.ApiResponsePaginationReviewDetailsDeleteAt) *response.ApiResponsePaginationReviewDetailsDeleteAt
+	ToApiResponseReviewDetail(pbResponse *pb_review_detail.ApiResponseReviewDetail) *response.ApiResponseReviewDetail
+	ToApiResponsesReviewDetail(pbResponse *pb_review_detail.ApiResponsesReviewDetails) *response.ApiResponsesReviewDetails
+	ToApiResponsePaginationReviewDetail(pbResponse *pb_review_detail.ApiResponsePaginationReviewDetails) *response.ApiResponsePaginationReviewDetails
+	ToApiResponsePaginationReviewDetailDeleteAt(pbResponse *pb_review_detail.ApiResponsePaginationReviewDetailsDeleteAt) *response.ApiResponsePaginationReviewDetailsDeleteAt
 }
 
 type ReviewDetailCommandResponseMapper interface {
 	ReviewDetailBaseResponseMapper
-	ToResponseReviewDetailDeleteAt(reviewDetail *pb.ReviewDetailsResponseDeleteAt) *response.ReviewDetailsResponseDeleteAt
-	ToResponsesReviewDetailDeleteAt(ReviewDetails []*pb.ReviewDetailsResponseDeleteAt) []*response.ReviewDetailsResponseDeleteAt
-	ToApiResponseReviewDetailDeleteAt(pbResponse *pb.ApiResponseReviewDetailDeleteAt) *response.ApiResponseReviewDetailDeleteAt
-	ToApiResponsePaginationReviewDetailDeleteAt(pbResponse *pb.ApiResponsePaginationReviewDetailsDeleteAt) *response.ApiResponsePaginationReviewDetailsDeleteAt
+	ToResponseReviewDetailDeleteAt(reviewDetail *pb_review_detail.ReviewDetailsResponseDeleteAt) *response.ReviewDetailsResponseDeleteAt
+	ToResponsesReviewDetailDeleteAt(ReviewDetails []*pb_review_detail.ReviewDetailsResponseDeleteAt) []*response.ReviewDetailsResponseDeleteAt
+	ToApiResponseReviewDetailDeleteAt(pbResponse *pb_review_detail.ApiResponseReviewDetailDeleteAt) *response.ApiResponseReviewDetailDeleteAt
+	ToApiResponsePaginationReviewDetailDeleteAt(pbResponse *pb_review_detail.ApiResponsePaginationReviewDetailsDeleteAt) *response.ApiResponsePaginationReviewDetailsDeleteAt
 }

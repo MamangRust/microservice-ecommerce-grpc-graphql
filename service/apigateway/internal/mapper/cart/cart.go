@@ -1,9 +1,9 @@
 package cartgraphqlmapper
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphqlmapper "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/mapper/pagination"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
+	graphqlmapper "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/mapper/pagination"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/cart"
 )
 
 type cartResponseMapper struct{}
@@ -12,21 +12,21 @@ func NewCartResponseMapper() *cartResponseMapper {
 	return &cartResponseMapper{}
 }
 
-func (c *cartResponseMapper) ToGraphqlResponseCartDelete(res *pb.ApiResponseCartDelete) *model.APIResponseCartDelete {
+func (c *cartResponseMapper) ToGraphqlResponseCartDelete(res *pb_cart.ApiResponseCartDelete) *model.APIResponseCartDelete {
 	return &model.APIResponseCartDelete{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (c *cartResponseMapper) ToGraphqlResponseCartAll(res *pb.ApiResponseCartAll) *model.APIResponseCartAll {
+func (c *cartResponseMapper) ToGraphqlResponseCartAll(res *pb_cart.ApiResponseCartAll) *model.APIResponseCartAll {
 	return &model.APIResponseCartAll{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (c *cartResponseMapper) ToGraphqlResponseCart(res *pb.ApiResponseCart) *model.APIResponseCart {
+func (c *cartResponseMapper) ToGraphqlResponseCart(res *pb_cart.ApiResponseCart) *model.APIResponseCart {
 	return &model.APIResponseCart{
 		Status:  res.Status,
 		Message: res.Message,
@@ -34,7 +34,7 @@ func (c *cartResponseMapper) ToGraphqlResponseCart(res *pb.ApiResponseCart) *mod
 	}
 }
 
-func (c *cartResponseMapper) ToGraphqlResponsePaginationCart(res *pb.ApiResponsePaginationCart) *model.APIResponsePaginationCart {
+func (c *cartResponseMapper) ToGraphqlResponsePaginationCart(res *pb_cart.ApiResponsePaginationCart) *model.APIResponsePaginationCart {
 	return &model.APIResponsePaginationCart{
 		Status:     res.Status,
 		Message:    res.Message,
@@ -43,7 +43,7 @@ func (c *cartResponseMapper) ToGraphqlResponsePaginationCart(res *pb.ApiResponse
 	}
 }
 
-func (c *cartResponseMapper) mapResponseCart(cart *pb.CartResponse) *model.CartResponse {
+func (c *cartResponseMapper) mapResponseCart(cart *pb_cart.CartResponse) *model.CartResponse {
 	return &model.CartResponse{
 		ID:        int32(cart.Id),
 		UserID:    int32(cart.UserId),
@@ -58,7 +58,7 @@ func (c *cartResponseMapper) mapResponseCart(cart *pb.CartResponse) *model.CartR
 	}
 }
 
-func (c *cartResponseMapper) mapResponsesCart(carts []*pb.CartResponse) []*model.CartResponse {
+func (c *cartResponseMapper) mapResponsesCart(carts []*pb_cart.CartResponse) []*model.CartResponse {
 	var responses []*model.CartResponse
 
 	for _, cart := range carts {

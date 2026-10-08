@@ -75,7 +75,7 @@ func New(cfg *Config) (*GRPCServer, error) {
 	}
 
 	if cfg.MigrationPath != "" {
-		if err := database.RunMigrations(l, cfg.DBCluster, cfg.MigrationPath); err != nil {
+		if err := database.RunMigrations(l, cfg.DBCluster, cfg.MigrationPath, cfg.ServiceName); err != nil {
 			return nil, fmt.Errorf("failed to run migrations (cluster %s): %w", cfg.DBCluster, err)
 		}
 	}

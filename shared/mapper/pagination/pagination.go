@@ -1,11 +1,11 @@
 package paginationapimapper
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/common"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/response"
 )
 
-func MapPaginationMeta(s *pb.PaginationMeta) *response.PaginationMeta {
+func MapPaginationMeta(s *pb_common.PaginationMeta) *response.PaginationMeta {
 	if s == nil {
 		return nil
 	}

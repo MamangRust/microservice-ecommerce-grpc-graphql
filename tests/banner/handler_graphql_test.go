@@ -1,77 +1,112 @@
 package banner_test
 
 import (
-	"bytes"
-	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/graphtest"
 	tests "github.com/MamangRust/microservice-ecommerce-test"
 	"github.com/stretchr/testify/suite"
 )
 
-type BannerGraphQLTestSuite struct {
+type BannerGraphqlTestSuite struct {
 	tests.BaseTestSuite
-	graphqlH http.Handler
+	handler  http.Handler
 	bannerID int
 }
 
-func (s *BannerGraphQLTestSuite) SetupSuite() {
+func (s *BannerGraphqlTestSuite) SetupSuite() {
 	s.BaseTestSuite.SetupSuite()
 	s.SetupBannerService()
 
-	cacheStore := s.GetCacheStore()
-	s.graphqlH = graphtest.NewTestHandler(s.Conns, cacheStore, s.Log)
+	s.handler = s.GraphQLHandler()
 }
 
-func (s *BannerGraphQLTestSuite) TearDownSuite() {
-	s.BaseTestSuite.TearDownSuite()
+func (s *BannerGraphqlTestSuite) TestBannerGraphqlLifecycle() {
+	// 1. Create
+	create := s.GQL(s.handler, `mutation CreateBanner($input: CreateBannerInput!) {
+		createBanner(input: $input) { status message data { banner_id name is_active } }
+	}`, map[string]interface{}{
+		"input": map[string]interface{}{
+			"name":       "Test Banner",
+			"start_date": "2024-01-01",
+			"end_date":   "2024-12-31",
+			"start_time": "00:00:00",
+			"end_time":   "23:59:59",
+			"is_active":  true,
+		},
+	})
+	createData := s.Obj(s.Obj(create, "createBanner"), "data")
+	s.bannerID = int(createData["banner_id"].(float64))
+	s.Equal("Test Banner", createData["name"])
+
+	// 2. FindById
+	byID := s.GQL(s.handler, `query FindBannerById($input: FindByIdBannerInput!) {
+		findBannerById(input: $input) { status message data { banner_id name } }
+	}`, map[string]interface{}{"input": map[string]interface{}{"id": s.bannerID}})
+	s.Equal(float64(s.bannerID), s.Obj(s.Obj(byID, "findBannerById"), "data")["banner_id"])
+
+	// 3. FindAll
+	all := s.GQL(s.handler, `query FindAllBanners($input: FindAllBannerInput!) {
+		findAllBanners(input: $input) { status message pagination { total_records } data { banner_id name } }
+	}`, map[string]interface{}{"input": map[string]interface{}{"page": 1, "page_size": 10}})
+	s.NotEmpty(s.Arr(s.Obj(all, "findAllBanners"), "data"))
+
+	// 4. FindByActive
+	active := s.GQL(s.handler, `query FindActiveBanners($input: FindAllBannerInput!) {
+		findActiveBanners(input: $input) { status message pagination { total_records } data { banner_id name } }
+	}`, map[string]interface{}{"input": map[string]interface{}{"page": 1, "page_size": 10}})
+	s.NotEmpty(s.Arr(s.Obj(active, "findActiveBanners"), "data"))
+
+	// 5. Update
+	updated := s.GQL(s.handler, `mutation UpdateBanner($input: UpdateBannerInput!) {
+		updateBanner(input: $input) { status message data { banner_id name } }
+	}`, map[string]interface{}{
+		"input": map[string]interface{}{
+			"banner_id":  s.bannerID,
+			"name":       "Updated Banner",
+			"start_date": "2024-01-01",
+			"end_date":   "2024-12-31",
+			"start_time": "00:00:00",
+			"end_time":   "23:59:59",
+			"is_active":  false,
+		},
+	})
+	s.Equal("Updated Banner", s.Obj(s.Obj(updated, "updateBanner"), "data")["name"])
+
+	// 6. Trash
+	s.GQL(s.handler, `mutation TrashBanner($input: FindByIdBannerInput!) {
+		trashBanner(input: $input) { status message data { banner_id name } }
+	}`, map[string]interface{}{"input": map[string]interface{}{"id": s.bannerID}})
+
+	// 7. FindByTrashed
+	trashed := s.GQL(s.handler, `query FindTrashedBanners($input: FindAllBannerInput!) {
+		findTrashedBanners(input: $input) { status message pagination { total_records } data { banner_id name } }
+	}`, map[string]interface{}{"input": map[string]interface{}{"page": 1, "page_size": 10}})
+	s.NotEmpty(s.Arr(s.Obj(trashed, "findTrashedBanners"), "data"))
+
+	// 8. Restore
+	s.GQL(s.handler, `mutation RestoreBanner($input: FindByIdBannerInput!) {
+		restoreBanner(input: $input) { status message data { banner_id name } }
+	}`, map[string]interface{}{"input": map[string]interface{}{"id": s.bannerID}})
+
+	// 9. DeletePermanent (trash first so the row is eligible)
+	s.GQL(s.handler, `mutation TrashBanner($input: FindByIdBannerInput!) {
+		trashBanner(input: $input) { status message data { banner_id } }
+	}`, map[string]interface{}{"input": map[string]interface{}{"id": s.bannerID}})
+	s.GQL(s.handler, `mutation DeleteBannerPermanent($input: FindByIdBannerInput!) {
+		deleteBannerPermanent(input: $input) { status message }
+	}`, map[string]interface{}{"input": map[string]interface{}{"id": s.bannerID}})
+
+	// 10. RestoreAll
+	s.GQL(s.handler, `mutation { restoreAllBanners { status message } }`, nil)
+
+	// 11. DeleteAll
+	s.GQL(s.handler, `mutation { deleteAllBannersPermanent { status message } }`, nil)
 }
 
-func gqlBanner(h http.Handler, query string, variables map[string]interface{}) map[string]interface{} {
-	body := map[string]interface{}{"query": query, "variables": variables}
-	jsonBody, _ := json.Marshal(body)
-	req := httptest.NewRequest(http.MethodPost, "/query", bytes.NewBuffer(jsonBody))
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, req)
-	var result map[string]interface{}
-	json.Unmarshal(rec.Body.Bytes(), &result)
-	return result
-}
-
-func (s *BannerGraphQLTestSuite) Test1_CreateBanner() {
-	vars := map[string]interface{}{"input": map[string]interface{}{
-		"name":       "GraphQL Banner",
-		"start_date": "2026-01-01",
-		"end_date":   "2026-12-31",
-		"start_time": "08:00:00",
-		"end_time":   "17:00:00",
-		"is_active":  true,
-	}}
-	result := gqlBanner(s.graphqlH, `mutation CreateBanner($input: CreateBannerInput!) { createBanner(input: $input) { status message data { banner_id name } } }`, vars)
-	s.Equal("success", result["data"].(map[string]interface{})["createBanner"].(map[string]interface{})["status"])
-}
-
-func (s *BannerGraphQLTestSuite) Test2_FindAllBanner() {
-	vars := map[string]interface{}{"input": map[string]interface{}{"page": 1, "page_size": 10}}
-	result := gqlBanner(s.graphqlH, `query FindAllBanner($input: FindAllBannerInput!) { findAllBanners(input: $input) { status message data { banner_id name } pagination { current_page page_size total_pages total_records } } }`, vars)
-	s.Equal("success", result["data"].(map[string]interface{})["findAllBanners"].(map[string]interface{})["status"])
-}
-
-func (s *BannerGraphQLTestSuite) Test3_RestoreAllAndDeleteAll() {
-	result := gqlBanner(s.graphqlH, `mutation { restoreAllBanners { status message } }`, nil)
-	s.Equal("success", result["data"].(map[string]interface{})["restoreAllBanners"].(map[string]interface{})["status"])
-
-	result = gqlBanner(s.graphqlH, `mutation { deleteAllBannersPermanent { status message } }`, nil)
-	s.Equal("success", result["data"].(map[string]interface{})["deleteAllBannersPermanent"].(map[string]interface{})["status"])
-}
-
-func TestBannerGraphQLSuite(t *testing.T) {
+func TestBannerGraphqlSuite(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
-	suite.Run(t, new(BannerGraphQLTestSuite))
+	suite.Run(t, new(BannerGraphqlTestSuite))
 }

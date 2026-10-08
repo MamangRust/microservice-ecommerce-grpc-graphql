@@ -16,28 +16,25 @@ import (
 )
 
 type roleCommandService struct {
-	observability      observability.TraceLoggerObservability
-	cache              cache.RoleCommandCache
-	roleRepository     repository.RoleCommandRepository
-	userRoleRepository repository.UserRoleRepository
-	logger             logger.LoggerInterface
+	observability  observability.TraceLoggerObservability
+	cache          cache.RoleCommandCache
+	roleRepository repository.RoleCommandRepository
+	logger         logger.LoggerInterface
 }
 
 type RoleCommandServiceDeps struct {
-	Observability      observability.TraceLoggerObservability
-	Cache              cache.RoleCommandCache
-	RoleRepository     repository.RoleCommandRepository
-	UserRoleRepository repository.UserRoleRepository
-	Logger             logger.LoggerInterface
+	Observability  observability.TraceLoggerObservability
+	Cache          cache.RoleCommandCache
+	RoleRepository repository.RoleCommandRepository
+	Logger         logger.LoggerInterface
 }
 
 func NewRoleCommandService(deps *RoleCommandServiceDeps) RoleCommandService {
 	return &roleCommandService{
-		observability:      deps.Observability,
-		cache:              deps.Cache,
-		roleRepository:     deps.RoleRepository,
-		userRoleRepository: deps.UserRoleRepository,
-		logger:             deps.Logger,
+		observability:  deps.Observability,
+		cache:          deps.Cache,
+		roleRepository: deps.RoleRepository,
+		logger:         deps.Logger,
 	}
 }
 
@@ -219,63 +216,4 @@ func (s *roleCommandService) DeleteAll(ctx context.Context) (bool, error) {
 	logSuccess("Successfully deleted all roles permanently")
 
 	return success, nil
-}
-
-func (s *roleCommandService) AssignRoleToUser(ctx context.Context, request *requests.CreateUserRoleRequest) (*db.UserRole, error) {
-	const method = "AssignRoleToUser"
-
-	ctx, span, end, status, logSuccess := s.observability.StartTracingAndLogging(ctx, method,
-		attribute.Int("user_id", request.UserId),
-		attribute.Int("role_id", request.RoleId))
-
-	defer func() {
-		end(status)
-	}()
-
-	userRole, err := s.userRoleRepository.AssignRoleToUser(ctx, request)
-	if err != nil {
-		status = "error"
-		return errorhandler.HandleError[*db.UserRole](
-			s.logger,
-			err,
-			method,
-			span,
-			zap.Int("user_id", request.UserId),
-			zap.Int("role_id", request.RoleId),
-		)
-	}
-
-	logSuccess("Successfully assigned role to user", zap.Int("user_id", request.UserId), zap.Int("role_id", request.RoleId))
-
-	return userRole, nil
-}
-
-func (s *roleCommandService) RemoveRoleFromUser(ctx context.Context, request *requests.RemoveUserRoleRequest) error {
-	const method = "RemoveRoleFromUser"
-
-	ctx, span, end, status, logSuccess := s.observability.StartTracingAndLogging(ctx, method,
-		attribute.Int("user_id", request.UserId),
-		attribute.Int("role_id", request.RoleId))
-
-	defer func() {
-		end(status)
-	}()
-
-	err := s.userRoleRepository.RemoveRoleFromUser(ctx, request)
-	if err != nil {
-		status = "error"
-		_, err := errorhandler.HandleError[any](
-			s.logger,
-			err,
-			method,
-			span,
-			zap.Int("user_id", request.UserId),
-			zap.Int("role_id", request.RoleId),
-		)
-		return err
-	}
-
-	logSuccess("Successfully removed role from user", zap.Int("user_id", request.UserId), zap.Int("role_id", request.RoleId))
-
-	return nil
 }

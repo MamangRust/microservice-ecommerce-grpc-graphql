@@ -7,10 +7,10 @@ package graph
 import (
 	"context"
 
+	graphqlerror "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/errors"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/order_item"
 	sharedErrors "github.com/MamangRust/microservice-ecommerce-shared/errors"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphqlerror "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/errors"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
 )
 
 // FindAllOrderItems is the resolver for the findAllOrderItems field.
@@ -36,7 +36,7 @@ func (r *queryResolver) FindAllOrderItems(ctx context.Context, input model.FindA
 		pageSize = 10
 	}
 
-	reqService := &pb.FindAllOrderItemRequest{
+	reqService := &pb_order_item.FindAllOrderItemRequest{
 		Page:     page,
 		PageSize: pageSize,
 		Search:   search,
@@ -81,7 +81,7 @@ func (r *queryResolver) FindActiveOrderItems(ctx context.Context, input model.Fi
 		pageSize = 10
 	}
 
-	reqService := &pb.FindAllOrderItemRequest{
+	reqService := &pb_order_item.FindAllOrderItemRequest{
 		Page:     page,
 		PageSize: pageSize,
 		Search:   search,
@@ -130,7 +130,7 @@ func (r *queryResolver) FindTrashedOrderItems(ctx context.Context, input model.F
 		pageSize = 10
 	}
 
-	reqService := &pb.FindAllOrderItemRequest{
+	reqService := &pb_order_item.FindAllOrderItemRequest{
 		Page:     page,
 		PageSize: pageSize,
 		Search:   search,
@@ -159,7 +159,7 @@ func (r *queryResolver) FindOrderItemsByOrder(ctx context.Context, input model.F
 		return data, nil
 	}
 
-	orderItems, err := r.OrderItemGraphql.OrderItemQueryClient.FindOrderItemByOrder(ctx, &pb.FindByIdOrderItemRequest{
+	orderItems, err := r.OrderItemGraphql.OrderItemQueryClient.FindOrderItemByOrder(ctx, &pb_order_item.FindByIdOrderItemRequest{
 		Id: int32(id),
 	})
 	if err != nil {

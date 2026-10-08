@@ -1,16 +1,16 @@
 package authgraphqlmapper
 
 import (
-	pb "github.com/MamangRust/microservice-ecommerce-shared/pb"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/auth"
 )
 
 type AuthGraphqlMapper interface {
-	ToGraphqlVerifyCode(res *pb.ApiResponseVerifyCode) *model.APIResponseVerifyCode
-	ToGraphqlForgotPassword(res *pb.ApiResponseForgotPassword) *model.APIResponseForgotPassword
-	ToGraphqlResetPassword(res *pb.ApiResponseResetPassword) *model.APIResponseResetPassword
-	ToGraphqlResponseLogin(res *pb.ApiResponseLogin) *model.APIResponseLogin
-	ToGraphqlResponseRegister(res *pb.ApiResponseRegister) *model.APIResponseRegister
-	ToGraphqlResponseRefreshToken(res *pb.ApiResponseRefreshToken) *model.APIResponseRefreshToken
-	ToGraphqlResponseGetMe(res *pb.ApiResponseGetMe) *model.APIResponseGetMe
+	ToGraphqlVerifyCode(res *pb_auth.ApiResponseVerifyCode) *model.APIResponseVerifyCode
+	ToGraphqlForgotPassword(res *pb_auth.ApiResponseForgotPassword) *model.APIResponseForgotPassword
+	ToGraphqlResetPassword(res *pb_auth.ApiResponseResetPassword) *model.APIResponseResetPassword
+	ToGraphqlResponseLogin(res *pb_auth.ApiResponseLogin) *model.APIResponseLogin
+	ToGraphqlResponseRegister(res *pb_auth.ApiResponseRegister) *model.APIResponseRegister
+	ToGraphqlResponseRefreshToken(res *pb_auth.ApiResponseRefreshToken) *model.APIResponseRefreshToken
+	ToGraphqlResponseGetMe(res *pb_auth.ApiResponseGetMe) *model.APIResponseGetMe
 }

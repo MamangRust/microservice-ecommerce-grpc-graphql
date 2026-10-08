@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	pb_slider "github.com/MamangRust/microservice-ecommerce-grpc-pb/slider"
 	slider_cache "github.com/MamangRust/microservice-ecommerce-grpc-slider/cache"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-slider/database/schema"
 	slider_handler "github.com/MamangRust/microservice-ecommerce-grpc-slider/handler"
@@ -11,7 +12,6 @@ import (
 	slider_service "github.com/MamangRust/microservice-ecommerce-grpc-slider/service"
 	"github.com/MamangRust/microservice-ecommerce-shared/cache"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	tests "github.com/MamangRust/microservice-ecommerce-test"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
@@ -20,8 +20,8 @@ import (
 
 type SliderGapiTestSuite struct {
 	tests.BaseTestSuite
-	queryClient   pb.SliderQueryServiceClient
-	commandClient pb.SliderCommandServiceClient
+	queryClient   pb_slider.SliderQueryServiceClient
+	commandClient pb_slider.SliderCommandServiceClient
 }
 
 func (s *SliderGapiTestSuite) SetupSuite() {
@@ -50,21 +50,21 @@ func (s *SliderGapiTestSuite) SetupSuite() {
 
 	// Server
 	server := grpc.NewServer()
-	pb.RegisterSliderQueryServiceServer(server, handler.SliderQuery)
-	pb.RegisterSliderCommandServiceServer(server, handler.SliderCommand)
+	pb_slider.RegisterSliderQueryServiceServer(server, handler.SliderQuery)
+	pb_slider.RegisterSliderCommandServiceServer(server, handler.SliderCommand)
 
 	addr := s.RegisterServer(server)
 	conn := s.GetConnection(addr)
 
-	s.queryClient = pb.NewSliderQueryServiceClient(conn)
-	s.commandClient = pb.NewSliderCommandServiceClient(conn)
+	s.queryClient = pb_slider.NewSliderQueryServiceClient(conn)
+	s.commandClient = pb_slider.NewSliderCommandServiceClient(conn)
 }
 
 func (s *SliderGapiTestSuite) TestSliderGapiLifecycle() {
 	ctx := context.Background()
 
 	// 1. Create
-	createRes, err := s.commandClient.Create(ctx, &pb.CreateSliderRequest{
+	createRes, err := s.commandClient.Create(ctx, &pb_slider.CreateSliderRequest{
 		Name:  "GAPI Slider",
 		Image: "http://example.com/gapi-slider.jpg",
 	})
@@ -73,22 +73,22 @@ func (s *SliderGapiTestSuite) TestSliderGapiLifecycle() {
 	sliderID := createRes.Data.Id
 
 	// 2. FindById
-	getRes, err := s.queryClient.FindById(ctx, &pb.FindByIdSliderRequest{Id: sliderID})
+	getRes, err := s.queryClient.FindById(ctx, &pb_slider.FindByIdSliderRequest{Id: sliderID})
 	s.Require().NoError(err)
 	s.Equal("GAPI Slider", getRes.Data.Name)
 
 	// 3. FindAll
-	allRes, err := s.queryClient.FindAll(ctx, &pb.FindAllSliderRequest{Page: 1, PageSize: 10})
+	allRes, err := s.queryClient.FindAll(ctx, &pb_slider.FindAllSliderRequest{Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.NotEmpty(allRes.Data)
 
 	// 4. FindByActive
-	activeRes, err := s.queryClient.FindByActive(ctx, &pb.FindAllSliderRequest{Page: 1, PageSize: 10})
+	activeRes, err := s.queryClient.FindByActive(ctx, &pb_slider.FindAllSliderRequest{Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.NotEmpty(activeRes.Data)
 
 	// 5. Update
-	updateRes, err := s.commandClient.Update(ctx, &pb.UpdateSliderRequest{
+	updateRes, err := s.commandClient.Update(ctx, &pb_slider.UpdateSliderRequest{
 		Id:    sliderID,
 		Name:  "GAPI Slider Updated",
 		Image: "http://example.com/gapi-slider-updated.jpg",
@@ -97,21 +97,21 @@ func (s *SliderGapiTestSuite) TestSliderGapiLifecycle() {
 	s.Equal("GAPI Slider Updated", updateRes.Data.Name)
 
 	// 6. Trash
-	_, err = s.commandClient.TrashedSlider(ctx, &pb.FindByIdSliderRequest{Id: sliderID})
+	_, err = s.commandClient.TrashedSlider(ctx, &pb_slider.FindByIdSliderRequest{Id: sliderID})
 	s.Require().NoError(err)
 
 	// 7. FindByTrashed
-	trashedRes, err := s.queryClient.FindByTrashed(ctx, &pb.FindAllSliderRequest{Page: 1, PageSize: 10})
+	trashedRes, err := s.queryClient.FindByTrashed(ctx, &pb_slider.FindAllSliderRequest{Page: 1, PageSize: 10})
 	s.Require().NoError(err)
 	s.NotEmpty(trashedRes.Data)
 
 	// 8. Restore
-	_, err = s.commandClient.RestoreSlider(ctx, &pb.FindByIdSliderRequest{Id: sliderID})
+	_, err = s.commandClient.RestoreSlider(ctx, &pb_slider.FindByIdSliderRequest{Id: sliderID})
 	s.Require().NoError(err)
 
 	// 9. DeletePermanent
-	_, _ = s.commandClient.TrashedSlider(ctx, &pb.FindByIdSliderRequest{Id: sliderID})
-	_, err = s.commandClient.DeleteSliderPermanent(ctx, &pb.FindByIdSliderRequest{Id: sliderID})
+	_, _ = s.commandClient.TrashedSlider(ctx, &pb_slider.FindByIdSliderRequest{Id: sliderID})
+	_, err = s.commandClient.DeleteSliderPermanent(ctx, &pb_slider.FindByIdSliderRequest{Id: sliderID})
 	s.Require().NoError(err)
 
 	// 10. RestoreAll

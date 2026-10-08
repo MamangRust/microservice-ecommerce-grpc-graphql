@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	pb_role "github.com/MamangRust/microservice-ecommerce-grpc-pb/role"
+	pb_user_role "github.com/MamangRust/microservice-ecommerce-grpc-pb/user_role"
 	user_cache "github.com/MamangRust/microservice-ecommerce-grpc-user/cache"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-user/database/schema"
 	"github.com/MamangRust/microservice-ecommerce-grpc-user/repository"
@@ -11,7 +13,6 @@ import (
 	"github.com/MamangRust/microservice-ecommerce-pkg/hash"
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	tests "github.com/MamangRust/microservice-ecommerce-test"
 
 	"github.com/stretchr/testify/suite"
@@ -31,9 +32,13 @@ func (s *UserServiceTestSuite) SetupSuite() {
 
 	// Setup Role connection for repository
 	s.SetupRoleService()
-	roleClient := pb.NewRoleQueryServiceClient(s.Conns["role"])
 
-	repos := repository.NewRepositories(queries, roleClient)
+	repos := repository.NewRepositories(&repository.Deps{
+		Db:       queries,
+		Role:     pb_role.NewRoleQueryServiceClient(s.Conns["role"]),
+		UserRole: pb_user_role.NewUserRoleCommandServiceClient(s.Conns["role"]),
+		Guards:   repository.GuardOptions{},
+	})
 
 	logger.ResetInstance()
 	lp := sdklog.NewLoggerProvider()

@@ -4,40 +4,13 @@ import (
 	"context"
 
 	db "github.com/MamangRust/microservice-ecommerce-auth/database/schema"
-	dto "github.com/MamangRust/microservice-ecommerce-auth/dto"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	"github.com/jackc/pgx/v5"
 )
 
-// UserRepository defines the data access layer for user-related operations.
+// RefreshTokenRepository is auth's own refresh-token store.
 //
 //go:generate mockgen -source=interfaces.go -destination=mocks/mock.go
-type UserRepository interface {
-	FindByEmail(ctx context.Context, email string) (*dto.User, error)
-
-	FindByEmailAndVerify(ctx context.Context, email string) (*dto.GetUserByEmailAndVerifyRow, error)
-
-	FindById(ctx context.Context, user_id int) (*dto.GetUserByIDRow, error)
-
-	CreateUser(ctx context.Context, request *requests.RegisterRequest) (*dto.CreateUserRow, error)
-
-	UpdateUserIsVerified(ctx context.Context, user_id int, is_verified bool) (*dto.UpdateUserIsVerifiedRow, error)
-
-	UpdateUserPassword(ctx context.Context, user_id int, password string) (*dto.UpdateUserPasswordRow, error)
-
-	FindByVerificationCode(ctx context.Context, verification_code string) (*dto.GetUserByVerificationCodeRow, error)
-}
-
-type ResetTokenRepository interface {
-	FindByToken(ctx context.Context, code string) (*db.ResetToken, error)
-
-	CreateResetToken(ctx context.Context, req *requests.CreateResetTokenRequest) (*db.ResetToken, error)
-
-	CreateResetTokenInTx(ctx context.Context, tx pgx.Tx, req *requests.CreateResetTokenRequest) (*db.ResetToken, error)
-
-	DeleteResetToken(ctx context.Context, user_id int) error
-}
-
 type RefreshTokenRepository interface {
 	FindByToken(ctx context.Context, token string) (*db.RefreshToken, error)
 
@@ -52,14 +25,13 @@ type RefreshTokenRepository interface {
 	DeleteRefreshTokenByUserId(ctx context.Context, user_id int) error
 }
 
-type UserRoleRepository interface {
-	AssignRoleToUser(ctx context.Context, req *requests.CreateUserRoleRequest) (*dto.UserRole, error)
+// ResetTokenRepository is auth's own password-reset-token store.
+type ResetTokenRepository interface {
+	FindByToken(ctx context.Context, code string) (*db.ResetToken, error)
 
-	RemoveRoleFromUser(ctx context.Context, req *requests.RemoveUserRoleRequest) error
-}
+	CreateResetToken(ctx context.Context, req *requests.CreateResetTokenRequest) (*db.ResetToken, error)
 
-type RoleRepository interface {
-	FindById(ctx context.Context, id int) (*dto.Role, error)
+	CreateResetTokenInTx(ctx context.Context, tx pgx.Tx, req *requests.CreateResetTokenRequest) (*db.ResetToken, error)
 
-	FindByName(ctx context.Context, name string) (*dto.Role, error)
+	DeleteResetToken(ctx context.Context, user_id int) error
 }

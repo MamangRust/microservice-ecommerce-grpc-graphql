@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	db "github.com/MamangRust/microservice-ecommerce-grpc-user/database/schema"
 	"github.com/MamangRust/microservice-ecommerce-grpc-user/seeder"
 	"github.com/MamangRust/microservice-ecommerce-pkg/database"
-	db "github.com/MamangRust/microservice-ecommerce-grpc-user/database/schema"
 	"github.com/MamangRust/microservice-ecommerce-pkg/dotenv"
 	"github.com/MamangRust/microservice-ecommerce-pkg/hash"
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
@@ -35,7 +35,7 @@ func main() {
 
 	ctx := context.Background()
 
-	q, closeFn, err := open(logger, "DB_USER")
+	q, closeFn, err := open(logger, database.IdentityCluster)
 	if err != nil {
 		logger.Fatal("Failed to connect to database", zap.Error(err))
 	}

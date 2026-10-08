@@ -7,10 +7,10 @@ package graph
 import (
 	"context"
 
+	graphqlerror "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/errors"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/slider"
 	sharedErrors "github.com/MamangRust/microservice-ecommerce-shared/errors"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphqlerror "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/errors"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -23,7 +23,7 @@ func (r *mutationResolver) CreateSlider(ctx context.Context, input model.CreateS
 			return nil, r.handleGraphQLError(err, "CreateSlider-ImageUpload")
 		}
 
-		req := &pb.CreateSliderRequest{
+		req := &pb_slider.CreateSliderRequest{
 			Name:  input.Name,
 			Image: imagePath,
 		}
@@ -58,7 +58,7 @@ func (r *mutationResolver) UpdateSlider(ctx context.Context, input model.UpdateS
 			imagePath = path
 		}
 
-		req := &pb.UpdateSliderRequest{
+		req := &pb_slider.UpdateSliderRequest{
 			Id:    id,
 			Name:  *input.Name,
 			Image: imagePath,
@@ -85,7 +85,7 @@ func (r *mutationResolver) TrashedSlider(ctx context.Context, input model.FindBy
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: slider ID cannot be zero"))
 		}
 
-		res, err := r.SliderGraphql.SliderCommandClient.TrashedSlider(ctx, &pb.FindByIdSliderRequest{
+		res, err := r.SliderGraphql.SliderCommandClient.TrashedSlider(ctx, &pb_slider.FindByIdSliderRequest{
 			Id: id,
 		})
 		if err != nil {
@@ -108,7 +108,7 @@ func (r *mutationResolver) RestoreSlider(ctx context.Context, input model.FindBy
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: slider ID cannot be zero"))
 		}
 
-		res, err := r.SliderGraphql.SliderCommandClient.RestoreSlider(ctx, &pb.FindByIdSliderRequest{
+		res, err := r.SliderGraphql.SliderCommandClient.RestoreSlider(ctx, &pb_slider.FindByIdSliderRequest{
 			Id: id,
 		})
 		if err != nil {
@@ -131,7 +131,7 @@ func (r *mutationResolver) DeleteSliderPermanent(ctx context.Context, input mode
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("invalid request: slider ID cannot be zero"))
 		}
 
-		res, err := r.SliderGraphql.SliderCommandClient.DeleteSliderPermanent(ctx, &pb.FindByIdSliderRequest{
+		res, err := r.SliderGraphql.SliderCommandClient.DeleteSliderPermanent(ctx, &pb_slider.FindByIdSliderRequest{
 			Id: id,
 		})
 		if err != nil {
@@ -197,7 +197,7 @@ func (r *queryResolver) FindAllSliders(ctx context.Context, input *model.FindAll
 		pageSize = 10
 	}
 
-	req := &pb.FindAllSliderRequest{
+	req := &pb_slider.FindAllSliderRequest{
 		Page:     page,
 		PageSize: pageSize,
 		Search:   search,
@@ -235,7 +235,7 @@ func (r *queryResolver) FindActiveSliders(ctx context.Context, input *model.Find
 		pageSize = 10
 	}
 
-	req := &pb.FindAllSliderRequest{
+	req := &pb_slider.FindAllSliderRequest{
 		Page:     page,
 		PageSize: pageSize,
 		Search:   search,
@@ -273,7 +273,7 @@ func (r *queryResolver) FindTrashedSliders(ctx context.Context, input *model.Fin
 		pageSize = 10
 	}
 
-	req := &pb.FindAllSliderRequest{
+	req := &pb_slider.FindAllSliderRequest{
 		Page:     page,
 		PageSize: pageSize,
 		Search:   search,

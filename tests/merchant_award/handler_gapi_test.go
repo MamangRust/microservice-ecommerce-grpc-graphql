@@ -9,10 +9,11 @@ import (
 	award_handler "github.com/MamangRust/microservice-ecommerce-grpc-merchant_award/handler"
 	award_repo "github.com/MamangRust/microservice-ecommerce-grpc-merchant_award/repository"
 	award_service "github.com/MamangRust/microservice-ecommerce-grpc-merchant_award/service"
+	pb_merchant "github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant"
+	pb_merchant_award "github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_award"
 	"github.com/MamangRust/microservice-ecommerce-shared/cache"
 	"github.com/MamangRust/microservice-ecommerce-shared/observability"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	"github.com/MamangRust/microservice-ecommerce-test"
+	tests "github.com/MamangRust/microservice-ecommerce-test"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -20,8 +21,8 @@ import (
 
 type MerchantAwardGapiTestSuite struct {
 	tests.BaseTestSuite
-	queryClient   pb.MerchantAwardQueryServiceClient
-	commandClient pb.MerchantAwardCommandServiceClient
+	queryClient   pb_merchant_award.MerchantAwardQueryServiceClient
+	commandClient pb_merchant_award.MerchantAwardCommandServiceClient
 }
 
 func (s *MerchantAwardGapiTestSuite) SetupSuite() {
@@ -40,7 +41,8 @@ func (s *MerchantAwardGapiTestSuite) SetupSuite() {
 	mencache := award_cache.NewMencache(cacheStore)
 	repos := award_repo.NewRepositories(
 		queries,
-		pb.NewMerchantQueryServiceClient(s.Conns["merchant"]),
+		pb_merchant.NewMerchantQueryServiceClient(s.Conns["merchant"]),
+		award_repo.GuardOptions{},
 	)
 	svc := award_service.NewService(&award_service.Deps{
 		Cache:         mencache,
@@ -57,14 +59,14 @@ func (s *MerchantAwardGapiTestSuite) SetupSuite() {
 
 	// Server
 	server := grpc.NewServer()
-	pb.RegisterMerchantAwardQueryServiceServer(server, handler.MerchantAwardQuery)
-	pb.RegisterMerchantAwardCommandServiceServer(server, handler.MerchantAwardCommand)
+	pb_merchant_award.RegisterMerchantAwardQueryServiceServer(server, handler.MerchantAwardQuery)
+	pb_merchant_award.RegisterMerchantAwardCommandServiceServer(server, handler.MerchantAwardCommand)
 
 	addr := s.RegisterServer(server)
 	conn := s.GetConnection(addr)
 
-	s.queryClient = pb.NewMerchantAwardQueryServiceClient(conn)
-	s.commandClient = pb.NewMerchantAwardCommandServiceClient(conn)
+	s.queryClient = pb_merchant_award.NewMerchantAwardQueryServiceClient(conn)
+	s.commandClient = pb_merchant_award.NewMerchantAwardCommandServiceClient(conn)
 }
 
 func (s *MerchantAwardGapiTestSuite) TestMerchantAwardGapiLifecycle() {
@@ -75,7 +77,7 @@ func (s *MerchantAwardGapiTestSuite) TestMerchantAwardGapiLifecycle() {
 	merchID := int32(s.SeedMerchant(ctx, userID))
 
 	// 2. Create
-	createRes, err := s.commandClient.Create(ctx, &pb.CreateMerchantAwardRequest{
+	createRes, err := s.commandClient.Create(ctx, &pb_merchant_award.CreateMerchantAwardRequest{
 		MerchantId:  merchID,
 		Title:       "GAPI Achievement",
 		Description: "Detailed description of the achievement.",
@@ -87,22 +89,22 @@ func (s *MerchantAwardGapiTestSuite) TestMerchantAwardGapiLifecycle() {
 	awardID := createRes.Data.Id
 
 	// 3. FindById
-	getRes, err := s.queryClient.FindById(ctx, &pb.FindByIdMerchantAwardRequest{Id: awardID})
+	getRes, err := s.queryClient.FindById(ctx, &pb_merchant_award.FindByIdMerchantAwardRequest{Id: awardID})
 	s.NoError(err)
 	s.Equal("GAPI Achievement", getRes.Data.Title)
 
 	// 4. FindAll
-	allRes, err := s.queryClient.FindAll(ctx, &pb.FindAllMerchantRequest{Page: 1, PageSize: 10})
+	allRes, err := s.queryClient.FindAll(ctx, &pb_merchant.FindAllMerchantRequest{Page: 1, PageSize: 10})
 	s.NoError(err)
 	s.NotEmpty(allRes.Data)
 
 	// 5. FindByActive
-	activeRes, err := s.queryClient.FindByActive(ctx, &pb.FindAllMerchantRequest{Page: 1, PageSize: 10})
+	activeRes, err := s.queryClient.FindByActive(ctx, &pb_merchant.FindAllMerchantRequest{Page: 1, PageSize: 10})
 	s.NoError(err)
 	s.NotEmpty(activeRes.Data)
 
 	// 6. Update
-	updateRes, err := s.commandClient.Update(ctx, &pb.UpdateMerchantAwardRequest{
+	updateRes, err := s.commandClient.Update(ctx, &pb_merchant_award.UpdateMerchantAwardRequest{
 		MerchantCertificationId: awardID,
 		Title:                   "GAPI Achievement Updated",
 		Description:             "Updated description.",
@@ -113,21 +115,21 @@ func (s *MerchantAwardGapiTestSuite) TestMerchantAwardGapiLifecycle() {
 	s.Equal("GAPI Achievement Updated", updateRes.Data.Title)
 
 	// 7. Trash
-	_, err = s.commandClient.TrashedMerchantAward(ctx, &pb.FindByIdMerchantAwardRequest{Id: awardID})
+	_, err = s.commandClient.TrashedMerchantAward(ctx, &pb_merchant_award.FindByIdMerchantAwardRequest{Id: awardID})
 	s.NoError(err)
 
 	// 8. FindByTrashed
-	trashedRes, err := s.queryClient.FindByTrashed(ctx, &pb.FindAllMerchantRequest{Page: 1, PageSize: 10})
+	trashedRes, err := s.queryClient.FindByTrashed(ctx, &pb_merchant.FindAllMerchantRequest{Page: 1, PageSize: 10})
 	s.NoError(err)
 	s.NotEmpty(trashedRes.Data)
 
 	// 9. Restore
-	_, err = s.commandClient.RestoreMerchantAward(ctx, &pb.FindByIdMerchantAwardRequest{Id: awardID})
+	_, err = s.commandClient.RestoreMerchantAward(ctx, &pb_merchant_award.FindByIdMerchantAwardRequest{Id: awardID})
 	s.NoError(err)
 
 	// 10. DeletePermanent
-	_, _ = s.commandClient.TrashedMerchantAward(ctx, &pb.FindByIdMerchantAwardRequest{Id: awardID})
-	_, err = s.commandClient.DeleteMerchantAwardPermanent(ctx, &pb.FindByIdMerchantAwardRequest{Id: awardID})
+	_, _ = s.commandClient.TrashedMerchantAward(ctx, &pb_merchant_award.FindByIdMerchantAwardRequest{Id: awardID})
+	_, err = s.commandClient.DeleteMerchantAwardPermanent(ctx, &pb_merchant_award.FindByIdMerchantAwardRequest{Id: awardID})
 	s.NoError(err)
 
 	// 11. RestoreAll

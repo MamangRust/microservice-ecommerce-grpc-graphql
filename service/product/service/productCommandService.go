@@ -7,6 +7,8 @@ import (
 	"github.com/MamangRust/microservice-ecommerce-grpc-product/cache"
 	"github.com/MamangRust/microservice-ecommerce-grpc-product/repository"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-product/database/schema"
+	categoryadapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/category"
+	merchantadapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/merchant"
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
 	"github.com/MamangRust/microservice-ecommerce-pkg/utils"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
@@ -20,8 +22,8 @@ import (
 type productCommandService struct {
 	observability      observability.TraceLoggerObservability
 	cache              cache.ProductCommandCache
-	categoryRepository repository.CategoryQueryRepository
-	merchantRepository repository.MerchantQueryRepository
+	categoryRepository categoryadapter.QueryRepository
+	merchantRepository merchantadapter.QueryRepository
 	productQueryRepo   repository.ProductQueryRepository
 	productRepository  repository.ProductCommandRepository
 	logger             logger.LoggerInterface
@@ -30,8 +32,8 @@ type productCommandService struct {
 type ProductCommandServiceDeps struct {
 	Observability      observability.TraceLoggerObservability
 	Cache              cache.ProductCommandCache
-	CategoryRepository repository.CategoryQueryRepository
-	MerchantRepository repository.MerchantQueryRepository
+	CategoryRepository categoryadapter.QueryRepository
+	MerchantRepository merchantadapter.QueryRepository
 	ProductQueryRepo   repository.ProductQueryRepository
 	ProductRepository  repository.ProductCommandRepository
 	Logger             logger.LoggerInterface

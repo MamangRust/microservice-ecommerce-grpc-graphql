@@ -1,70 +1,116 @@
 package user_test
 
 import (
-	"bytes"
-	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/graphtest"
 	tests "github.com/MamangRust/microservice-ecommerce-test"
 	"github.com/stretchr/testify/suite"
 )
 
-type UserGraphQLTestSuite struct {
+type UserGraphqlTestSuite struct {
 	tests.BaseTestSuite
-	graphqlH http.Handler
-	userID   int
+	handler   http.Handler
+	userID    int
+	userEmail string
 }
 
-func (s *UserGraphQLTestSuite) SetupSuite() {
+func (s *UserGraphqlTestSuite) SetupSuite() {
 	s.BaseTestSuite.SetupSuite()
+
+	// The user service resolves roles through the role service.
 	s.SetupRoleService()
 	s.SetupUserService()
 
-	cacheStore := s.GetCacheStore()
-	s.graphqlH = graphtest.NewTestHandler(s.Conns, cacheStore, s.Log)
+	s.handler = s.GraphQLHandler()
 }
 
-func (s *UserGraphQLTestSuite) TearDownSuite() {
-	s.BaseTestSuite.TearDownSuite()
+func (s *UserGraphqlTestSuite) TestUserGraphqlLifecycle() {
+	// 1. Create
+	s.userEmail = "handler.user.graphql@example.com"
+	create := s.GQL(s.handler, `mutation CreateUser($input: CreateUserInput!) {
+		createUser(input: $input) { status message data { id firstname lastname email } }
+	}`, map[string]interface{}{
+		"input": map[string]interface{}{
+			"firstname":        "Handler",
+			"lastname":         "User",
+			"email":            s.userEmail,
+			"password":         "password123",
+			"confirm_password": "password123",
+		},
+	})
+	createData := s.Obj(s.Obj(create, "createUser"), "data")
+	s.userID = int(createData["id"].(float64))
+	s.Require().NotZero(s.userID)
+	s.Equal(s.userEmail, createData["email"])
+
+	// 2. FindAll
+	all := s.GQL(s.handler, `query FindAllUsers($input: FindAllUserInput) {
+		findAllUsers(input: $input) { status message pagination { total_records } data { id email } }
+	}`, map[string]interface{}{"input": map[string]interface{}{"page": 1, "page_size": 10}})
+	s.NotEmpty(s.Arr(s.Obj(all, "findAllUsers"), "data"))
+
+	// 3. FindById
+	byID := s.GQL(s.handler, `query FindByIdUser($input: FindByIdUserInput!) {
+		findByIdUser(input: $input) { status message data { id email } }
+	}`, map[string]interface{}{"input": map[string]interface{}{"id": s.userID}})
+	s.Equal(float64(s.userID), s.Obj(s.Obj(byID, "findByIdUser"), "data")["id"])
+
+	// 4. FindByActive
+	active := s.GQL(s.handler, `query FindByActiveUsers($input: FindAllUserInput) {
+		findByActiveUsers(input: $input) { status message pagination { total_records } data { id email } }
+	}`, map[string]interface{}{"input": map[string]interface{}{"page": 1, "page_size": 10}})
+	s.NotEmpty(s.Arr(s.Obj(active, "findByActiveUsers"), "data"))
+
+	// 5. Update
+	updated := s.GQL(s.handler, `mutation UpdateUser($input: UpdateUserInput!) {
+		updateUser(input: $input) { status message data { id firstname lastname email } }
+	}`, map[string]interface{}{
+		"input": map[string]interface{}{
+			"id":               s.userID,
+			"firstname":        "Updated",
+			"lastname":         "User",
+			"email":            s.userEmail,
+			"password":         "password123",
+			"confirm_password": "password123",
+		},
+	})
+	s.Equal("Updated", s.Obj(s.Obj(updated, "updateUser"), "data")["firstname"])
+
+	// 6. Trash
+	s.GQL(s.handler, `mutation TrashedUser($input: FindByIdUserInput!) {
+		trashedUser(input: $input) { status message data { id email } }
+	}`, map[string]interface{}{"input": map[string]interface{}{"id": s.userID}})
+
+	// 7. FindByTrashed
+	trashed := s.GQL(s.handler, `query FindByTrashedUsers($input: FindAllUserInput) {
+		findByTrashedUsers(input: $input) { status message pagination { total_records } data { id email } }
+	}`, map[string]interface{}{"input": map[string]interface{}{"page": 1, "page_size": 10}})
+	s.NotEmpty(s.Arr(s.Obj(trashed, "findByTrashedUsers"), "data"))
+
+	// 8. Restore
+	s.GQL(s.handler, `mutation RestoreUser($input: FindByIdUserInput!) {
+		restoreUser(input: $input) { status message data { id email } }
+	}`, map[string]interface{}{"input": map[string]interface{}{"id": s.userID}})
+
+	// 9. DeletePermanent (trash first so the row is eligible)
+	s.GQL(s.handler, `mutation TrashedUser($input: FindByIdUserInput!) {
+		trashedUser(input: $input) { status message data { id } }
+	}`, map[string]interface{}{"input": map[string]interface{}{"id": s.userID}})
+	s.GQL(s.handler, `mutation DeleteUserPermanent($input: FindByIdUserInput!) {
+		deleteUserPermanent(input: $input) { status message }
+	}`, map[string]interface{}{"input": map[string]interface{}{"id": s.userID}})
+
+	// 10. RestoreAll
+	s.GQL(s.handler, `mutation { restoreAllUser { status message } }`, nil)
+
+	// 11. DeleteAll
+	s.GQL(s.handler, `mutation { deleteAllUserPermanent { status message } }`, nil)
 }
 
-func gqlUser(h http.Handler, query string, variables map[string]interface{}) map[string]interface{} {
-	body := map[string]interface{}{"query": query, "variables": variables}
-	jsonBody, _ := json.Marshal(body)
-	req := httptest.NewRequest(http.MethodPost, "/query", bytes.NewBuffer(jsonBody))
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, req)
-	var result map[string]interface{}
-	json.Unmarshal(rec.Body.Bytes(), &result)
-	return result
-}
-
-func (s *UserGraphQLTestSuite) Test1_CreateUser() {
-	result := gqlUser(s.graphqlH, `mutation { createUser(input: {firstname:"GQL",lastname:"User",email:"gql.user@test.com",password:"pass123",confirm_password:"pass123"}) { status data { id email } } }`, nil)
-	s.Equal("success", result["data"].(map[string]interface{})["createUser"].(map[string]interface{})["status"])
-}
-
-func (s *UserGraphQLTestSuite) Test2_FindAllUser() {
-	vars := map[string]interface{}{"input": map[string]interface{}{"page": 1, "page_size": 10}}
-	result := gqlUser(s.graphqlH, `query FindAllUser($input: FindAllUserInput) { findAllUsers(input: $input) { status message data { id email } pagination { current_page page_size total_pages total_records } } }`, vars)
-	s.Equal("success", result["data"].(map[string]interface{})["findAllUsers"].(map[string]interface{})["status"])
-}
-
-func (s *UserGraphQLTestSuite) Test3_RestoreAllAndDeleteAll() {
-	result := gqlUser(s.graphqlH, `mutation { restoreAllUser { status message } }`, nil)
-	s.Equal("success", result["data"].(map[string]interface{})["restoreAllUser"].(map[string]interface{})["status"])
-
-	result = gqlUser(s.graphqlH, `mutation { deleteAllUserPermanent { status message } }`, nil)
-	s.Equal("success", result["data"].(map[string]interface{})["deleteAllUserPermanent"].(map[string]interface{})["status"])
-}
-
-func TestUserGraphQLSuite(t *testing.T) {
+func TestUserGraphqlSuite(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
-	suite.Run(t, new(UserGraphQLTestSuite))
+	suite.Run(t, new(UserGraphqlTestSuite))
 }

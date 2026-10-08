@@ -10,6 +10,7 @@ import (
 	"github.com/MamangRust/microservice-ecommerce-grpc-merchant/cache"
 	db "github.com/MamangRust/microservice-ecommerce-grpc-merchant/database/schema"
 	"github.com/MamangRust/microservice-ecommerce-grpc-merchant/repository"
+	useradapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/user"
 	"github.com/MamangRust/microservice-ecommerce-pkg/email"
 	"github.com/MamangRust/microservice-ecommerce-pkg/event"
 	"github.com/MamangRust/microservice-ecommerce-pkg/kafka"
@@ -29,7 +30,7 @@ type merchantCommandService struct {
 	cache              cache.MerchantCommandCache
 	merchantRepository repository.MerchantCommandRepository
 	merchantQuery      repository.MerchantQueryRepository
-	userRepository     repository.UserQueryRepository
+	userRepository     useradapter.QueryRepository
 	pool               *pgxpool.Pool
 	outbox             *outbox.OutboxService
 	logger             logger.LoggerInterface
@@ -41,7 +42,7 @@ type MerchantCommandServiceDeps struct {
 	Cache              cache.MerchantCommandCache
 	MerchantRepository repository.MerchantCommandRepository
 	MerchantQuery      repository.MerchantQueryRepository
-	UserRepository     repository.UserQueryRepository
+	UserRepository     useradapter.QueryRepository
 	Pool               *pgxpool.Pool
 	Outbox             *outbox.OutboxService
 	Logger             logger.LoggerInterface
@@ -101,6 +102,9 @@ func (s *merchantCommandService) Create(ctx context.Context, request *requests.C
 		)
 	}
 
+	// Phase 6 — transactional outbox: merchant insert + outbox event commit in a
+	// single transaction; the relay publishes durably. Without a pool (tests)
+	// this falls back to direct Kafka.
 	var res *db.CreateMerchantRow
 	if s.pool != nil {
 		tx, beginErr := s.pool.Begin(ctx)
@@ -237,6 +241,10 @@ func (s *merchantCommandService) UpdateMerchantStatus(ctx context.Context, reque
 		message = "We're sorry to inform you that your merchant account has been <b>rejected</b>. Please contact support or review your submissions."
 	}
 
+	// Phase 6 — transactional outbox: status update + email outbox event commit
+	// in a single transaction; the relay publishes durably. The merchant status
+	// event for the transaction service stays a direct publish (not an email).
+	// Without a pool (tests) this falls back to direct Kafka.
 	var res *db.UpdateMerchantStatusRow
 	if s.pool != nil {
 		tx, beginErr := s.pool.Begin(ctx)

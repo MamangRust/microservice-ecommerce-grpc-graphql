@@ -1,13 +1,13 @@
 package handler
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_policy"
 )
 
 type MerchantPolicyQueryHandler interface {
-	pb.MerchantPolicyQueryServiceServer
+	pb_merchant_policy.MerchantPolicyQueryServiceServer
 }
 
 type MerchantPolicyCommandHandler interface {
-	pb.MerchantPolicyCommandServiceServer
+	pb_merchant_policy.MerchantPolicyCommandServiceServer
 }

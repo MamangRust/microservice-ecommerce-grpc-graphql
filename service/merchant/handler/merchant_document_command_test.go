@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	db "github.com/MamangRust/microservice-ecommerce-grpc-merchant/database/schema"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/merchant_document"
 	"github.com/MamangRust/microservice-ecommerce-pkg/logger"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 	"go.uber.org/zap"
 )
 
@@ -55,7 +55,7 @@ func (s merchantDocumentCommandServiceStub) DeleteAll(context.Context) (bool, er
 	return false, fmt.Errorf("unexpected DeleteAll call")
 }
 
-func newMerchantDocumentCommandHandlerForTest(stub merchantDocumentCommandServiceStub) pb.MerchantDocumentCommandServiceServer {
+func newMerchantDocumentCommandHandlerForTest(stub merchantDocumentCommandServiceStub) pb_merchant_document.MerchantDocumentCommandServiceServer {
 	return NewMerchantDocumentCommandHandler(stub, &logger.Logger{Log: zap.NewNop()})
 }
 
@@ -81,7 +81,7 @@ func TestMerchantDocumentCommandHandlerUpdateUsesDocumentID(t *testing.T) {
 		},
 	})
 
-	got, err := handler.Update(context.Background(), &pb.UpdateMerchantDocumentRequest{
+	got, err := handler.Update(context.Background(), &pb_merchant_document.UpdateMerchantDocumentRequest{
 		DocumentId:   documentID,
 		MerchantId:   merchantID,
 		DocumentType: "business_license",
@@ -126,7 +126,7 @@ func TestMerchantDocumentCommandHandlerUpdateStatusUsesDocumentID(t *testing.T) 
 		},
 	})
 
-	got, err := handler.UpdateStatus(context.Background(), &pb.UpdateMerchantDocumentStatusRequest{
+	got, err := handler.UpdateStatus(context.Background(), &pb_merchant_document.UpdateMerchantDocumentStatusRequest{
 		DocumentId: documentID,
 		MerchantId: merchantID,
 		Status:     "approved",

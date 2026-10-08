@@ -3,14 +3,14 @@ package service
 import (
 	"context"
 
-	dto "github.com/MamangRust/microservice-ecommerce-auth/dto"
+	useradapter "github.com/MamangRust/microservice-ecommerce-pkg/adapter/user"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/response"
 )
 
 //go:generate mockgen -source=interfaces.go -destination=mocks/mock.go
 type RegistrationService interface {
-	Register(ctx context.Context, request *requests.RegisterRequest) (*dto.CreateUserRow, error)
+	Register(ctx context.Context, request *requests.RegisterRequest) (*useradapter.User, error)
 }
 
 type LoginService interface {
@@ -28,5 +28,5 @@ type PasswordResetService interface {
 type IdentifyService interface {
 	RefreshToken(ctx context.Context, token string) (*response.TokenResponse, error)
 
-	GetMe(ctx context.Context, userId int) (*dto.GetUserByIDRow, error)
+	GetMe(ctx context.Context, userId int) (*useradapter.User, error)
 }

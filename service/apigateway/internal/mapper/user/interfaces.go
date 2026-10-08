@@ -1,16 +1,16 @@
 package usergraphqlmapper
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/user"
 )
 
 type UserGraphqlMapper interface {
-	ToGraphqlResponseUser(res *pb.ApiResponseUser) *model.APIResponseUserResponse
-	ToGraphqlResponseUserDeleteAt(res *pb.ApiResponseUserDeleteAt) *model.APIResponseUserResponseDeleteAt
-	ToGraphqlResponseUsers(res *pb.ApiResponsesUser) *model.APIResponsesUser
-	ToGraphqlResponseUserDelete(res *pb.ApiResponseUserDelete) *model.APIResponseUserDelete
-	ToGraphqlResponseUserAll(res *pb.ApiResponseUserAll) *model.APIResponseUserAll
-	ToGraphqlResponsePaginationUser(res *pb.ApiResponsePaginationUser) *model.APIResponsePaginationUser
-	ToGraphqlResponsePaginationUserDeleteAt(res *pb.ApiResponsePaginationUserDeleteAt) *model.APIResponsePaginationUserDeleteAt
+	ToGraphqlResponseUser(res *pb_user.ApiResponseUser) *model.APIResponseUserResponse
+	ToGraphqlResponseUserDeleteAt(res *pb_user.ApiResponseUserDeleteAt) *model.APIResponseUserResponseDeleteAt
+	ToGraphqlResponseUsers(res *pb_user.ApiResponsesUser) *model.APIResponsesUser
+	ToGraphqlResponseUserDelete(res *pb_user.ApiResponseUserDelete) *model.APIResponseUserDelete
+	ToGraphqlResponseUserAll(res *pb_user.ApiResponseUserAll) *model.APIResponseUserAll
+	ToGraphqlResponsePaginationUser(res *pb_user.ApiResponsePaginationUser) *model.APIResponsePaginationUser
+	ToGraphqlResponsePaginationUserDeleteAt(res *pb_user.ApiResponsePaginationUserDeleteAt) *model.APIResponsePaginationUserDeleteAt
 }

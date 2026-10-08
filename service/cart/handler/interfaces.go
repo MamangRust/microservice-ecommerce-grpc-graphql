@@ -1,11 +1,11 @@
 package handler
 
-import "github.com/MamangRust/microservice-ecommerce-shared/pb"
+import "github.com/MamangRust/microservice-ecommerce-grpc-pb/cart"
 
 type CartQueryHandler interface {
-	pb.CartQueryServiceServer
+	pb_cart.CartQueryServiceServer
 }
 
 type CartCommandHandler interface {
-	pb.CartCommandServiceServer
+	pb_cart.CartCommandServiceServer
 }

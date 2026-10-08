@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
+	pb_product "github.com/MamangRust/microservice-ecommerce-grpc-pb/product"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
 )
 
 func (s *OrderServiceTestSuite) orderRequest(userID, merchID, prodID int) *requests.CreateOrderRequest {
@@ -29,7 +29,7 @@ func (s *OrderServiceTestSuite) orderRequest(userID, merchID, prodID int) *reque
 }
 
 func (s *OrderServiceTestSuite) stockOf(ctx context.Context, prodID int) int32 {
-	prodRes, err := pb.NewProductQueryServiceClient(s.Conns["product"]).FindById(ctx, &pb.FindByIdProductRequest{Id: int32(prodID)})
+	prodRes, err := pb_product.NewProductQueryServiceClient(s.Conns["product"]).FindById(ctx, &pb_product.FindByIdProductRequest{Id: int32(prodID)})
 	s.Require().NoError(err)
 	s.Require().NotNil(prodRes.Data)
 	return prodRes.Data.CountInStock

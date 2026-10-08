@@ -1,9 +1,9 @@
 package usergraphqlmapper
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphqlmapper "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/mapper/pagination"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
+	graphqlmapper "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/mapper/pagination"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/user"
 )
 
 type userGraphqlMapper struct {
@@ -13,21 +13,21 @@ func NewUserGraphqlMapper() *userGraphqlMapper {
 	return &userGraphqlMapper{}
 }
 
-func (u *userGraphqlMapper) ToGraphqlResponseUserDelete(res *pb.ApiResponseUserDelete) *model.APIResponseUserDelete {
+func (u *userGraphqlMapper) ToGraphqlResponseUserDelete(res *pb_user.ApiResponseUserDelete) *model.APIResponseUserDelete {
 	return &model.APIResponseUserDelete{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (u *userGraphqlMapper) ToGraphqlResponseUserAll(res *pb.ApiResponseUserAll) *model.APIResponseUserAll {
+func (u *userGraphqlMapper) ToGraphqlResponseUserAll(res *pb_user.ApiResponseUserAll) *model.APIResponseUserAll {
 	return &model.APIResponseUserAll{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (u *userGraphqlMapper) ToGraphqlResponseUser(res *pb.ApiResponseUser) *model.APIResponseUserResponse {
+func (u *userGraphqlMapper) ToGraphqlResponseUser(res *pb_user.ApiResponseUser) *model.APIResponseUserResponse {
 	return &model.APIResponseUserResponse{
 		Status:  res.Status,
 		Message: res.Message,
@@ -35,7 +35,7 @@ func (u *userGraphqlMapper) ToGraphqlResponseUser(res *pb.ApiResponseUser) *mode
 	}
 }
 
-func (u *userGraphqlMapper) ToGraphqlResponseUserDeleteAt(res *pb.ApiResponseUserDeleteAt) *model.APIResponseUserResponseDeleteAt {
+func (u *userGraphqlMapper) ToGraphqlResponseUserDeleteAt(res *pb_user.ApiResponseUserDeleteAt) *model.APIResponseUserResponseDeleteAt {
 	return &model.APIResponseUserResponseDeleteAt{
 		Status:  res.Status,
 		Message: res.Message,
@@ -43,7 +43,7 @@ func (u *userGraphqlMapper) ToGraphqlResponseUserDeleteAt(res *pb.ApiResponseUse
 	}
 }
 
-func (u *userGraphqlMapper) ToGraphqlResponseUsers(res *pb.ApiResponsesUser) *model.APIResponsesUser {
+func (u *userGraphqlMapper) ToGraphqlResponseUsers(res *pb_user.ApiResponsesUser) *model.APIResponsesUser {
 	return &model.APIResponsesUser{
 		Status:  res.Status,
 		Message: res.Message,
@@ -51,7 +51,7 @@ func (u *userGraphqlMapper) ToGraphqlResponseUsers(res *pb.ApiResponsesUser) *mo
 	}
 }
 
-func (u *userGraphqlMapper) ToGraphqlResponsePaginationUser(res *pb.ApiResponsePaginationUser) *model.APIResponsePaginationUser {
+func (u *userGraphqlMapper) ToGraphqlResponsePaginationUser(res *pb_user.ApiResponsePaginationUser) *model.APIResponsePaginationUser {
 	return &model.APIResponsePaginationUser{
 		Status:     res.Status,
 		Message:    res.Message,
@@ -60,7 +60,7 @@ func (u *userGraphqlMapper) ToGraphqlResponsePaginationUser(res *pb.ApiResponseP
 	}
 }
 
-func (u *userGraphqlMapper) ToGraphqlResponsePaginationUserDeleteAt(res *pb.ApiResponsePaginationUserDeleteAt) *model.APIResponsePaginationUserDeleteAt {
+func (u *userGraphqlMapper) ToGraphqlResponsePaginationUserDeleteAt(res *pb_user.ApiResponsePaginationUserDeleteAt) *model.APIResponsePaginationUserDeleteAt {
 	return &model.APIResponsePaginationUserDeleteAt{
 		Status:     res.Status,
 		Message:    res.Message,
@@ -69,7 +69,7 @@ func (u *userGraphqlMapper) ToGraphqlResponsePaginationUserDeleteAt(res *pb.ApiR
 	}
 }
 
-func (u *userGraphqlMapper) mapUserResponse(user *pb.UserResponse) *model.UserResponse {
+func (u *userGraphqlMapper) mapUserResponse(user *pb_user.UserResponse) *model.UserResponse {
 	return &model.UserResponse{
 		ID:        int32(user.Id),
 		Firstname: user.Firstname,
@@ -80,7 +80,7 @@ func (u *userGraphqlMapper) mapUserResponse(user *pb.UserResponse) *model.UserRe
 	}
 }
 
-func (u *userGraphqlMapper) mapUserResponses(users []*pb.UserResponse) []*model.UserResponse {
+func (u *userGraphqlMapper) mapUserResponses(users []*pb_user.UserResponse) []*model.UserResponse {
 	var responses []*model.UserResponse
 
 	for _, user := range users {
@@ -90,7 +90,7 @@ func (u *userGraphqlMapper) mapUserResponses(users []*pb.UserResponse) []*model.
 	return responses
 }
 
-func (u *userGraphqlMapper) mapUserResponseDeleteAt(user *pb.UserResponseDeleteAt) *model.UserResponseDeleteAt {
+func (u *userGraphqlMapper) mapUserResponseDeleteAt(user *pb_user.UserResponseDeleteAt) *model.UserResponseDeleteAt {
 	var deletedAt string
 
 	if user.DeletedAt != nil {
@@ -108,7 +108,7 @@ func (u *userGraphqlMapper) mapUserResponseDeleteAt(user *pb.UserResponseDeleteA
 	}
 }
 
-func (u *userGraphqlMapper) mapUserResponsesDeleteAt(users []*pb.UserResponseDeleteAt) []*model.UserResponseDeleteAt {
+func (u *userGraphqlMapper) mapUserResponsesDeleteAt(users []*pb_user.UserResponseDeleteAt) []*model.UserResponseDeleteAt {
 	var responses []*model.UserResponseDeleteAt
 
 	for _, user := range users {

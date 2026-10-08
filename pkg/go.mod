@@ -4,13 +4,13 @@ go 1.25.0
 
 require (
 	github.com/IBM/sarama v1.46.3
+	github.com/MamangRust/microservice-ecommerce-grpc-pb v0.0.0
 	github.com/MamangRust/microservice-ecommerce-shared v1.0.20
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/google/uuid v1.6.0
 	github.com/gosimple/slug v1.15.0
 	github.com/grafana/pyroscope-go v1.2.8
 	github.com/jackc/pgx/v5 v5.9.1
-	github.com/labstack/echo/v4 v4.15.0
 	github.com/lib/pq v1.10.9
 	github.com/pressly/goose/v3 v3.27.0
 	github.com/redis/go-redis/v9 v9.18.0
@@ -101,3 +101,5 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260401024825-9d38bb4040a9 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
+
+replace github.com/MamangRust/microservice-ecommerce-grpc-pb => ../pb

@@ -1,9 +1,9 @@
 package order_itemgraphqlmapper
 
 import (
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphqlmapper "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/mapper/pagination"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
+	graphqlmapper "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/mapper/pagination"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/order_item"
 )
 
 type orderItemGraphqlMapper struct{}
@@ -12,7 +12,7 @@ func NewOrderItemGraphqlMapper() *orderItemGraphqlMapper {
 	return &orderItemGraphqlMapper{}
 }
 
-func (o *orderItemGraphqlMapper) ToGraphqlResponseOrderItem(res *pb.ApiResponseOrderItem) *model.APIResponseOrderItem {
+func (o *orderItemGraphqlMapper) ToGraphqlResponseOrderItem(res *pb_order_item.ApiResponseOrderItem) *model.APIResponseOrderItem {
 	return &model.APIResponseOrderItem{
 		Status:  res.Status,
 		Message: res.Message,
@@ -20,7 +20,7 @@ func (o *orderItemGraphqlMapper) ToGraphqlResponseOrderItem(res *pb.ApiResponseO
 	}
 }
 
-func (o *orderItemGraphqlMapper) ToGraphqlResponsesOrderItem(res *pb.ApiResponsesOrderItem) *model.APIResponsesOrderItem {
+func (o *orderItemGraphqlMapper) ToGraphqlResponsesOrderItem(res *pb_order_item.ApiResponsesOrderItem) *model.APIResponsesOrderItem {
 	return &model.APIResponsesOrderItem{
 		Status:  res.Status,
 		Message: res.Message,
@@ -28,14 +28,14 @@ func (o *orderItemGraphqlMapper) ToGraphqlResponsesOrderItem(res *pb.ApiResponse
 	}
 }
 
-func (o *orderItemGraphqlMapper) ToGraphqlResponseOrderItemDelete(res *pb.ApiResponseOrderItemDelete) *model.APIResponseOrderItemDelete {
+func (o *orderItemGraphqlMapper) ToGraphqlResponseOrderItemDelete(res *pb_order_item.ApiResponseOrderItemDelete) *model.APIResponseOrderItemDelete {
 	return &model.APIResponseOrderItemDelete{
 		Status:  res.Status,
 		Message: res.Message,
 	}
 }
 
-func (o *orderItemGraphqlMapper) ToGraphqlResponseOrderItemAll(res *pb.ApiResponseOrderItemAll) *model.APIResponseOrderItemAll {
+func (o *orderItemGraphqlMapper) ToGraphqlResponseOrderItemAll(res *pb_order_item.ApiResponseOrderItemAll) *model.APIResponseOrderItemAll {
 	return &model.APIResponseOrderItemAll{
 		Status:  res.Status,
 		Message: res.Message,
@@ -43,7 +43,7 @@ func (o *orderItemGraphqlMapper) ToGraphqlResponseOrderItemAll(res *pb.ApiRespon
 }
 
 func (o *orderItemGraphqlMapper) ToGraphqlResponsePaginationOrderItem(
-	res *pb.ApiResponsePaginationOrderItem,
+	res *pb_order_item.ApiResponsePaginationOrderItem,
 ) *model.APIResponsePaginationOrderItem {
 	return &model.APIResponsePaginationOrderItem{
 		Status:     res.Status,
@@ -54,7 +54,7 @@ func (o *orderItemGraphqlMapper) ToGraphqlResponsePaginationOrderItem(
 }
 
 func (o *orderItemGraphqlMapper) ToGraphqlResponsePaginationOrderItemDeleteAt(
-	res *pb.ApiResponsePaginationOrderItemDeleteAt,
+	res *pb_order_item.ApiResponsePaginationOrderItemDeleteAt,
 ) *model.APIResponsePaginationOrderItemDeleteAt {
 	return &model.APIResponsePaginationOrderItemDeleteAt{
 		Status:     res.Status,
@@ -64,7 +64,7 @@ func (o *orderItemGraphqlMapper) ToGraphqlResponsePaginationOrderItemDeleteAt(
 	}
 }
 
-func (o *orderItemGraphqlMapper) mapResponseOrderItem(orderItem *pb.OrderItemResponse) *model.OrderItemResponse {
+func (o *orderItemGraphqlMapper) mapResponseOrderItem(orderItem *pb_order_item.OrderItemResponse) *model.OrderItemResponse {
 	return &model.OrderItemResponse{
 		ID:        int32(orderItem.Id),
 		OrderID:   int32(orderItem.OrderId),
@@ -76,7 +76,7 @@ func (o *orderItemGraphqlMapper) mapResponseOrderItem(orderItem *pb.OrderItemRes
 	}
 }
 
-func (o *orderItemGraphqlMapper) mapResponsesOrderItem(orderItems []*pb.OrderItemResponse) []*model.OrderItemResponse {
+func (o *orderItemGraphqlMapper) mapResponsesOrderItem(orderItems []*pb_order_item.OrderItemResponse) []*model.OrderItemResponse {
 	mapped := make([]*model.OrderItemResponse, 0, len(orderItems))
 	for _, oi := range orderItems {
 		mapped = append(mapped, o.mapResponseOrderItem(oi))
@@ -84,7 +84,7 @@ func (o *orderItemGraphqlMapper) mapResponsesOrderItem(orderItems []*pb.OrderIte
 	return mapped
 }
 
-func (o *orderItemGraphqlMapper) mapResponseOrderItemDelete(orderItem *pb.OrderItemResponseDeleteAt) *model.OrderItemResponseDeleteAt {
+func (o *orderItemGraphqlMapper) mapResponseOrderItemDelete(orderItem *pb_order_item.OrderItemResponseDeleteAt) *model.OrderItemResponseDeleteAt {
 	var deletedAt *string
 	if orderItem.DeletedAt != nil {
 		deletedAt = &orderItem.DeletedAt.Value
@@ -102,7 +102,7 @@ func (o *orderItemGraphqlMapper) mapResponseOrderItemDelete(orderItem *pb.OrderI
 	}
 }
 
-func (o *orderItemGraphqlMapper) mapResponsesOrderItemDeleteAt(orderItems []*pb.OrderItemResponseDeleteAt) []*model.OrderItemResponseDeleteAt {
+func (o *orderItemGraphqlMapper) mapResponsesOrderItemDeleteAt(orderItems []*pb_order_item.OrderItemResponseDeleteAt) []*model.OrderItemResponseDeleteAt {
 	mapped := make([]*model.OrderItemResponseDeleteAt, 0, len(orderItems))
 	for _, oi := range orderItems {
 		mapped = append(mapped, o.mapResponseOrderItemDelete(oi))

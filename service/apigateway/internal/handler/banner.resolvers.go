@@ -7,11 +7,11 @@ package graph
 import (
 	"context"
 
+	graphqlerror "github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/errors"
+	"github.com/MamangRust/microservice-ecommerce-grpc-apigateway/internal/model"
+	"github.com/MamangRust/microservice-ecommerce-grpc-pb/banner"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
 	sharedErrors "github.com/MamangRust/microservice-ecommerce-shared/errors"
-	"github.com/MamangRust/microservice-ecommerce-shared/pb"
-	graphqlerror "github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/errors"
-	"github.com/MamangRust/monolith-graphql-ecommerce-apigateway/internal/model"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -32,7 +32,7 @@ func (r *mutationResolver) CreateBanner(ctx context.Context, input model.CreateB
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewValidationError(validations))
 		}
 
-		reqPb := &pb.CreateBannerRequest{
+		reqPb := &pb_banner.CreateBannerRequest{
 			Name:      req.Name,
 			StartDate: req.StartDate,
 			EndDate:   req.EndDate,
@@ -78,7 +78,7 @@ func (r *mutationResolver) UpdateBanner(ctx context.Context, input model.UpdateB
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewValidationError(validations))
 		}
 
-		reqPb := &pb.UpdateBannerRequest{
+		reqPb := &pb_banner.UpdateBannerRequest{
 			BannerId:  int32(id),
 			Name:      req.Name,
 			StartDate: req.StartDate,
@@ -110,7 +110,7 @@ func (r *mutationResolver) TrashBanner(ctx context.Context, input model.FindByID
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("id is required"))
 		}
 
-		reqPb := &pb.FindByIdBannerRequest{
+		reqPb := &pb_banner.FindByIdBannerRequest{
 			Id: int32(id),
 		}
 
@@ -136,7 +136,7 @@ func (r *mutationResolver) RestoreBanner(ctx context.Context, input model.FindBy
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("id is required"))
 		}
 
-		reqPb := &pb.FindByIdBannerRequest{
+		reqPb := &pb_banner.FindByIdBannerRequest{
 			Id: int32(id),
 		}
 
@@ -162,7 +162,7 @@ func (r *mutationResolver) DeleteBannerPermanent(ctx context.Context, input mode
 			return nil, graphqlerror.ToGraphqlErrorFromErrorResponse(sharedErrors.NewBadRequestError("id is required"))
 		}
 
-		reqPb := &pb.FindByIdBannerRequest{
+		reqPb := &pb_banner.FindByIdBannerRequest{
 			Id: int32(id),
 		}
 
@@ -233,7 +233,7 @@ func (r *queryResolver) FindAllBanners(ctx context.Context, input model.FindAllB
 			return data, nil
 		}
 
-		reqService := &pb.FindAllBannerRequest{
+		reqService := &pb_banner.FindAllBannerRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,
@@ -264,7 +264,7 @@ func (r *queryResolver) FindBannerByID(ctx context.Context, input model.FindByID
 			return data, nil
 		}
 
-		banner, err := r.BannerGraphql.BannerQueryClient.FindById(ctx, &pb.FindByIdBannerRequest{
+		banner, err := r.BannerGraphql.BannerQueryClient.FindById(ctx, &pb_banner.FindByIdBannerRequest{
 			Id: int32(id),
 		})
 		if err != nil {
@@ -307,7 +307,7 @@ func (r *queryResolver) FindActiveBanners(ctx context.Context, input model.FindA
 			return data, nil
 		}
 
-		reqService := &pb.FindAllBannerRequest{
+		reqService := &pb_banner.FindAllBannerRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,
@@ -354,7 +354,7 @@ func (r *queryResolver) FindTrashedBanners(ctx context.Context, input model.Find
 			return data, nil
 		}
 
-		reqService := &pb.FindAllBannerRequest{
+		reqService := &pb_banner.FindAllBannerRequest{
 			Page:     page,
 			PageSize: pageSize,
 			Search:   search,

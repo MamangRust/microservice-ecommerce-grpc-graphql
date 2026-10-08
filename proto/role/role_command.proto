@@ -1,11 +1,11 @@
 syntax = "proto3";
 
-package pb;
+package pb.role;
 
 import "google/protobuf/empty.proto";
 import "role/role_common.proto";
 
-option go_package = "github.com/MamangRust/microservice-ecommerce-shared/pb";
+option go_package = "github.com/MamangRust/microservice-ecommerce-grpc-pb/role;pb_role";
 
 message CreateRoleRequest{
     string name = 1;
@@ -24,7 +24,4 @@ service RoleCommandService {
     rpc DeleteRolePermanent(FindByIdRoleRequest) returns (ApiResponseRoleDelete);
     rpc RestoreAllRole(google.protobuf.Empty) returns (ApiResponseRoleAll);
     rpc DeleteAllRolePermanent(google.protobuf.Empty) returns (ApiResponseRoleAll);
-
-    rpc AssignRoleToUser(AssignRoleToUserRequest) returns (ApiResponseUserRole);
-    rpc RemoveRoleFromUser(RemoveRoleFromUserRequest) returns (google.protobuf.Empty);
 }

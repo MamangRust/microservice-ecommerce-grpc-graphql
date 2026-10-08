@@ -2,9 +2,12 @@ package repository
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 
 	db "github.com/MamangRust/microservice-ecommerce-grpc-role/database/schema"
 	"github.com/MamangRust/microservice-ecommerce-shared/domain/requests"
+	sharedErrors "github.com/MamangRust/microservice-ecommerce-shared/errors"
 	"github.com/MamangRust/microservice-ecommerce-shared/errors/role_errors"
 )
 
@@ -44,4 +47,17 @@ func (r *userRoleRepository) RemoveRoleFromUser(ctx context.Context, req *reques
 	}
 
 	return nil
+}
+
+func (r *userRoleRepository) FindByUserId(ctx context.Context, user_id int) ([]*db.Role, error) {
+	res, err := r.db.GetUserRoles(ctx, int32(user_id))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, role_errors.ErrRoleNotFound.WithInternal(err)
+		}
+
+		return nil, sharedErrors.ErrInternal.WithInternal(err)
+	}
+
+	return res, nil
 }

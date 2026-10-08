@@ -1,14 +1,17 @@
-module github.com/MamangRust/monolith-graphql-ecommerce-pb
+module github.com/MamangRust/microservice-ecommerce-grpc-pb
 
-go 1.25.0
+go 1.25.1
 
 require (
-	github.com/MamangRust/microservice-ecommerce-pkg v1.0.18
 	google.golang.org/grpc v1.80.0
 	google.golang.org/protobuf v1.36.11
 )
 
-replace (
-	github.com/MamangRust/microservice-ecommerce-pkg => ../pkg
-	github.com/MamangRust/microservice-ecommerce-shared => ../shared
+require (
+	go.opentelemetry.io/otel v1.43.0 // indirect
+	go.opentelemetry.io/otel/sdk/metric v1.43.0 // indirect
+	golang.org/x/net v0.53.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260401024825-9d38bb4040a9 // indirect
 )
